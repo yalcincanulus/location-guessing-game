@@ -1,0 +1,22 @@
+{
+  "name": "location-guessing-game",
+  "private": true,
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt --check",
+    "format:fix": "oxfmt .",
+    "check": "bun run lint && bun run format"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxfmt": "^0.57.0",
+    "oxlint": "^1.72.0",
+    "oxlint-tsgolint": "^0.24.0"
+  },
+  "peerDependencies": {
+    "typescript": "rc"
+  }
+}
