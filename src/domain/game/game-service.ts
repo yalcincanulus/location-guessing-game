@@ -8,8 +8,11 @@ import { calculateReward, earnedMilestonesForGuessCount } from "./scoring.ts";
 import {
   addWrongCountry,
   clearActiveGame,
+  getCachedMap,
   getWrongCountries,
   hasWrongCountry,
+  mapHash,
+  setCachedMap,
   setActiveGame,
   updateGameState,
   type ActiveGameState,
@@ -28,6 +31,8 @@ import { isRateLimited, nextStreaks, type GuessStreakState } from "./rate-limit.
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import { renderMap } from "../maps/map-renderer.ts";
+import { removeMultiplierJobsForGame } from "../../jobs/queues.ts";
+import { canBypassGameMasterBlock } from "./test-mode.ts";
 
 export type StartGameInput = {
   guildChannel: GuildBasedChannel;
@@ -62,6 +67,7 @@ export const startGame = async ({
   const channelId = await upsertChannel(guildChannel, guildId);
   const player = await upsertPlayer(gameMaster);
   await ensurePlayerStat(player.id);
+  const isTestGame = rules.testModeEnabled && rules.testChannelId === guildChannel.id;
 
   const geocode = await reverseGeocode(location.latitude, location.longitude);
   const gmMultiplier = await getCurrentGmMultiplier(player.id, rules.gmMultiplierMax);
@@ -111,7 +117,8 @@ export const startGame = async ({
         screenshot_url,
         base_points,
         gm_multiplier_at_start,
-        current_multiplier_final
+        current_multiplier_final,
+        is_test
       )
       VALUES (
         ${guildId ?? null},
@@ -122,24 +129,27 @@ export const startGame = async ({
         ${screenshotUrl},
         ${rules.baseWinPoints},
         ${gmMultiplier},
-        1.00
+        1.00,
+        ${isTestGame}
       )
       RETURNING id
     `;
 
-    await tx`
-      INSERT INTO player_stat (player_id, games_started, current_gm_multiplier)
-      VALUES (${player.id}, 1, ${gmMultiplier})
-      ON CONFLICT (player_id)
-      DO UPDATE SET games_started = player_stat.games_started + 1, updated_at = now()
-    `;
+    if (!isTestGame) {
+      await tx`
+        INSERT INTO player_stat (player_id, games_started, current_gm_multiplier)
+        VALUES (${player.id}, 1, ${gmMultiplier})
+        ON CONFLICT (player_id)
+        DO UPDATE SET games_started = player_stat.games_started + 1, updated_at = now()
+      `;
 
-    await tx`
-      INSERT INTO country_stat (country_code, times_used_as_target)
-      VALUES (${geocode.countryCode}, 1)
-      ON CONFLICT (country_code)
-      DO UPDATE SET times_used_as_target = country_stat.times_used_as_target + 1, updated_at = now()
-    `;
+      await tx`
+        INSERT INTO country_stat (country_code, times_used_as_target)
+        VALUES (${geocode.countryCode}, 1)
+        ON CONFLICT (country_code)
+        DO UPDATE SET times_used_as_target = country_stat.times_used_as_target + 1, updated_at = now()
+      `;
+    }
 
     return gameRows;
   });
@@ -163,6 +173,7 @@ export const startGame = async ({
     basePoints: rules.baseWinPoints,
     lastGuessAt: Date.now(),
     startedAt: Date.now(),
+    isTest: isTestGame,
   };
 
   await setActiveGame(state);
@@ -184,7 +195,14 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
   const player = await upsertPlayer(message.author, message.member?.displayName);
   await ensurePlayerStat(player.id);
 
-  if (message.author.id === state.gameMasterDiscordUserId) {
+  const canBypassGmBlock = canBypassGameMasterBlock(
+    state,
+    message.channel.id,
+    message.author.id,
+    rules,
+  );
+
+  if (message.author.id === state.gameMasterDiscordUserId && !canBypassGmBlock) {
     return "game-master-blocked" as const;
   }
 
@@ -295,7 +313,7 @@ const persistGuess = async (
       RETURNING id
     `;
 
-    if (!isRateLimitedValue) {
+    if (!isRateLimitedValue && !state.isTest) {
       await tx`
         UPDATE game
         SET
@@ -345,6 +363,19 @@ const persistGuess = async (
       `;
     }
 
+    if (!isRateLimitedValue && state.isTest) {
+      await tx`
+        UPDATE game
+        SET
+          total_guess_count = total_guess_count + 1,
+          wrong_guess_count = wrong_guess_count + ${isCorrect || isRepeat ? 0 : 1},
+          unique_wrong_country_count = unique_wrong_country_count + ${isCorrect || isRepeat ? 0 : 1},
+          repeat_guess_count = repeat_guess_count + ${isRepeat ? 1 : 0},
+          updated_at = now()
+        WHERE id = ${state.gameId}
+      `;
+    }
+
     return guessRows;
   });
 
@@ -358,7 +389,9 @@ const completeGame = async (
   guessId: string,
 ) => {
   const wrongCountries = await getWrongCountries(state.gameId);
-  const points = calculateReward(state.basePoints, state.currentMultiplier, state.gmMultiplier);
+  const points = state.isTest
+    ? 0
+    : calculateReward(state.basePoints, state.currentMultiplier, state.gmMultiplier);
 
   await sqlClient.begin(async (tx) => {
     await tx`
@@ -374,64 +407,76 @@ const completeGame = async (
       WHERE id = ${state.gameId}
     `;
 
-    await tx`
-      INSERT INTO point_ledger (player_id, game_id, reason, base_points, current_multiplier, gm_multiplier, points_delta)
-      VALUES (${winnerPlayerId}, ${state.gameId}, 'game_win', ${state.basePoints}, ${state.currentMultiplier}, ${state.gmMultiplier}, ${points})
-    `;
-
-    await tx`
-      UPDATE player_stat
-      SET
-        games_won = games_won + 1,
-        points_total = points_total + ${points},
-        best_single_game_points = GREATEST(best_single_game_points, ${points}),
-        updated_at = now()
-      WHERE player_id = ${winnerPlayerId}
-    `;
-
-    await tx`
-      INSERT INTO player_game (player_id, game_id, role, guess_count)
-      VALUES (${winnerPlayerId}, ${state.gameId}, 'winner', 0)
-      ON CONFLICT (player_id, game_id, role) DO NOTHING
-    `;
-
-    for (const milestone of earnedMilestonesForGuessCount(wrongCountries.length)) {
+    if (!state.isTest) {
       await tx`
-        INSERT INTO game_master_milestone (player_id, milestone_guess_count, game_id)
-        VALUES (${state.gameMasterPlayerId}, ${milestone}, ${state.gameId})
-        ON CONFLICT (player_id, milestone_guess_count) DO NOTHING
+        INSERT INTO point_ledger (player_id, game_id, reason, base_points, current_multiplier, gm_multiplier, points_delta)
+        VALUES (${winnerPlayerId}, ${state.gameId}, 'game_win', ${state.basePoints}, ${state.currentMultiplier}, ${state.gmMultiplier}, ${points})
+      `;
+
+      await tx`
+        UPDATE player_stat
+        SET
+          games_won = games_won + 1,
+          points_total = points_total + ${points},
+          best_single_game_points = GREATEST(best_single_game_points, ${points}),
+          updated_at = now()
+        WHERE player_id = ${winnerPlayerId}
+      `;
+
+      await tx`
+        INSERT INTO player_game (player_id, game_id, role, guess_count)
+        VALUES (${winnerPlayerId}, ${state.gameId}, 'winner', 0)
+        ON CONFLICT (player_id, game_id, role) DO NOTHING
+      `;
+
+      for (const milestone of earnedMilestonesForGuessCount(wrongCountries.length)) {
+        await tx`
+          INSERT INTO game_master_milestone (player_id, milestone_guess_count, game_id)
+          VALUES (${state.gameMasterPlayerId}, ${milestone}, ${state.gameId})
+          ON CONFLICT (player_id, milestone_guess_count) DO NOTHING
+        `;
+      }
+
+      const milestoneRows = await tx`
+        SELECT COUNT(*)::integer AS count
+        FROM game_master_milestone
+        WHERE player_id = ${state.gameMasterPlayerId}
+      `;
+      const gmMultiplier = Math.min(3, 1 + Number(milestoneRows[0]?.count ?? 0) * 0.1);
+      await tx`
+        UPDATE player_stat
+        SET
+          current_gm_multiplier = ${gmMultiplier},
+          max_game_wrong_guess_count_as_gm = GREATEST(max_game_wrong_guess_count_as_gm, ${wrongCountries.length}),
+          updated_at = now()
+        WHERE player_id = ${state.gameMasterPlayerId}
       `;
     }
-
-    const milestoneRows = await tx`
-      SELECT COUNT(*)::integer AS count
-      FROM game_master_milestone
-      WHERE player_id = ${state.gameMasterPlayerId}
-    `;
-    const gmMultiplier = Math.min(3, 1 + Number(milestoneRows[0]?.count ?? 0) * 0.1);
-    await tx`
-      UPDATE player_stat
-      SET
-        current_gm_multiplier = ${gmMultiplier},
-        max_game_wrong_guess_count_as_gm = GREATEST(max_game_wrong_guess_count_as_gm, ${wrongCountries.length}),
-        updated_at = now()
-      WHERE player_id = ${state.gameMasterPlayerId}
-    `;
   });
 
   await clearActiveGame(state);
+  await removeMultiplierJobsForGame(state.gameId);
 
-  const map = renderMap({
-    wrongCountries,
-    correctCountry: state.targetCountryCode,
-    viewport: "world",
-  });
+  const hash = mapHash(wrongCountries, state.targetCountryCode);
+  const cached = await getCachedMap(state.gameId, "world", hash);
+  const map = cached
+    ? { buffer: cached, filename: "world-guesses.png" }
+    : renderMap({
+        wrongCountries,
+        correctCountry: state.targetCountryCode,
+        viewport: "world",
+      });
+  if (!cached) {
+    await setCachedMap(state.gameId, "world", hash, map.buffer);
+  }
   const attachment = new AttachmentBuilder(map.buffer, { name: map.filename });
 
   await message.channel.send({
     content: [
       `<@${message.author.id}> found the country: **${getCountryDisplayName(state.targetCountryCode)}**.`,
-      `Reward: **${points}** points (${state.basePoints} x ${state.currentMultiplier.toFixed(2)} x ${state.gmMultiplier.toFixed(2)}).`,
+      state.isTest
+        ? "Test game: no points awarded."
+        : `Reward: **${points}** points (${state.basePoints} x ${state.currentMultiplier.toFixed(2)} x ${state.gmMultiplier.toFixed(2)}).`,
     ].join("\n"),
     files: [attachment],
   });

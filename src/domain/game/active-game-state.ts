@@ -15,6 +15,7 @@ export type ActiveGameState = {
   basePoints: number;
   lastGuessAt: number;
   startedAt: number;
+  isTest: boolean;
 };
 
 export const getActiveGameId = async (guildId: string, channelId: string) =>
@@ -35,26 +36,34 @@ export const getActiveGameState = async (guildId: string, channelId: string) => 
   }
 
   const raw = await redis.get(keys.gameState(gameId));
-  return raw ? (JSON.parse(raw) as ActiveGameState) : undefined;
+  return raw ? ({ isTest: false, ...JSON.parse(raw) } as ActiveGameState) : undefined;
 };
 
 export const getGameStateById = async (gameId: string) => {
   const raw = await redis.get(keys.gameState(gameId));
-  return raw ? (JSON.parse(raw) as ActiveGameState) : undefined;
+  return raw ? ({ isTest: false, ...JSON.parse(raw) } as ActiveGameState) : undefined;
 };
 
 export const updateGameState = async (state: ActiveGameState) => {
   await redis.set(keys.gameState(state.gameId), JSON.stringify(state));
 };
 
-export const clearActiveGame = async (state: ActiveGameState) => {
-  await redis
+export const clearGameKeys = async (guildId: string, channelId: string, gameId: string) => {
+  const cacheKeys = await redis.keys(`game:${gameId}:map-cache:*`);
+  const multi = redis
     .multi()
-    .del(keys.activeGame(state.guildId, state.channelId))
-    .del(keys.gameState(state.gameId))
-    .del(keys.wrongCountries(state.gameId))
-    .del(keys.guessStreaks(state.gameId))
-    .exec();
+    .del(keys.activeGame(guildId, channelId))
+    .del(keys.gameState(gameId))
+    .del(keys.wrongCountries(gameId))
+    .del(keys.guessStreaks(gameId));
+  if (cacheKeys.length > 0) {
+    multi.del(...cacheKeys);
+  }
+  await multi.exec();
+};
+
+export const clearActiveGame = async (state: ActiveGameState) => {
+  await clearGameKeys(state.guildId, state.channelId, state.gameId);
 };
 
 export const getWrongCountries = async (gameId: string) =>
@@ -65,3 +74,24 @@ export const addWrongCountry = async (gameId: string, countryCode: string) =>
 
 export const hasWrongCountry = async (gameId: string, countryCode: string) =>
   (await redis.sismember(keys.wrongCountries(gameId), countryCode)) === 1;
+
+export const getCachedMap = async (
+  gameId: string,
+  viewport: string,
+  hash: string,
+): Promise<Buffer | undefined> => {
+  const raw = await redis.getBuffer(keys.mapCache(gameId, viewport, hash));
+  return raw ?? undefined;
+};
+
+export const setCachedMap = async (
+  gameId: string,
+  viewport: string,
+  hash: string,
+  buffer: Buffer,
+) => {
+  await redis.set(keys.mapCache(gameId, viewport, hash), buffer, "EX", 3600);
+};
+
+export const mapHash = (wrongCountries: string[], correctCountry?: string) =>
+  [...wrongCountries].sort().join(",") + `|${correctCountry ?? ""}`;

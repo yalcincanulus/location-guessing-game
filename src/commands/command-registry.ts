@@ -1,11 +1,18 @@
 import type { Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../config/rules.ts";
-import { getActiveGameState, getWrongCountries } from "../domain/game/active-game-state.ts";
+import {
+  getActiveGameState,
+  getCachedMap,
+  getWrongCountries,
+  mapHash,
+  setCachedMap,
+} from "../domain/game/active-game-state.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
 import { viewportAliases } from "../domain/maps/region-presets.ts";
 import { getLeaderboard, getPlayerProfile } from "../repositories/core-repository.ts";
 import { sqlClient } from "../db/client.ts";
+import { handleTestCommand } from "./test-command.ts";
 
 const normalizeCommand = (value: string) =>
   value
@@ -31,11 +38,16 @@ export const handleCommand = async (message: Message<true>) => {
   if (!command) {
     return false;
   }
+  const args = message.content.slice(prefix.length).trim().split(/\s+/).slice(1);
 
   await sqlClient`
     INSERT INTO command_log (command, raw_message)
     VALUES (${command}, ${message.content})
   `;
+
+  if (command === "test") {
+    return handleTestCommand(message, args);
+  }
 
   const viewport = viewportAliases.get(command);
   if (viewport) {
@@ -46,7 +58,17 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const wrongCountries = await getWrongCountries(state.gameId);
-    const map = renderMap({ wrongCountries, viewport });
+    const hash = mapHash(wrongCountries);
+    const cached = await getCachedMap(state.gameId, viewport, hash);
+    const map = cached
+      ? {
+          buffer: cached,
+          filename: `${viewport}-guesses.png`,
+        }
+      : renderMap({ wrongCountries, viewport });
+    if (!cached) {
+      await setCachedMap(state.gameId, viewport, hash, map.buffer);
+    }
     await message.channel.send({
       files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
     });
@@ -60,7 +82,7 @@ export const handleCommand = async (message: Message<true>) => {
       return true;
     }
 
-    await message.channel.send({ content: state.screenshotUrl });
+    await message.channel.send({ embeds: [{ image: { url: state.screenshotUrl } }] });
     return true;
   }
 
@@ -122,8 +144,19 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["help", "yardim"].includes(command)) {
+    const isTestAdmin =
+      rules.testModeEnabled &&
+      rules.testChannelId === message.channel.id &&
+      rules.testAdminUserIds.includes(message.author.id);
     await message.reply(
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
+      [
+        "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
+        isTestAdmin
+          ? "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`."
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     );
     return true;
   }

@@ -43,6 +43,12 @@ export const rule = snakeCase.table("rule", {
   repeatGuessCountsForStats: boolean().notNull().default(true),
   repeatGuessCountsForGmDifficulty: boolean().notNull().default(false),
   queueGameStarts: boolean().notNull().default(false),
+  testModeEnabled: boolean().notNull().default(false),
+  testChannelId: text(),
+  testAdminUserIds: jsonb()
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   nominatimEmail: text(),
   ...timestamps,
 });
@@ -129,6 +135,9 @@ export const game = snakeCase.table("game", {
   currentMultiplierFinal: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
   gmMultiplierAtStart: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
   pointsAwarded: integer().notNull().default(0),
+  isTest: boolean().notNull().default(false),
+  cancelReason: text(),
+  cancelledByPlayerId: uuid().references(() => player.id),
   ...timestamps,
 });
 

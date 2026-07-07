@@ -76,7 +76,7 @@ const completeStartIfReady = async (client: Client, message: Message, pending: P
   if (channel.isSendable()) {
     await channel.send({
       content: `<@${message.author.id}> started a new location game. Guess the country by typing its name or ISO code.`,
-      files: [pending.screenshotUrl],
+      embeds: [{ image: { url: pending.screenshotUrl } }],
     });
   }
 

@@ -95,6 +95,38 @@ SET game_channel_id = 'YOUR_CHANNEL_ID',
     updated_at = now();
 ```
 
+## Test Mode
+
+Enable test mode when you are alone in the test channel and need to guess your own games or use debug utilities:
+
+```sql
+UPDATE rule
+SET test_mode_enabled = true,
+    test_channel_id = 'YOUR_TEST_CHANNEL_ID',
+    test_admin_user_ids = '["YOUR_DISCORD_USER_ID"]'::jsonb,
+    updated_at = now();
+```
+
+Disable it:
+
+```sql
+UPDATE rule
+SET test_mode_enabled = false,
+    updated_at = now();
+```
+
+Test utilities:
+
+```text
+!test status
+!test cancel testing
+!test reveal
+!test tick
+!test reset
+```
+
+Test games are stored for debugging but do not award points and do not affect stats, leaderboards, or game-master milestones.
+
 ## Run
 
 ```bash

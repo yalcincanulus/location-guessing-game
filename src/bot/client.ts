@@ -6,7 +6,12 @@ import { logger } from "../util/logger.ts";
 import { onMessageCreate } from "./events/message-create.ts";
 import { closeDatabase } from "../db/client.ts";
 import { closeRedis } from "../redis/client.ts";
-import { closeQueues, logWorkerError, startMultiplierWorker } from "../jobs/queues.ts";
+import {
+  closeQueues,
+  logWorkerError,
+  recoverActiveMultiplierJobs,
+  startMultiplierWorker,
+} from "../jobs/queues.ts";
 
 export const startBot = async () => {
   assertDiscordEnv();
@@ -26,6 +31,7 @@ export const startBot = async () => {
 
   const worker = startMultiplierWorker(client);
   logWorkerError(worker);
+  await recoverActiveMultiplierJobs();
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("Discord bot ready", { tag: readyClient.user.tag });
