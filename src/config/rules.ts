@@ -1,0 +1,82 @@
+import { sqlClient } from "../db/client.ts";
+
+export type GameRules = {
+  id: string;
+  verifiedRoleId?: string;
+  verifiedRoleName: string;
+  gameChannelId?: string;
+  logChannelId?: string;
+  commandPrefixes: string[];
+  maxConsecutiveGuesses: number;
+  consecutiveGuessIdleResetSeconds: number;
+  pendingStartTtlSeconds: number;
+  baseWinPoints: number;
+  currentMultiplierMax: number;
+  gmMultiplierMax: number;
+  idleMultiplierIntervalSeconds: number;
+  idleMultiplierIncrement: number;
+  repeatGuessCountsForStats: boolean;
+  repeatGuessCountsForGmDifficulty: boolean;
+  queueGameStarts: boolean;
+};
+
+let cachedRules: { expiresAt: number; value: GameRules } | undefined;
+
+const numberValue = (value: unknown) => Number(value);
+
+export const loadRules = async (force = false): Promise<GameRules> => {
+  if (!force && cachedRules && cachedRules.expiresAt > Date.now()) {
+    return cachedRules.value;
+  }
+
+  const rows = await sqlClient`
+    SELECT
+      id,
+      verified_role_id,
+      verified_role_name,
+      game_channel_id,
+      log_channel_id,
+      command_prefixes,
+      max_consecutive_guesses,
+      consecutive_guess_idle_reset_seconds,
+      pending_start_ttl_seconds,
+      base_win_points,
+      current_multiplier_max,
+      gm_multiplier_max,
+      idle_multiplier_interval_seconds,
+      idle_multiplier_increment,
+      repeat_guess_counts_for_stats,
+      repeat_guess_counts_for_gm_difficulty,
+      queue_game_starts
+    FROM rule
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("rule table is empty; run migrations first");
+  }
+
+  const value: GameRules = {
+    id: row.id,
+    verifiedRoleId: row.verified_role_id ?? undefined,
+    verifiedRoleName: row.verified_role_name,
+    gameChannelId: row.game_channel_id ?? undefined,
+    logChannelId: row.log_channel_id ?? undefined,
+    commandPrefixes: Array.isArray(row.command_prefixes) ? row.command_prefixes : ["!"],
+    maxConsecutiveGuesses: row.max_consecutive_guesses,
+    consecutiveGuessIdleResetSeconds: row.consecutive_guess_idle_reset_seconds,
+    pendingStartTtlSeconds: row.pending_start_ttl_seconds,
+    baseWinPoints: row.base_win_points,
+    currentMultiplierMax: numberValue(row.current_multiplier_max),
+    gmMultiplierMax: numberValue(row.gm_multiplier_max),
+    idleMultiplierIntervalSeconds: row.idle_multiplier_interval_seconds,
+    idleMultiplierIncrement: numberValue(row.idle_multiplier_increment),
+    repeatGuessCountsForStats: row.repeat_guess_counts_for_stats,
+    repeatGuessCountsForGmDifficulty: row.repeat_guess_counts_for_gm_difficulty,
+    queueGameStarts: row.queue_game_starts,
+  };
+
+  cachedRules = { value, expiresAt: Date.now() + 30_000 };
+  return value;
+};
