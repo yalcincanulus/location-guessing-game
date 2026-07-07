@@ -4,14 +4,33 @@
   "type": "module",
   "module": "index.ts",
   "scripts": {
+    "start": "bun run index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --check",
     "format:fix": "oxfmt .",
-    "check": "bun run lint && bun run format"
+    "check": "bun run typecheck && bun run lint && bun run format"
+  },
+  "dependencies": {
+    "bullmq": "^5.79.2",
+    "d3-geo": "^3.1.1",
+    "discord.js": "^14.26.4",
+    "drizzle-orm": "^1.0.0-rc.4",
+    "ioredis": "^5.11.1",
+    "postgres": "^3.4.9",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/d3-geo": "^3.1.0",
+    "@types/topojson-client": "^3.1.5",
+    "drizzle-kit": "^1.0.0-rc.4",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
     "oxlint-tsgolint": "^0.24.0"
