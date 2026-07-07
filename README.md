@@ -9,7 +9,15 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun run start
+```
+
+Database commands:
+
+```bash
+bun run db:generate
+bun run db:migrate
+bun run db:studio
 ```
 
 This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
