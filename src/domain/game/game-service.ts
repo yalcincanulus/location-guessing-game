@@ -206,42 +206,46 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
     return "game-master-blocked" as const;
   }
 
-  const streakRaw = await redis.get(keys.guessStreaks(state.gameId));
-  const streaks = streakRaw ? (JSON.parse(streakRaw) as Record<string, GuessStreakState>) : {};
-  const now = Date.now();
-
-  if (
-    isRateLimited(
-      streaks[message.author.id],
-      now,
-      rules.maxConsecutiveGuesses,
-      rules.consecutiveGuessIdleResetSeconds,
-    )
-  ) {
-    await persistGuess(
-      message,
-      state,
-      player.id,
-      parsed.countryCode,
-      parsed.displayName,
-      parsed.strategy,
-      false,
-      false,
-      true,
-      "⏳",
-    );
-    return "rate-limited" as const;
-  }
-
-  await redis.set(
-    keys.guessStreaks(state.gameId),
-    JSON.stringify(
-      nextStreaks(streaks, message.author.id, now, rules.consecutiveGuessIdleResetSeconds),
-    ),
-  );
-
   const isCorrect = parsed.countryCode === state.targetCountryCode;
   const isRepeat = !isCorrect && (await hasWrongCountry(state.gameId, parsed.countryCode));
+  const now = Date.now();
+
+  // Test games and repeat guesses do not consume the consecutive-guess limit.
+  if (!state.isTest && !isRepeat) {
+    const streakRaw = await redis.get(keys.guessStreaks(state.gameId));
+    const streaks = streakRaw ? (JSON.parse(streakRaw) as Record<string, GuessStreakState>) : {};
+
+    if (
+      isRateLimited(
+        streaks[message.author.id],
+        now,
+        rules.maxConsecutiveGuesses,
+        rules.consecutiveGuessIdleResetSeconds,
+      )
+    ) {
+      await persistGuess(
+        message,
+        state,
+        player.id,
+        parsed.countryCode,
+        parsed.displayName,
+        parsed.strategy,
+        false,
+        false,
+        true,
+        "⏳",
+      );
+      return "rate-limited" as const;
+    }
+
+    await redis.set(
+      keys.guessStreaks(state.gameId),
+      JSON.stringify(
+        nextStreaks(streaks, message.author.id, now, rules.consecutiveGuessIdleResetSeconds),
+      ),
+    );
+  }
+
   const reaction = isCorrect ? "✅" : isRepeat ? "🔄" : "❌";
   const guessId = await persistGuess(
     message,
