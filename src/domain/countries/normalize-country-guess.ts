@@ -54,6 +54,12 @@ for (const country of countries) {
   for (const name of names) {
     aliases.set(normalize(String(name)), parsed);
   }
+
+  if (country.ccTld) {
+    const tld = country.ccTld.toLocaleLowerCase("tr");
+    aliases.set(normalize(tld), parsed);
+    aliases.set(normalize(`.${tld}`), parsed);
+  }
 }
 
 export const getCountryDisplayName = (countryCode: string, locale: BotLocale = "en") =>
@@ -72,13 +78,21 @@ const parseSingleGuess = (message: string): ParsedCountryGuess | undefined => {
 
   const compact = trimmed.replace(/[^\p{Letter}\p{Number}]/gu, "").toUpperCase();
   if (/^[A-Z]{2}$/.test(compact)) {
-    return alpha2.get(compact);
+    const byAlpha2 = alpha2.get(compact);
+    if (byAlpha2) {
+      return byAlpha2;
+    }
   }
 
   if (/^[A-Z]{3}$/.test(compact)) {
-    return alpha3.get(compact);
+    const byAlpha3 = alpha3.get(compact);
+    if (byAlpha3) {
+      return byAlpha3;
+    }
   }
 
+  // Fall through so 3-letter nicknames like "abd" / "uae" still match aliases
+  // when they are not ISO alpha-3 codes.
   const normalized = normalize(trimmed);
   if (!normalized || normalized.split(" ").length > 5) {
     return undefined;

@@ -26,6 +26,7 @@ import {
 import {
   normalizeCountryGuess,
   getCountryDisplayName,
+  isKnownCountryCode,
 } from "../countries/normalize-country-guess.ts";
 import { isRateLimited, nextStreaks, type GuessStreakState } from "./rate-limit.ts";
 import { redis } from "../../redis/client.ts";
@@ -71,6 +72,11 @@ export const startGame = async ({
   const isTestGame = rules.testModeEnabled && rules.testChannelId === guildChannel.id;
 
   const geocode = await reverseGeocode(location.latitude, location.longitude);
+  if (!isKnownCountryCode(geocode.countryCode)) {
+    throw new Error(
+      `Unsupported country code from Nominatim: ${geocode.countryCode}. Add it to the country catalog before starting a game there.`,
+    );
+  }
   const gmMultiplier = await getCurrentGmMultiplier(player.id, rules.gmMultiplierMax);
 
   const rows = await sqlClient.begin(async (tx) => {

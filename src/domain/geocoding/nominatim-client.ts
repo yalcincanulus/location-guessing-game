@@ -1,4 +1,6 @@
 import { env } from "../../config/env.ts";
+import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
+import { resolveTerritoryCountryCode, type NominatimAddress } from "./resolve-territory-code.ts";
 
 export type ReverseGeocodeResult = {
   countryCode: string;
@@ -15,15 +17,7 @@ type NominatimJson = {
   place_id?: number | string;
   osm_type?: string;
   osm_id?: number | string;
-  address?: {
-    country?: string;
-    country_code?: string;
-    state?: string;
-    province?: string;
-    region?: string;
-    county?: string;
-    state_district?: string;
-  };
+  address?: NominatimAddress;
 };
 
 export const reverseGeocode = async (
@@ -54,20 +48,25 @@ export const reverseGeocode = async (
   }
 
   const json = (await response.json()) as NominatimJson;
-  const countryCode = json.address?.country_code?.toUpperCase();
-  if (!countryCode) {
-    throw new Error("Nominatim response did not include a country code");
+  if (!json.address) {
+    throw new Error("Nominatim response did not include address details");
   }
 
+  const resolved = resolveTerritoryCountryCode(json.address);
+  const countryName =
+    resolved.countryCode === json.address.country_code?.toUpperCase()
+      ? (json.address.country ?? resolved.countryName)
+      : (getCountryDisplayName(resolved.countryCode) ?? resolved.countryName);
+
   return {
-    countryCode,
-    countryName: json.address?.country,
+    countryCode: resolved.countryCode,
+    countryName,
     regionName:
-      json.address?.state ??
-      json.address?.province ??
-      json.address?.region ??
-      json.address?.state_district ??
-      json.address?.county,
+      json.address.state ??
+      json.address.province ??
+      json.address.region ??
+      json.address.state_district ??
+      json.address.county,
     regionCode: undefined,
     placeId: json.place_id == null ? undefined : String(json.place_id),
     osmType: json.osm_type,
