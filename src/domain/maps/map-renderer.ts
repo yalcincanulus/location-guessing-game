@@ -4,28 +4,8 @@ import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { mapViewports } from "./region-presets.ts";
+import { activeMapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
-
-// old colors
-// export const mapColors = {
-//   ocean: "#dbeafe",
-//   country: "#f1f5f9",
-//   countryBorder: "#475569",
-//   wrong: "#ef4444",
-//   correct: "#22c55e",
-//   legendBackground: "rgba(15, 23, 42, 0.88)",
-//   legendText: "#ffffff",
-// } as const;
-
-export const mapColors = {
-  ocean: "#dbeafe",
-  country: "#f1f5f9",
-  countryBorder: "#475569",
-  wrong: "#ef4444",
-  correct: "#22c55e",
-  legendBackground: "#0f172ae0",
-  legendText: "#ffffff",
-} as const;
 
 type GeometryCollection = {
   type: "GeometryCollection";
@@ -70,6 +50,7 @@ export const renderMap = ({
   }
   const wrongNumericIds = new Set(wrongCountries.map(getCountryNumericId).filter(Boolean));
   const correctNumericId = correctCountry ? getCountryNumericId(correctCountry) : undefined;
+  const theme = activeMapTheme;
 
   const projection = geoMercator()
     .scale(preset.scale)
@@ -79,10 +60,10 @@ export const renderMap = ({
   const context = canvas.getContext("2d");
   const path = geoPath(projection, context as never);
 
-  context.fillStyle = mapColors.ocean;
+  context.fillStyle = theme.ocean;
   context.fillRect(0, 0, preset.width, preset.height);
 
-  context.strokeStyle = mapColors.countryBorder;
+  context.strokeStyle = theme.countryBorder;
   context.lineWidth = 0.45;
 
   for (const country of countryFeatures) {
@@ -91,18 +72,18 @@ export const renderMap = ({
     path(country as never);
     context.fillStyle =
       correctNumericId && id === correctNumericId
-        ? mapColors.correct
+        ? theme.correct
         : wrongNumericIds.has(id)
-          ? mapColors.wrong
-          : mapColors.country;
+          ? theme.wrong
+          : theme.country;
     context.fill();
     context.stroke();
   }
 
   context.font = "16px Arial, sans-serif";
   const legendItems = [
-    { color: mapColors.wrong, label: messages.mapLegend.wrongGuesses },
-    ...(correctCountry ? [{ color: mapColors.correct, label: messages.mapLegend.correct }] : []),
+    { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
+    ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
   ];
   const rowHeight = 26;
   const paddingX = 16;
@@ -115,7 +96,7 @@ export const renderMap = ({
   const boxX = 16;
   const boxY = preset.height - boxHeight - 16;
 
-  context.fillStyle = mapColors.legendBackground;
+  context.fillStyle = theme.legendBackground;
   context.beginPath();
   context.roundRect(boxX, boxY, boxWidth, boxHeight, 6);
   context.fill();
@@ -126,7 +107,7 @@ export const renderMap = ({
     context.beginPath();
     context.arc(boxX + swatchX, rowY, 7, 0, Math.PI * 2);
     context.fill();
-    context.fillStyle = mapColors.legendText;
+    context.fillStyle = theme.legendText;
     context.fillText(item.label, boxX + textX, rowY + 5);
   });
 
