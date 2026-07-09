@@ -5,6 +5,7 @@
   "module": "index.ts",
   "scripts": {
     "start": "bun run index.ts --watch",
+    "build:compile": "bun build --compile --outfile location-game ./index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",

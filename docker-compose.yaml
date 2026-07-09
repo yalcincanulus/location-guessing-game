@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: "postgres:18.4-alpine3.24"
+    container_name: location-game-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - location-game-network
+  redis:
+    image: "redis:8.8-alpine3.23"
+    container_name: location-game-redis
+    restart: unless-stopped
+    command: "redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+    volumes:
+      - "redis_data:/data"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - "-a"
+        - "${REDIS_PASSWORD}"
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - location-game-network
+  app:
+    build: .
+    container_name: location-game-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      NODE_ENV: production
+      DISCORD_TOKEN: "${DISCORD_TOKEN:?DISCORD_TOKEN is required}"
+      DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
+      DISCORD_GUILD_ID: "${DISCORD_GUILD_ID:-}"
+      DISCORD_ADMIN_USER_ID: "${DISCORD_ADMIN_USER_ID:-}"
+      DISCORD_GAME_CHANNEL_ID: "${DISCORD_GAME_CHANNEL_ID:-}"
+      DISCORD_LOG_CHANNEL_ID: "${DISCORD_LOG_CHANNEL_ID:-}"
+      NOMINATIM_USER_AGENT: "${NOMINATIM_USER_AGENT:-}"
+      NOMINATIM_EMAIL: "${NOMINATIM_EMAIL:-}"
+      BOT_LOCALE: "${BOT_LOCALE:-en}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - location-game-network
+  drizzle-gateway:
+    image: "ghcr.io/drizzle-team/gateway:latest"
+    container_name: location-game-drizzle-gateway
+    restart: unless-stopped
+    ports:
+      - "4983:4983"
+    environment:
+      PORT: 4983
+      STORE_PATH: /app
+      MASTERPASS: "${DRIZZLE_GATEWAY_PASSWORD:?DRIZZLE_GATEWAY_PASSWORD is required}"
+    volumes:
+      - "drizzle_gateway_data:/app"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - location-game-network
+
+volumes:
+  postgres_data: null
+  redis_data: null
+  drizzle_gateway_data: null
+networks:
+  location-game-network:
+    driver: bridge
