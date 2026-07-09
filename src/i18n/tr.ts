@@ -138,7 +138,7 @@ export const trMessages = {
     reward: (points, basePoints, currentMultiplier, gmMultiplier) =>
       `Ödül: **${points}** puan (${basePoints} x ${currentMultiplier.toFixed(2)} x ${gmMultiplier.toFixed(2)}).`,
     osmAttribution:
-      "Konum verileri © [OpenStreetMap](https://www.openstreetmap.org/copyright) katkıda bulunanları tarafından sağlanır.",
+      "Ters Coğrafi Kodlama verileri © [OpenStreetMap](https://www.openstreetmap.org/copyright) katkıda bulunanları tarafından sağlanır.",
   },
   jobs: {
     multiplierIncreased: (currentMultiplier) =>
