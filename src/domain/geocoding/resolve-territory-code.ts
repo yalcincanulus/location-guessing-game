@@ -108,17 +108,19 @@ export type NominatimAddress = {
   county?: string;
   state_district?: string;
   municipality?: string;
+  town?: string;
   [key: string]: string | undefined;
 };
 
+/** Antarctic Treaty latitude: south of 60°S is treated as Antarctica (AQ). */
+export const ANTARCTICA_LATITUDE_THRESHOLD = -60;
+
+export const isAntarcticLatitude = (latitude: number) => latitude <= ANTARCTICA_LATITUDE_THRESHOLD;
+
 export const resolveTerritoryCountryCode = (
   address: NominatimAddress,
+  latitude?: number,
 ): { countryCode: string; countryName?: string } => {
-  const parentCode = address.country_code?.toUpperCase();
-  if (!parentCode) {
-    throw new Error("Nominatim response did not include a country code");
-  }
-
   for (const [key, value] of Object.entries(address)) {
     if (!key.startsWith("ISO3166-2-") || !value) {
       continue;
@@ -135,6 +137,8 @@ export const resolveTerritoryCountryCode = (
     address.region,
     address.state_district,
     address.municipality,
+    address.country,
+    address.town,
   ].filter(Boolean) as string[];
 
   for (const place of placeCandidates) {
@@ -144,5 +148,15 @@ export const resolveTerritoryCountryCode = (
     }
   }
 
-  return { countryCode: parentCode, countryName: address.country };
+  const parentCode = address.country_code?.toUpperCase();
+  if (parentCode) {
+    return { countryCode: parentCode, countryName: address.country };
+  }
+
+  // Nominatim often omits country_code for Antarctic locations.
+  if (latitude != null && isAntarcticLatitude(latitude)) {
+    return { countryCode: "AQ", countryName: "Antarctica" };
+  }
+
+  throw new Error("Nominatim response did not include a country code");
 };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTerritoryCountryCode } from "./resolve-territory-code.ts";
+import { isAntarcticLatitude, resolveTerritoryCountryCode } from "./resolve-territory-code.ts";
 
 describe("resolveTerritoryCountryCode", () => {
   test("maps Réunion ISO3166-2 to RE when country_code is fr", () => {
@@ -70,5 +70,36 @@ describe("resolveTerritoryCountryCode", () => {
       country_code: "fr",
     });
     expect(resolved.countryCode).toBe("RE");
+  });
+
+  test("maps Antarctic latitudes without country_code to AQ", () => {
+    const resolved = resolveTerritoryCountryCode(
+      {
+        road: "Main Street",
+        town: "McMurdo Station",
+      },
+      -77.846,
+    );
+    expect(resolved.countryCode).toBe("AQ");
+    expect(resolved.countryName).toBe("Antarctica");
+  });
+
+  test("does not invent AQ north of the Antarctic Treaty line", () => {
+    expect(() =>
+      resolveTerritoryCountryCode(
+        {
+          road: "Somewhere",
+        },
+        -55,
+      ),
+    ).toThrow("country code");
+  });
+});
+
+describe("isAntarcticLatitude", () => {
+  test("uses 60°S as the boundary", () => {
+    expect(isAntarcticLatitude(-60)).toBe(true);
+    expect(isAntarcticLatitude(-60.1)).toBe(true);
+    expect(isAntarcticLatitude(-59.9)).toBe(false);
   });
 });

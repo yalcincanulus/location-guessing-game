@@ -25,6 +25,13 @@ export const countries: CountryRecord[] = [
   { alpha2: "AL", alpha3: "ALB", numeric: "008" },
   { alpha2: "AM", alpha3: "ARM", numeric: "051" },
   { alpha2: "AO", alpha3: "AGO", numeric: "024" },
+  {
+    alpha2: "AQ",
+    alpha3: "ATA",
+    numeric: "010",
+    aliases: ["antarctica", "antarktika", "antarctic"],
+    ccTld: "aq",
+  },
   { alpha2: "AR", alpha3: "ARG", numeric: "032" },
   {
     alpha2: "AS",

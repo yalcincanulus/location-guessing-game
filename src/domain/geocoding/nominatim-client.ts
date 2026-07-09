@@ -1,6 +1,10 @@
 import { env } from "../../config/env.ts";
 import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
-import { resolveTerritoryCountryCode, type NominatimAddress } from "./resolve-territory-code.ts";
+import {
+  isAntarcticLatitude,
+  resolveTerritoryCountryCode,
+  type NominatimAddress,
+} from "./resolve-territory-code.ts";
 
 export type ReverseGeocodeResult = {
   countryCode: string;
@@ -14,11 +18,34 @@ export type ReverseGeocodeResult = {
 };
 
 type NominatimJson = {
+  error?: string;
   place_id?: number | string;
   osm_type?: string;
   osm_id?: number | string;
+  display_name?: string;
   address?: NominatimAddress;
 };
+
+const antarcticaFallback = (
+  latitude: number,
+  longitude: number,
+  raw: unknown,
+): ReverseGeocodeResult => ({
+  countryCode: "AQ",
+  countryName: getCountryDisplayName("AQ") ?? "Antarctica",
+  regionName: undefined,
+  regionCode: undefined,
+  placeId: undefined,
+  osmType: undefined,
+  osmId: undefined,
+  raw:
+    raw ??
+    ({
+      fallback: "antarctica-latitude",
+      latitude,
+      longitude,
+    } as const),
+});
 
 export const reverseGeocode = async (
   latitude: number,
@@ -44,15 +71,23 @@ export const reverseGeocode = async (
   });
 
   if (!response.ok) {
+    if (isAntarcticLatitude(latitude)) {
+      return antarcticaFallback(latitude, longitude, { status: response.status });
+    }
     throw new Error(`Nominatim reverse geocoding failed with ${response.status}`);
   }
 
   const json = (await response.json()) as NominatimJson;
-  if (!json.address) {
-    throw new Error("Nominatim response did not include address details");
+
+  // South Pole and some remote Antarctic points return "Unable to geocode".
+  if (json.error || !json.address) {
+    if (isAntarcticLatitude(latitude)) {
+      return antarcticaFallback(latitude, longitude, json);
+    }
+    throw new Error(json.error ?? "Nominatim response did not include address details");
   }
 
-  const resolved = resolveTerritoryCountryCode(json.address);
+  const resolved = resolveTerritoryCountryCode(json.address, latitude);
   const countryName =
     resolved.countryCode === json.address.country_code?.toUpperCase()
       ? (json.address.country ?? resolved.countryName)
@@ -66,7 +101,8 @@ export const reverseGeocode = async (
       json.address.province ??
       json.address.region ??
       json.address.state_district ??
-      json.address.county,
+      json.address.county ??
+      json.address.town,
     regionCode: undefined,
     placeId: json.place_id == null ? undefined : String(json.place_id),
     osmType: json.osm_type,

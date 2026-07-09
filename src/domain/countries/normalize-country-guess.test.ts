@@ -40,4 +40,10 @@ describe("normalizeCountryGuess overseas territories", () => {
     expect(normalizeCountryGuess("uae")?.countryCode).toBe("AE");
     expect(normalizeCountryGuess("usa")?.countryCode).toBe("US");
   });
+
+  test("accepts Antarctica by code, name, and ccTLD", () => {
+    for (const guess of ["aq", "AQ", "antarctica", "antarktika", ".aq"]) {
+      expect(normalizeCountryGuess(guess)?.countryCode).toBe("AQ");
+    }
+  });
 });
