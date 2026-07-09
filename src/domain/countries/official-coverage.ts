@@ -4,7 +4,8 @@
  * Georgia (GE), Bosnia and Herzegovina (BA), Paraguay (PY).
  *
  * "In the game" for GeoGuessr communities means the location's country code
- * appears in this set.
+ * appears in this set. That is separate from whether a specific linked panorama
+ * is official Google Street View vs a third-party photosphere.
  */
 const officialCoverageCodes = [
   // Africa

@@ -1,9 +1,12 @@
+export type PanoramaCoverageSource = "google" | "third-party" | "unknown";
+
 export type ParsedGoogleMapsUrl = {
   originalUrl: string;
   resolvedUrl: string;
   latitude: number;
   longitude: number;
   source: string;
+  coverageSource: PanoramaCoverageSource;
 };
 
 const urlPattern = /https?:\/\/[^\s<>()]+/gi;
@@ -15,6 +18,25 @@ const validateCoordinate = (latitude: number, longitude: number) =>
   latitude <= 90 &&
   longitude >= -180 &&
   longitude <= 180;
+
+/**
+ * Google Maps Street View URLs encode the panorama owner after the pano id:
+ * - !2e0  → official Google coverage
+ * - !2e10 → third-party / user photosphere
+ */
+export const detectPanoramaCoverageSource = (...urls: string[]): PanoramaCoverageSource => {
+  for (const url of urls) {
+    const decoded = decodeURIComponent(url);
+    if (/!2e10(?:!|$)/.test(decoded)) {
+      return "third-party";
+    }
+    if (/!2e0(?:!|$)/.test(decoded)) {
+      return "google";
+    }
+  }
+
+  return "unknown";
+};
 
 const parsePair = (
   latitude: string,
@@ -30,7 +52,14 @@ const parsePair = (
     return undefined;
   }
 
-  return { originalUrl, resolvedUrl, latitude: lat, longitude: lon, source };
+  return {
+    originalUrl,
+    resolvedUrl,
+    latitude: lat,
+    longitude: lon,
+    source,
+    coverageSource: detectPanoramaCoverageSource(originalUrl, resolvedUrl),
+  };
 };
 
 const extractFromUrl = (value: string, originalUrl = value): ParsedGoogleMapsUrl | undefined => {

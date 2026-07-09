@@ -128,10 +128,10 @@ const completeStartIfReady = async (
   if (channel.isSendable()) {
     const filename = pending.screenshotName || messages.filenames.fallbackScreenshot;
     const announcement = await channel.send({
-      content: messages.start.gameStarted(
-        message.author.id,
-        isOfficiallyCovered(started.state.targetCountryCode),
-      ),
+      content: messages.start.gameStarted(message.author.id, {
+        inTheGame: isOfficiallyCovered(started.state.targetCountryCode),
+        coverageSource: parsedLocation.coverageSource,
+      }),
       files: [new AttachmentBuilder(screenshotBuffer, { name: filename })],
     });
 

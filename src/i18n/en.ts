@@ -15,13 +15,22 @@ export const enMessages = {
     configuredGameChannelUnavailable: "Configured game channel is not available.",
     activeGameAlreadyExists: "There is already an active game.",
     couldNotExtractCoordinates: "I could not extract coordinates from that Google Maps link.",
-    gameStarted: (userId, inTheGame) =>
-      [
+    gameStarted: (userId, { inTheGame, coverageSource }) => {
+      const coverageLine =
+        coverageSource === "google"
+          ? "**Coverage:** Official Google Street View"
+          : coverageSource === "third-party"
+            ? "**Coverage:** Third-party / photosphere"
+            : "**Coverage:** Unknown (could not tell from the link)";
+
+      return [
         `<@${userId}> started a new location game. Guess the country by typing its name or ISO code.`,
         inTheGame
-          ? "**In the game:** Yes — official Google coverage."
-          : "**In the game:** No — not official Google coverage.",
-      ].join("\n"),
+          ? "**In the game:** Yes — this country has official coverage in GeoGuessr."
+          : "**In the game:** No — this country is not in the official GeoGuessr coverage set.",
+        coverageLine,
+      ].join("\n");
+    },
     needsVerifiedRole: "You need the verified role to start games.",
     nowSendScreenshot: "Got it. Now send the screenshot to start the game.",
     nowSendGoogleMapsLink: "Got it. Now send the Google Maps link to start the game.",

@@ -15,13 +15,22 @@ export const trMessages = {
     configuredGameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
     activeGameAlreadyExists: "Zaten aktif bir oyun var.",
     couldNotExtractCoordinates: "Bu Google Haritalar bağlantısından koordinat çıkaramadım.",
-    gameStarted: (userId, inTheGame) =>
-      [
+    gameStarted: (userId, { inTheGame, coverageSource }) => {
+      const coverageLine =
+        coverageSource === "google"
+          ? "**Kapsama:** Resmi Google Street View"
+          : coverageSource === "third-party"
+            ? "**Kapsama:** Üçüncü taraf / photosphere"
+            : "**Kapsama:** Bilinmiyor (bağlantıdan anlaşılamadı)";
+
+      return [
         `<@${userId}> yeni bir konum oyunu başlattı. Ülkeyi tahmin etmek için ülke adını veya ISO kodunu yazın.`,
         inTheGame
-          ? "**Oyunda:** Evet — resmi Google kapsaması."
-          : "**Oyunda:** Hayır — resmi Google kapsaması yok.",
-      ].join("\n"),
+          ? "**Oyunda:** Evet. Bu ülkenin GeoGuessr'da resmi kapsaması var. Plonkit rehberi var."
+          : "**Oyunda:** Hayır. Bu ülke resmi GeoGuessr kapsama setinde değil.",
+        coverageLine,
+      ].join("\n");
+    },
     needsVerifiedRole: "Oyun başlatmak için doğrulanmış role sahip olman gerekiyor.",
     nowSendScreenshot: "Tamam. Oyunu başlatmak için şimdi ekran görüntüsünü gönder.",
     nowSendGoogleMapsLink:
