@@ -6,6 +6,7 @@ import {
   parseGoogleMapsUrl,
 } from "../../domain/geocoding/google-maps-parser.ts";
 import { startGame, handleGuess } from "../../domain/game/game-service.ts";
+import { isOfficiallyCovered } from "../../domain/countries/official-coverage.ts";
 import { getActiveGameState, updateGameState } from "../../domain/game/active-game-state.ts";
 import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
@@ -127,7 +128,10 @@ const completeStartIfReady = async (
   if (channel.isSendable()) {
     const filename = pending.screenshotName || messages.filenames.fallbackScreenshot;
     const announcement = await channel.send({
-      content: messages.start.gameStarted(message.author.id),
+      content: messages.start.gameStarted(
+        message.author.id,
+        isOfficiallyCovered(started.state.targetCountryCode),
+      ),
       files: [new AttachmentBuilder(screenshotBuffer, { name: filename })],
     });
 

@@ -15,8 +15,13 @@ export const enMessages = {
     configuredGameChannelUnavailable: "Configured game channel is not available.",
     activeGameAlreadyExists: "There is already an active game.",
     couldNotExtractCoordinates: "I could not extract coordinates from that Google Maps link.",
-    gameStarted: (userId) =>
-      `<@${userId}> started a new location game. Guess the country by typing its name or ISO code.`,
+    gameStarted: (userId, inTheGame) =>
+      [
+        `<@${userId}> started a new location game. Guess the country by typing its name or ISO code.`,
+        inTheGame
+          ? "**In the game:** Yes — official Google coverage."
+          : "**In the game:** No — not official Google coverage.",
+      ].join("\n"),
     needsVerifiedRole: "You need the verified role to start games.",
     nowSendScreenshot: "Got it. Now send the screenshot to start the game.",
     nowSendGoogleMapsLink: "Got it. Now send the Google Maps link to start the game.",

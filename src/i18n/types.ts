@@ -54,7 +54,7 @@ export type BotMessages = {
     configuredGameChannelUnavailable: string;
     activeGameAlreadyExists: string;
     couldNotExtractCoordinates: string;
-    gameStarted: (userId: string) => string;
+    gameStarted: (userId: string, inTheGame: boolean) => string;
     needsVerifiedRole: string;
     nowSendScreenshot: string;
     nowSendGoogleMapsLink: string;
