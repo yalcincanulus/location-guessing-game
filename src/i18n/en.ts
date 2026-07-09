@@ -123,6 +123,14 @@ export const enMessages = {
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> found the country: **${countryName}**.`,
+    locationDetails: ({ regionName, googleMapsUrl, latitude, longitude }) =>
+      [
+        regionName ? `Region: **${regionName}**` : undefined,
+        `Coordinates: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+        `Maps: ${googleMapsUrl}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     testNoPoints: "Test game: no points awarded.",
     reward: (points, basePoints, currentMultiplier, gmMultiplier) =>
       `Reward: **${points}** points (${basePoints} x ${currentMultiplier.toFixed(2)} x ${gmMultiplier.toFixed(2)}).`,

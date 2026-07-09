@@ -125,6 +125,14 @@ export const trMessages = {
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> ülkeyi buldu: **${countryName}**.`,
+    locationDetails: ({ regionName, googleMapsUrl, latitude, longitude }) =>
+      [
+        regionName ? `Bölge: **${regionName}**` : undefined,
+        `Koordinatlar: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+        `Harita: ${googleMapsUrl}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     testNoPoints: "Test oyunu: puan verilmedi.",
     reward: (points, basePoints, currentMultiplier, gmMultiplier) =>
       `Ödül: **${points}** puan (${basePoints} x ${currentMultiplier.toFixed(2)} x ${gmMultiplier.toFixed(2)}).`,

@@ -95,6 +95,12 @@ export type BotMessages = {
   };
   game: {
     foundCountry: (userId: string, countryName: string) => string;
+    locationDetails: (input: {
+      regionName?: string;
+      googleMapsUrl: string;
+      latitude: number;
+      longitude: number;
+    }) => string;
     testNoPoints: string;
     reward: (
       points: number,

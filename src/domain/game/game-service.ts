@@ -1,5 +1,5 @@
 import type { GuildBasedChannel, Message, User } from "discord.js";
-import { AttachmentBuilder } from "discord.js";
+import { AttachmentBuilder, MessageFlags } from "discord.js";
 import { loadRules } from "../../config/rules.ts";
 import { sqlClient } from "../../db/client.ts";
 import { reverseGeocode } from "../geocoding/nominatim-client.ts";
@@ -465,6 +465,36 @@ const completeGame = async (
     }
   });
 
+  const locationRows = await sqlClient`
+    SELECT
+      l.original_google_maps_url,
+      l.resolved_google_maps_url,
+      l.region_name,
+      l.latitude,
+      l.longitude
+    FROM game g
+    JOIN location l ON l.id = g.location_id
+    WHERE g.id = ${state.gameId}
+    LIMIT 1
+  `;
+  const location = locationRows[0] as
+    | {
+        original_google_maps_url: string;
+        resolved_google_maps_url: string | null;
+        region_name: string | null;
+        latitude: number;
+        longitude: number;
+      }
+    | undefined;
+  const latitude = location ? Number(location.latitude) : undefined;
+  const longitude = location ? Number(location.longitude) : undefined;
+  const googleMapsUrl =
+    location?.original_google_maps_url ??
+    location?.resolved_google_maps_url ??
+    (latitude != null && longitude != null
+      ? `https://www.google.com/maps/@${latitude},${longitude},3a,75y,0h,90t`
+      : undefined);
+
   await clearActiveGame(state);
   await removeMultiplierJobsForGame(state.gameId);
 
@@ -488,6 +518,14 @@ const completeGame = async (
         message.author.id,
         getCountryDisplayName(state.targetCountryCode, messages.locale),
       ),
+      googleMapsUrl && latitude != null && longitude != null
+        ? messages.game.locationDetails({
+            regionName: location?.region_name ?? state.targetRegionName ?? undefined,
+            googleMapsUrl,
+            latitude,
+            longitude,
+          })
+        : undefined,
       state.isTest
         ? messages.game.testNoPoints
         : messages.game.reward(
@@ -497,8 +535,11 @@ const completeGame = async (
             state.gmMultiplier,
           ),
       messages.game.osmAttribution,
-    ].join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     files: [attachment],
+    flags: MessageFlags.SuppressEmbeds,
   });
 
   return "✅" as const;
