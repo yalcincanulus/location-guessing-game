@@ -1,4 +1,5 @@
 import type { Message } from "discord.js";
+import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../config/rules.ts";
 import { sqlClient } from "../db/client.ts";
 import {
@@ -6,7 +7,9 @@ import {
   getActiveGameState,
   getWrongCountries,
 } from "../domain/game/active-game-state.ts";
+import { countries } from "../domain/countries/country-data.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
+import { renderMap } from "../domain/maps/map-renderer.ts";
 import { upsertPlayer } from "../repositories/core-repository.ts";
 import { removeMultiplierJobsForGame, runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
@@ -224,6 +227,44 @@ const tickCommand = async (message: Message<true>) => {
   return true;
 };
 
+const pickRandomCountries = (count: number) => {
+  const pool = [...countries];
+  const picked: string[] = [];
+  while (picked.length < count && pool.length > 0) {
+    const index = Math.floor(Math.random() * pool.length);
+    const [country] = pool.splice(index, 1);
+    if (country) {
+      picked.push(country.alpha2);
+    }
+  }
+  return picked;
+};
+
+const mapCommand = async (message: Message<true>) => {
+  const sample = pickRandomCountries(9);
+  const correctCountry = sample[0];
+  const wrongCountries = sample.slice(1);
+  if (!correctCountry || wrongCountries.length === 0) {
+    await message.reply(messages.test.unknownCommand);
+    return true;
+  }
+
+  const map = renderMap({
+    wrongCountries,
+    correctCountry,
+    viewport: "world",
+  });
+
+  await message.channel.send({
+    content: messages.test.sampleMap(
+      getCountryDisplayName(correctCountry, messages.locale),
+      wrongCountries.map((code) => getCountryDisplayName(code, messages.locale)),
+    ),
+    files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
+  });
+  return true;
+};
+
 export const handleTestCommand = async (message: Message<true>, args: string[]) => {
   const auth = await authorize(message);
   if (!auth.ok) {
@@ -250,6 +291,10 @@ export const handleTestCommand = async (message: Message<true>, args: string[]) 
 
   if (["reset", "sifirla", "sıfırla"].includes(subcommand)) {
     return cancelOrFailGame(message, "failed", "test reset");
+  }
+
+  if (["map", "harita"].includes(subcommand)) {
+    return mapCommand(message);
   }
 
   await message.reply(messages.test.unknownCommand);

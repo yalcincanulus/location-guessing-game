@@ -6,6 +6,27 @@ import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { mapViewports } from "./region-presets.ts";
 import { messages } from "../../i18n/messages.ts";
 
+// old colors
+// export const mapColors = {
+//   ocean: "#dbeafe",
+//   country: "#f1f5f9",
+//   countryBorder: "#475569",
+//   wrong: "#ef4444",
+//   correct: "#22c55e",
+//   legendBackground: "rgba(15, 23, 42, 0.88)",
+//   legendText: "#ffffff",
+// } as const;
+
+export const mapColors = {
+  ocean: "#dbeafe",
+  country: "#f1f5f9",
+  countryBorder: "#475569",
+  wrong: "#ef4444",
+  correct: "#22c55e",
+  legendBackground: "#0f172ae0",
+  legendText: "#ffffff",
+} as const;
+
 type GeometryCollection = {
   type: "GeometryCollection";
   geometries: Array<{ id?: string | number; type: string; arcs?: unknown }>;
@@ -58,10 +79,10 @@ export const renderMap = ({
   const context = canvas.getContext("2d");
   const path = geoPath(projection, context as never);
 
-  context.fillStyle = "#dbeafe";
+  context.fillStyle = mapColors.ocean;
   context.fillRect(0, 0, preset.width, preset.height);
 
-  context.strokeStyle = "#475569";
+  context.strokeStyle = mapColors.countryBorder;
   context.lineWidth = 0.45;
 
   for (const country of countryFeatures) {
@@ -70,35 +91,44 @@ export const renderMap = ({
     path(country as never);
     context.fillStyle =
       correctNumericId && id === correctNumericId
-        ? "#22c55e"
+        ? mapColors.correct
         : wrongNumericIds.has(id)
-          ? "#ef4444"
-          : "#f1f5f9";
+          ? mapColors.wrong
+          : mapColors.country;
     context.fill();
     context.stroke();
   }
 
-  context.fillStyle = "rgba(15, 23, 42, 0.88)";
-  context.beginPath();
-  context.roundRect(16, preset.height - 54, correctCountry ? 300 : 166, 38, 6);
-  context.fill();
-
   context.font = "16px Arial, sans-serif";
-  context.fillStyle = "#ef4444";
-  context.beginPath();
-  context.arc(36, preset.height - 35, 7, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = "#ffffff";
-  context.fillText(messages.mapLegend.wrongGuesses, 52, preset.height - 30);
+  const legendItems = [
+    { color: mapColors.wrong, label: messages.mapLegend.wrongGuesses },
+    ...(correctCountry ? [{ color: mapColors.correct, label: messages.mapLegend.correct }] : []),
+  ];
+  const rowHeight = 26;
+  const paddingX = 16;
+  const paddingY = 12;
+  const swatchX = 20;
+  const textX = 36;
+  const labelWidth = Math.max(...legendItems.map((item) => context.measureText(item.label).width));
+  const boxWidth = Math.ceil(textX + labelWidth + paddingX);
+  const boxHeight = paddingY * 2 + legendItems.length * rowHeight - 4;
+  const boxX = 16;
+  const boxY = preset.height - boxHeight - 16;
 
-  if (correctCountry) {
-    context.fillStyle = "#22c55e";
+  context.fillStyle = mapColors.legendBackground;
+  context.beginPath();
+  context.roundRect(boxX, boxY, boxWidth, boxHeight, 6);
+  context.fill();
+
+  legendItems.forEach((item, index) => {
+    const rowY = boxY + paddingY + index * rowHeight + 8;
+    context.fillStyle = item.color;
     context.beginPath();
-    context.arc(190, preset.height - 35, 7, 0, Math.PI * 2);
+    context.arc(boxX + swatchX, rowY, 7, 0, Math.PI * 2);
     context.fill();
-    context.fillStyle = "#ffffff";
-    context.fillText(messages.mapLegend.correct, 206, preset.height - 30);
-  }
+    context.fillStyle = mapColors.legendText;
+    context.fillText(item.label, boxX + textX, rowY + 5);
+  });
 
   return {
     buffer: canvas.toBuffer("image/png"),

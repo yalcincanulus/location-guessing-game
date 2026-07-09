@@ -84,6 +84,7 @@ export type BotMessages = {
     multiplierCapped: (currentMultiplier: number) => string;
     forcedMultiplierTick: (previousMultiplier: number, newMultiplier: number) => string;
     multiplierNoChange: string;
+    sampleMap: (correctCountry: string, wrongCountries: string[]) => string;
     unknownCommand: string;
   };
   game: {

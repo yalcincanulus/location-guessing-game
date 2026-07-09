@@ -56,7 +56,7 @@ export const trMessages = {
     helpCommands:
       "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
     helpTestCommands:
-      "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`.",
+      "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
   test: {
     modeDisabled: "Test modu kapalı.",
@@ -100,8 +100,14 @@ export const trMessages = {
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
       `Çarpan elle artırıldı: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
     multiplierNoChange: "Çarpan kontrolü aktif oyunu değiştirmedi.",
+    sampleMap: (correctCountry, wrongCountries) =>
+      [
+        "Örnek harita çizimi:",
+        `Doğru: **${correctCountry}**`,
+        `Yanlış: **${wrongCountries.join(", ")}**`,
+      ].join("\n"),
     unknownCommand:
-      "Bilinmeyen test komutu. `!test status`, `cancel`, `reveal`, `tick` veya `reset` kullan.",
+      "Bilinmeyen test komutu. `!test status`, `cancel`, `reveal`, `tick`, `reset` veya `map` kullan.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> ülkeyi buldu: **${countryName}**.`,

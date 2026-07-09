@@ -54,7 +54,7 @@ export const enMessages = {
     helpCommands:
       "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
     helpTestCommands:
-      "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`.",
+      "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
   test: {
     modeDisabled: "Test mode is disabled.",
@@ -98,8 +98,14 @@ export const enMessages = {
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
       `Forced multiplier tick: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
     multiplierNoChange: "Multiplier tick did not change the active game.",
+    sampleMap: (correctCountry, wrongCountries) =>
+      [
+        "Sample map render:",
+        `Correct: **${correctCountry}**`,
+        `Wrong: **${wrongCountries.join(", ")}**`,
+      ].join("\n"),
     unknownCommand:
-      "Unknown test command. Use `!test status`, `cancel`, `reveal`, `tick`, or `reset`.",
+      "Unknown test command. Use `!test status`, `cancel`, `reveal`, `tick`, `reset`, or `map`.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> found the country: **${countryName}**.`,
