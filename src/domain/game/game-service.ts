@@ -481,6 +481,7 @@ const completeGame = async (
       state.isTest
         ? "Test game: no points awarded."
         : `Reward: **${points}** points (${state.basePoints} x ${state.currentMultiplier.toFixed(2)} x ${state.gmMultiplier.toFixed(2)}).`,
+      "Location data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.",
     ].join("\n"),
     files: [attachment],
   });
