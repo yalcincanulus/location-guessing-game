@@ -7,7 +7,21 @@ export type MapViewport = {
   center: [number, number];
 };
 
-export const mapViewports: Record<string, MapViewport> = {
+/** Pixel density multiplier. Scale, translate, width, and height all grow together so framing stays the same. */
+export const MAP_RESOLUTION_SCALE = 2;
+
+type BaseMapViewport = MapViewport;
+
+const scaleViewport = (base: BaseMapViewport): MapViewport => ({
+  name: base.name,
+  width: Math.round(base.width * MAP_RESOLUTION_SCALE),
+  height: Math.round(base.height * MAP_RESOLUTION_SCALE),
+  scale: base.scale * MAP_RESOLUTION_SCALE,
+  translate: [base.translate[0] * MAP_RESOLUTION_SCALE, base.translate[1] * MAP_RESOLUTION_SCALE],
+  center: base.center,
+});
+
+const baseMapViewports: Record<string, BaseMapViewport> = {
   world: {
     name: "world",
     width: 1200,
@@ -73,6 +87,10 @@ export const mapViewports: Record<string, MapViewport> = {
     center: [140, -25],
   },
 };
+
+export const mapViewports: Record<string, MapViewport> = Object.fromEntries(
+  Object.entries(baseMapViewports).map(([key, viewport]) => [key, scaleViewport(viewport)]),
+);
 
 export const viewportAliases = new Map<string, string>([
   ["map", "world"],

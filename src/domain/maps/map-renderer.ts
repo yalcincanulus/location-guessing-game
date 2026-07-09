@@ -3,7 +3,7 @@ import { geoMercator, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
-import { mapViewports } from "./region-presets.ts";
+import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
 import { activeMapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
 
@@ -63,8 +63,10 @@ export const renderMap = ({
   context.fillStyle = theme.ocean;
   context.fillRect(0, 0, preset.width, preset.height);
 
+  const ui = MAP_RESOLUTION_SCALE;
+
   context.strokeStyle = theme.countryBorder;
-  context.lineWidth = 0.45;
+  context.lineWidth = 0.45 * ui;
 
   for (const country of countryFeatures) {
     const id = String(country.id).padStart(3, "0");
@@ -80,35 +82,35 @@ export const renderMap = ({
     context.stroke();
   }
 
-  context.font = "16px Arial, sans-serif";
+  context.font = `${16 * ui}px Arial, sans-serif`;
   const legendItems = [
     { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
     ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
   ];
-  const rowHeight = 26;
-  const paddingX = 16;
-  const paddingY = 12;
-  const swatchX = 20;
-  const textX = 36;
+  const rowHeight = 26 * ui;
+  const paddingX = 16 * ui;
+  const paddingY = 12 * ui;
+  const swatchX = 20 * ui;
+  const textX = 36 * ui;
   const labelWidth = Math.max(...legendItems.map((item) => context.measureText(item.label).width));
   const boxWidth = Math.ceil(textX + labelWidth + paddingX);
-  const boxHeight = paddingY * 2 + legendItems.length * rowHeight - 4;
-  const boxX = 16;
-  const boxY = preset.height - boxHeight - 16;
+  const boxHeight = paddingY * 2 + legendItems.length * rowHeight - 4 * ui;
+  const boxX = 16 * ui;
+  const boxY = preset.height - boxHeight - 16 * ui;
 
   context.fillStyle = theme.legendBackground;
   context.beginPath();
-  context.roundRect(boxX, boxY, boxWidth, boxHeight, 6);
+  context.roundRect(boxX, boxY, boxWidth, boxHeight, 6 * ui);
   context.fill();
 
   legendItems.forEach((item, index) => {
-    const rowY = boxY + paddingY + index * rowHeight + 8;
+    const rowY = boxY + paddingY + index * rowHeight + 8 * ui;
     context.fillStyle = item.color;
     context.beginPath();
-    context.arc(boxX + swatchX, rowY, 7, 0, Math.PI * 2);
+    context.arc(boxX + swatchX, rowY, 7 * ui, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = theme.legendText;
-    context.fillText(item.label, boxX + textX, rowY + 5);
+    context.fillText(item.label, boxX + textX, rowY + 5 * ui);
   });
 
   return {

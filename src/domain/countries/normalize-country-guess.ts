@@ -64,7 +64,7 @@ export const getCountryDisplayName = (countryCode: string, locale: BotLocale = "
 export const getCountryNumericId = (countryCode: string) =>
   numericByAlpha2.get(countryCode.toUpperCase());
 
-export const normalizeCountryGuess = (message: string): ParsedCountryGuess | undefined => {
+const parseSingleGuess = (message: string): ParsedCountryGuess | undefined => {
   const trimmed = message.trim();
   if (!trimmed || trimmed.length > 64) {
     return undefined;
@@ -85,6 +85,28 @@ export const normalizeCountryGuess = (message: string): ParsedCountryGuess | und
   }
 
   return aliases.get(normalized);
+};
+
+export const normalizeCountryGuess = (message: string): ParsedCountryGuess | undefined => {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const direct = parseSingleGuess(trimmed);
+  if (direct) {
+    return direct;
+  }
+
+  // Multi-line messages: accept the first line that is a valid country guess.
+  for (const line of trimmed.split(/\r?\n/)) {
+    const parsed = parseSingleGuess(line);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return undefined;
 };
 
 export const isKnownCountryCode = (countryCode: string) =>

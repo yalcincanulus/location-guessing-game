@@ -45,20 +45,20 @@ export const mapThemes = {
     legendBackground: "#11111be6",
     legendText: "#cdd6f4",
   },
-  tailwindColors: {
-    ocean: "#090b0c",
-    country: "#22292b",
-    countryBorder: "#9ca8ab",
-    wrong: "#db2777",
-    correct: "#10b981",
+  tailwindColorSlate: {
+    ocean: "#020617",
+    country: "#1e293b",
+    countryBorder: "#64748b",
+    wrong: "#9f1239",
+    correct: "#059669",
     legendBackground: "#0f172a",
-    legendText: "#e2e8f0",
+    legendText: "#f1f5f9",
   },
 } as const satisfies Record<string, MapTheme>;
 
 export type MapThemeName = keyof typeof mapThemes;
 
 /** Change this to switch the active map theme. */
-export const activeMapThemeName: MapThemeName = "tailwindColors";
+export const activeMapThemeName: MapThemeName = "tailwindColorSlate";
 
 export const activeMapTheme: MapTheme = mapThemes[activeMapThemeName];
