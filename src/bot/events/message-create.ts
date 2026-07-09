@@ -14,6 +14,7 @@ import { handleCommand, isCommandMessage } from "../../commands/command-registry
 import { scheduleIdleMultiplier } from "../../jobs/queues.ts";
 import { logger } from "../../util/logger.ts";
 import { sqlClient } from "../../db/client.ts";
+import { messages } from "../../i18n/messages.ts";
 
 type PendingStart = {
   googleMapsUrl?: string;
@@ -32,7 +33,7 @@ type CapturedScreenshot = {
 const isImageAttachment = (attachment: Attachment) =>
   Boolean(
     attachment.contentType?.startsWith("image/") ||
-      /\.(png|jpe?g|webp|gif)$/i.test(attachment.name || attachment.url),
+    /\.(png|jpe?g|webp|gif)$/i.test(attachment.name || attachment.url),
   );
 
 const firstImageAttachment = (message: Message) =>
@@ -46,7 +47,7 @@ const downloadScreenshot = async (attachment: Attachment): Promise<CapturedScree
 
   return {
     url: attachment.url,
-    name: attachment.name || "screenshot.png",
+    name: attachment.name || messages.filenames.fallbackScreenshot,
     buffer: Buffer.from(await response.arrayBuffer()),
   };
 };
@@ -90,25 +91,25 @@ const completeStartIfReady = async (
 
   const channelId = pending.channelId ?? rules.gameChannelId;
   if (!channelId) {
-    await message.reply("Game channel is not configured.");
+    await message.reply(messages.start.gameChannelNotConfigured);
     return true;
   }
 
   const channel = await client.channels.fetch(channelId);
   if (!channel?.isTextBased() || !("guild" in channel) || !channel.guild) {
-    await message.reply("Configured game channel is not available.");
+    await message.reply(messages.start.configuredGameChannelUnavailable);
     return true;
   }
 
   const active = await getActiveGameState(channel.guild.id, channel.id);
   if (active) {
-    await message.reply("There is already an active game.");
+    await message.reply(messages.start.activeGameAlreadyExists);
     return true;
   }
 
   const parsedLocation = await parseGoogleMapsUrl(pending.googleMapsUrl);
   if (!parsedLocation) {
-    await message.reply("I could not extract coordinates from that Google Maps link.");
+    await message.reply(messages.start.couldNotExtractCoordinates);
     return true;
   }
 
@@ -124,9 +125,9 @@ const completeStartIfReady = async (
   });
 
   if (channel.isSendable()) {
-    const filename = pending.screenshotName || "screenshot.png";
+    const filename = pending.screenshotName || messages.filenames.fallbackScreenshot;
     const announcement = await channel.send({
-      content: `<@${message.author.id}> started a new location game. Guess the country by typing its name or ISO code.`,
+      content: messages.start.gameStarted(message.author.id),
       files: [new AttachmentBuilder(screenshotBuffer, { name: filename })],
     });
 
@@ -153,7 +154,7 @@ const completeStartIfReady = async (
 const handleDmStart = async (client: Client, message: Message) => {
   const rules = await loadRules();
   if (!rules.gameChannelId) {
-    await message.reply("Game channel is not configured.");
+    await message.reply(messages.start.gameChannelNotConfigured);
     return;
   }
 
@@ -167,7 +168,7 @@ const handleDmStart = async (client: Client, message: Message) => {
     ? await channel.guild.members.fetch(message.author.id).catch(() => null)
     : null;
   if (!hasVerifiedRole(member, rules)) {
-    await message.reply("You need the verified role to start games.");
+    await message.reply(messages.start.needsVerifiedRole);
     return;
   }
 
@@ -192,14 +193,14 @@ const handleDmStart = async (client: Client, message: Message) => {
 
   await setPending(key, pending, rules.pendingStartTtlSeconds);
   if (pending.googleMapsUrl && !pending.screenshotUrl) {
-    await message.reply("Got it. Now send the screenshot to start the game.");
+    await message.reply(messages.start.nowSendScreenshot);
     return;
   }
   if (pending.screenshotUrl && !pending.googleMapsUrl) {
-    await message.reply("Got it. Now send the Google Maps link to start the game.");
+    await message.reply(messages.start.nowSendGoogleMapsLink);
     return;
   }
-  await message.reply("Send a Google Maps link and a screenshot to start the game.");
+  await message.reply(messages.start.sendLinkAndScreenshot);
 };
 
 const handleChannelStart = async (client: Client, message: Message<true>) => {

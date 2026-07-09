@@ -7,6 +7,7 @@ import { clampMultiplier } from "../domain/game/scoring.ts";
 import { sqlClient } from "../db/client.ts";
 import { logger } from "../util/logger.ts";
 import { redis } from "../redis/client.ts";
+import { messages } from "../i18n/messages.ts";
 
 const redisUrl = new URL(env.redisUrl);
 const bullConnection = {
@@ -110,9 +111,7 @@ export const runIdleMultiplierCheck = async (
   const channel = await client.channels.fetch(state.channelId).catch(() => null);
   let messageId: string | undefined;
   if (channel?.isSendable()) {
-    const sent = await channel.send(
-      `Current multiplier increased to **${state.currentMultiplier.toFixed(2)}x**.`,
-    );
+    const sent = await channel.send(messages.jobs.multiplierIncreased(state.currentMultiplier));
     messageId = sent.id;
   }
 

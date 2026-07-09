@@ -13,6 +13,7 @@ import { viewportAliases } from "../domain/maps/region-presets.ts";
 import { getLeaderboard, getPlayerProfile } from "../repositories/core-repository.ts";
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
+import { messages } from "../i18n/messages.ts";
 
 const normalizeCommand = (value: string) =>
   value
@@ -53,7 +54,7 @@ export const handleCommand = async (message: Message<true>) => {
   if (viewport) {
     const state = await getActiveGameState(message.guild.id, message.channel.id);
     if (!state) {
-      await message.reply("No active game in this channel.");
+      await message.reply(messages.commands.noActiveGameInChannel);
       return true;
     }
 
@@ -78,19 +79,20 @@ export const handleCommand = async (message: Message<true>) => {
   if (["ss", "screenshot", "ekran"].includes(command)) {
     const state = await getActiveGameState(message.guild.id, message.channel.id);
     if (!state) {
-      await message.reply("No active game in this channel.");
+      await message.reply(messages.commands.noActiveGameInChannel);
       return true;
     }
 
     const response = await fetch(state.screenshotUrl);
     if (!response.ok) {
-      await message.reply("I could not load the current screenshot.");
+      await message.reply(messages.commands.couldNotLoadScreenshot);
       return true;
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const filename =
-      new URL(state.screenshotUrl).pathname.split("/").pop() || "screenshot.png";
+      new URL(state.screenshotUrl).pathname.split("/").pop() ||
+      messages.filenames.fallbackScreenshot;
     await message.channel.send({
       files: [new AttachmentBuilder(buffer, { name: filename })],
     });
@@ -100,7 +102,7 @@ export const handleCommand = async (message: Message<true>) => {
   if (["profile", "profil"].includes(command)) {
     const profile = await getPlayerProfile(message.author.id);
     if (!profile) {
-      await message.reply("No profile yet.");
+      await message.reply(messages.commands.noProfileYet);
       return true;
     }
 
@@ -108,14 +110,16 @@ export const handleCommand = async (message: Message<true>) => {
     const wins = Number(profile.games_won ?? 0);
     const winRate = participated === 0 ? 0 : Math.round((wins / participated) * 100);
     await message.reply(
-      [
-        `**${profile.display_name}**`,
-        `Points: **${profile.points_total ?? 0}**`,
-        `Wins: **${wins}** / Participated: **${participated}** (${winRate}%)`,
-        `Games started: **${profile.games_started ?? 0}**`,
-        `Guesses: **${profile.total_guesses ?? 0}**`,
-        `GM multiplier: **${Number(profile.current_gm_multiplier ?? 1).toFixed(2)}x**`,
-      ].join("\n"),
+      messages.commands.profile({
+        displayName: profile.display_name,
+        points: profile.points_total ?? 0,
+        wins,
+        participated,
+        winRate,
+        gamesStarted: profile.games_started ?? 0,
+        guesses: profile.total_guesses ?? 0,
+        gmMultiplier: Number(profile.current_gm_multiplier ?? 1),
+      }),
     );
     return true;
   }
@@ -131,8 +135,10 @@ export const handleCommand = async (message: Message<true>) => {
             ? "hardest"
             : "points";
     const rows = await getLeaderboard(kind);
-    const lines = rows.map((row, index) => `${index + 1}. ${row.display_name}: **${row.value}**`);
-    await message.reply(lines.length > 0 ? lines.join("\n") : "No leaderboard data yet.");
+    const lines = rows.map((row, index) =>
+      messages.commands.leaderboardRow(index + 1, row.display_name, row.value),
+    );
+    await message.reply(lines.length > 0 ? lines.join("\n") : messages.commands.noLeaderboardData);
     return true;
   }
 
@@ -146,10 +152,11 @@ export const handleCommand = async (message: Message<true>) => {
     `;
     const row = rows[0];
     await message.reply(
-      [
-        `Games: **${row?.completed_games ?? 0}** completed / **${row?.total_games ?? 0}** total`,
-        `Total guesses: **${row?.total_guesses ?? 0}**`,
-      ].join("\n"),
+      messages.commands.stats({
+        completedGames: row?.completed_games ?? 0,
+        totalGames: row?.total_games ?? 0,
+        totalGuesses: row?.total_guesses ?? 0,
+      }),
     );
     return true;
   }
@@ -160,12 +167,7 @@ export const handleCommand = async (message: Message<true>) => {
       rules.testChannelId === message.channel.id &&
       rules.testAdminUserIds.includes(message.author.id);
     await message.reply(
-      [
-        "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
-        isTestAdmin
-          ? "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`."
-          : undefined,
-      ]
+      [messages.commands.helpCommands, isTestAdmin ? messages.commands.helpTestCommands : undefined]
         .filter(Boolean)
         .join("\n"),
     );

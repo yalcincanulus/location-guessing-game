@@ -23,6 +23,7 @@ export const env = {
   nominatimUserAgent:
     optional("NOMINATIM_USER_AGENT") ?? "location-guessing-game/0.1 (+https://discord.com)",
   nominatimEmail: optional("NOMINATIM_EMAIL"),
+  botLocale: optional("BOT_LOCALE") ?? "en",
   nodeEnv: optional("NODE_ENV") ?? "development",
 };
 

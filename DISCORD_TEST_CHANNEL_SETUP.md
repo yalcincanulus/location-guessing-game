@@ -47,6 +47,7 @@ Verified Discord apps must be public. For a private test bot, use an unverified 
 ### Bot
 
 - [ ] Copy/reset the **Bot Token** into `DISCORD_TOKEN`.
+- [ ] Set `BOT_LOCALE=en` or `BOT_LOCALE=tr` to choose the bot message language.
 - [ ] Disable **Public Bot**.
 - [ ] Disable **Requires OAuth2 Code Grant**.
 - [ ] Enable **Message Content Intent**.

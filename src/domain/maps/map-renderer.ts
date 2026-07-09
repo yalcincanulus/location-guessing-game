@@ -4,6 +4,7 @@ import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { mapViewports } from "./region-presets.ts";
+import { messages } from "../../i18n/messages.ts";
 
 type GeometryCollection = {
   type: "GeometryCollection";
@@ -88,7 +89,7 @@ export const renderMap = ({
   context.arc(36, preset.height - 35, 7, 0, Math.PI * 2);
   context.fill();
   context.fillStyle = "#ffffff";
-  context.fillText("Wrong guesses", 52, preset.height - 30);
+  context.fillText(messages.mapLegend.wrongGuesses, 52, preset.height - 30);
 
   if (correctCountry) {
     context.fillStyle = "#22c55e";
@@ -96,7 +97,7 @@ export const renderMap = ({
     context.arc(190, preset.height - 35, 7, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = "#ffffff";
-    context.fillText("Correct", 206, preset.height - 30);
+    context.fillText(messages.mapLegend.correct, 206, preset.height - 30);
   }
 
   return {

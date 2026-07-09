@@ -1,4 +1,5 @@
 import { countries } from "./country-data.ts";
+import type { BotLocale } from "../../i18n/locale.ts";
 
 export type ParsedCountryGuess = {
   countryCode: string;
@@ -8,6 +9,10 @@ export type ParsedCountryGuess = {
 
 const englishNames = new Intl.DisplayNames(["en"], { type: "region" });
 const turkishNames = new Intl.DisplayNames(["tr"], { type: "region" });
+const localizedNames: Record<BotLocale, Intl.DisplayNames> = {
+  en: englishNames,
+  tr: turkishNames,
+};
 
 const normalize = (value: string) =>
   value
@@ -51,8 +56,10 @@ for (const country of countries) {
   }
 }
 
-export const getCountryDisplayName = (countryCode: string) =>
-  displayNames.get(countryCode.toUpperCase()) ?? countryCode.toUpperCase();
+export const getCountryDisplayName = (countryCode: string, locale: BotLocale = "en") =>
+  localizedNames[locale].of(countryCode.toUpperCase()) ??
+  displayNames.get(countryCode.toUpperCase()) ??
+  countryCode.toUpperCase();
 
 export const getCountryNumericId = (countryCode: string) =>
   numericByAlpha2.get(countryCode.toUpperCase());

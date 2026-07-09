@@ -9,6 +9,7 @@ import {
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { upsertPlayer } from "../repositories/core-repository.ts";
 import { removeMultiplierJobsForGame, runIdleMultiplierCheck } from "../jobs/queues.ts";
+import { messages } from "../i18n/messages.ts";
 
 type ActiveDbGame = {
   gameId: string;
@@ -39,20 +40,20 @@ const deny = async (message: Message<true>, reason: string) => {
 const authorize = async (message: Message<true>) => {
   const rules = await loadRules(true);
   if (!rules.testModeEnabled) {
-    return { ok: false as const, reason: "Test mode is disabled." };
+    return { ok: false as const, reason: messages.test.modeDisabled };
   }
 
   if (message.channel.id !== rules.testChannelId) {
     return {
       ok: false as const,
-      reason: "Test utilities are only available in the configured test channel.",
+      reason: messages.test.onlyInTestChannel,
     };
   }
 
   if (!rules.testAdminUserIds.includes(message.author.id)) {
     return {
       ok: false as const,
-      reason: "Test utilities are not enabled for you in this channel.",
+      reason: messages.test.notEnabledForUser,
     };
   }
 
@@ -119,7 +120,7 @@ const cancelOrFailGame = async (
   const { state, dbGame } = await getActiveContext(message);
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
-    await message.reply("No active game in this test channel.");
+    await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
   }
 
@@ -139,7 +140,7 @@ const cancelOrFailGame = async (
   await clearGameKeys(message.guild.id, message.channel.id, gameId);
   await removeMultiplierJobsForGame(gameId);
   await message.reply(
-    status === "cancelled" ? `Cancelled test game ${gameId}.` : "Reset test game state.",
+    status === "cancelled" ? messages.test.cancelledGame(gameId) : messages.test.resetGameState,
   );
   return true;
 };
@@ -148,27 +149,26 @@ const statusCommand = async (message: Message<true>) => {
   const { state, dbGame, redisMissingButDbActive } = await getActiveContext(message);
   const wrongCountries = state ? await getWrongCountries(state.gameId) : [];
   const target = dbGame
-    ? `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode)}`
-    : "None";
+    ? `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`
+    : undefined;
 
   await message.reply(
-    [
-      `Test mode: **enabled**`,
-      `Test channel: **yes**`,
-      `Caller admin: **yes**`,
-      dbGame ? `Game: **${dbGame.gameId}** (${dbGame.status})` : "Game: **none**",
-      dbGame ? `Game master: <@${dbGame.gameMasterDiscordUserId}>` : undefined,
-      `Wrong countries: **${wrongCountries.length}**`,
-      `Current multiplier: **${(state?.currentMultiplier ?? dbGame?.currentMultiplier ?? 1).toFixed(2)}x**`,
-      `Test game: **${state?.isTest ?? dbGame?.isTest ?? false}**`,
-      redisMissingButDbActive
-        ? "Redis active state is missing, but an active database game exists."
-        : undefined,
-      dbGame ? `Target: **${target}**` : undefined,
-      dbGame?.regionName ? `Region: **${dbGame.regionName}**` : undefined,
-    ]
-      .filter(Boolean)
-      .join("\n"),
+    messages.test.status({
+      game:
+        dbGame && target
+          ? {
+              id: dbGame.gameId,
+              status: dbGame.status,
+              gameMasterDiscordUserId: dbGame.gameMasterDiscordUserId,
+              target,
+              regionName: dbGame.regionName,
+            }
+          : undefined,
+      wrongCountryCount: wrongCountries.length,
+      currentMultiplier: state?.currentMultiplier ?? dbGame?.currentMultiplier ?? 1,
+      isTestGame: state?.isTest ?? dbGame?.isTest ?? false,
+      redisMissingButDbActive,
+    }),
   );
   return true;
 };
@@ -176,21 +176,20 @@ const statusCommand = async (message: Message<true>) => {
 const revealCommand = async (message: Message<true>) => {
   const { dbGame, redisMissingButDbActive } = await getActiveContext(message);
   if (!dbGame) {
-    await message.reply("No active game in this test channel.");
+    await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
   }
 
   await message.reply(
-    [
-      redisMissingButDbActive
-        ? "Redis active state is missing, but an active database game exists."
-        : undefined,
-      `Answer: **${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode)}**`,
-      dbGame.regionName ? `Region: **${dbGame.regionName}**` : undefined,
-      `Coordinates: **${dbGame.latitude.toFixed(5)}, ${dbGame.longitude.toFixed(5)}**`,
-    ]
-      .filter(Boolean)
-      .join("\n"),
+    messages.test.reveal({
+      redisMissingButDbActive,
+      answer: `${dbGame.countryCode} - ${
+        dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)
+      }`,
+      regionName: dbGame.regionName,
+      latitude: dbGame.latitude,
+      longitude: dbGame.longitude,
+    }),
   );
   return true;
 };
@@ -199,31 +198,29 @@ const tickCommand = async (message: Message<true>) => {
   const { state, dbGame } = await getActiveContext(message);
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
-    await message.reply("No active game in this test channel.");
+    await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
   }
 
   const result = await runIdleMultiplierCheck(message.client, gameId, { force: true });
   if (result.status === "missing-game") {
-    await message.reply("No active game in this test channel.");
+    await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
   }
 
   if (result.status === "capped") {
-    await message.reply(
-      `Current multiplier is already capped at ${result.currentMultiplier.toFixed(2)}x.`,
-    );
+    await message.reply(messages.test.multiplierCapped(result.currentMultiplier));
     return true;
   }
 
   if (result.status === "increased") {
     await message.reply(
-      `Forced multiplier tick: ${result.previousMultiplier.toFixed(2)}x -> ${result.newMultiplier.toFixed(2)}x.`,
+      messages.test.forcedMultiplierTick(result.previousMultiplier, result.newMultiplier),
     );
     return true;
   }
 
-  await message.reply("Multiplier tick did not change the active game.");
+  await message.reply(messages.test.multiplierNoChange);
   return true;
 };
 
@@ -255,8 +252,6 @@ export const handleTestCommand = async (message: Message<true>, args: string[]) 
     return cancelOrFailGame(message, "failed", "test reset");
   }
 
-  await message.reply(
-    "Unknown test command. Use `!test status`, `cancel`, `reveal`, `tick`, or `reset`.",
-  );
+  await message.reply(messages.test.unknownCommand);
   return true;
 };

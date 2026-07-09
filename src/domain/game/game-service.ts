@@ -33,6 +33,7 @@ import { keys } from "../../redis/keys.ts";
 import { renderMap } from "../maps/map-renderer.ts";
 import { removeMultiplierJobsForGame } from "../../jobs/queues.ts";
 import { canBypassGameMasterBlock } from "./test-mode.ts";
+import { messages } from "../../i18n/messages.ts";
 
 export type StartGameInput = {
   guildChannel: GuildBasedChannel;
@@ -180,7 +181,7 @@ export const startGame = async ({
 
   return {
     state,
-    countryName: geocode.countryName ?? getCountryDisplayName(geocode.countryCode),
+    countryName: geocode.countryName ?? getCountryDisplayName(geocode.countryCode, messages.locale),
     regionName: geocode.regionName,
   };
 };
@@ -464,7 +465,7 @@ const completeGame = async (
   const hash = mapHash(wrongCountries, state.targetCountryCode);
   const cached = await getCachedMap(state.gameId, "world", hash);
   const map = cached
-    ? { buffer: cached, filename: "world-guesses.png" }
+    ? { buffer: cached, filename: messages.filenames.worldGuesses }
     : renderMap({
         wrongCountries,
         correctCountry: state.targetCountryCode,
@@ -477,11 +478,19 @@ const completeGame = async (
 
   await message.channel.send({
     content: [
-      `<@${message.author.id}> found the country: **${getCountryDisplayName(state.targetCountryCode)}**.`,
+      messages.game.foundCountry(
+        message.author.id,
+        getCountryDisplayName(state.targetCountryCode, messages.locale),
+      ),
       state.isTest
-        ? "Test game: no points awarded."
-        : `Reward: **${points}** points (${state.basePoints} x ${state.currentMultiplier.toFixed(2)} x ${state.gmMultiplier.toFixed(2)}).`,
-      "Location data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.",
+        ? messages.game.testNoPoints
+        : messages.game.reward(
+            points,
+            state.basePoints,
+            state.currentMultiplier,
+            state.gmMultiplier,
+          ),
+      messages.game.osmAttribution,
     ].join("\n"),
     files: [attachment],
   });
