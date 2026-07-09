@@ -7,4 +7,5 @@ export const keys = {
     `game:${gameId}:map-cache:${viewport}:${hash}`,
   pendingStart: (guildId: string, userId: string) => `pending-start:${guildId}:${userId}`,
   pendingDmStart: (userId: string) => `pending-dm-start:${userId}`,
+  pendingScreenshot: (pendingKey: string) => `${pendingKey}:screenshot`,
 };

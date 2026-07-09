@@ -1,31 +1,55 @@
-import type { Client, Message, TextBasedChannel } from "discord.js";
+import type { Attachment, Client, Message, TextBasedChannel } from "discord.js";
+import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../../config/rules.ts";
 import {
   findGoogleMapsUrl,
   parseGoogleMapsUrl,
 } from "../../domain/geocoding/google-maps-parser.ts";
 import { startGame, handleGuess } from "../../domain/game/game-service.ts";
-import { getActiveGameState } from "../../domain/game/active-game-state.ts";
+import { getActiveGameState, updateGameState } from "../../domain/game/active-game-state.ts";
 import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import { handleCommand, isCommandMessage } from "../../commands/command-registry.ts";
 import { scheduleIdleMultiplier } from "../../jobs/queues.ts";
 import { logger } from "../../util/logger.ts";
+import { sqlClient } from "../../db/client.ts";
 
 type PendingStart = {
   googleMapsUrl?: string;
   screenshotUrl?: string;
+  screenshotName?: string;
   guildId?: string;
   channelId?: string;
 };
 
-const firstImageAttachmentUrl = (message: Message) =>
-  message.attachments.find(
-    (attachment) =>
-      attachment.contentType?.startsWith("image/") ||
-      /\.(png|jpe?g|webp|gif)$/i.test(attachment.url),
-  )?.url;
+type CapturedScreenshot = {
+  url: string;
+  name: string;
+  buffer: Buffer;
+};
+
+const isImageAttachment = (attachment: Attachment) =>
+  Boolean(
+    attachment.contentType?.startsWith("image/") ||
+      /\.(png|jpe?g|webp|gif)$/i.test(attachment.name || attachment.url),
+  );
+
+const firstImageAttachment = (message: Message) =>
+  message.attachments.find((attachment) => isImageAttachment(attachment));
+
+const downloadScreenshot = async (attachment: Attachment): Promise<CapturedScreenshot> => {
+  const response = await fetch(attachment.url);
+  if (!response.ok) {
+    throw new Error(`Failed to download screenshot (${response.status})`);
+  }
+
+  return {
+    url: attachment.url,
+    name: attachment.name || "screenshot.png",
+    buffer: Buffer.from(await response.arrayBuffer()),
+  };
+};
 
 const getPending = async (key: string): Promise<PendingStart> => {
   const raw = await redis.get(key);
@@ -36,7 +60,29 @@ const setPending = async (key: string, pending: PendingStart, ttlSeconds: number
   await redis.set(key, JSON.stringify(pending), "EX", ttlSeconds);
 };
 
-const completeStartIfReady = async (client: Client, message: Message, pending: PendingStart) => {
+const storePendingScreenshot = async (
+  pendingKey: string,
+  screenshot: CapturedScreenshot,
+  ttlSeconds: number,
+) => {
+  await redis.set(keys.pendingScreenshot(pendingKey), screenshot.buffer, "EX", ttlSeconds);
+};
+
+const loadPendingScreenshot = async (pendingKey: string) => {
+  const buffer = await redis.getBuffer(keys.pendingScreenshot(pendingKey));
+  return buffer ?? undefined;
+};
+
+const clearPending = async (pendingKey: string) => {
+  await redis.del(pendingKey, keys.pendingScreenshot(pendingKey));
+};
+
+const completeStartIfReady = async (
+  client: Client,
+  message: Message,
+  pendingKey: string,
+  pending: PendingStart,
+) => {
   const rules = await loadRules();
   if (!pending.googleMapsUrl || !pending.screenshotUrl) {
     return false;
@@ -66,6 +112,10 @@ const completeStartIfReady = async (client: Client, message: Message, pending: P
     return true;
   }
 
+  const screenshotBuffer =
+    (await loadPendingScreenshot(pendingKey)) ??
+    Buffer.from(await (await fetch(pending.screenshotUrl)).arrayBuffer());
+
   const started = await startGame({
     guildChannel: channel,
     gameMaster: message.author,
@@ -74,10 +124,26 @@ const completeStartIfReady = async (client: Client, message: Message, pending: P
   });
 
   if (channel.isSendable()) {
-    await channel.send({
+    const filename = pending.screenshotName || "screenshot.png";
+    const announcement = await channel.send({
       content: `<@${message.author.id}> started a new location game. Guess the country by typing its name or ISO code.`,
-      embeds: [{ image: { url: pending.screenshotUrl } }],
+      files: [new AttachmentBuilder(screenshotBuffer, { name: filename })],
     });
+
+    const durableScreenshotUrl = announcement.attachments.first()?.url;
+    if (durableScreenshotUrl) {
+      started.state.screenshotUrl = durableScreenshotUrl;
+      await updateGameState(started.state);
+      await sqlClient`
+        UPDATE game
+        SET
+          screenshot_url = ${durableScreenshotUrl},
+          screenshot_message_id = ${announcement.id},
+          announcement_message_id = ${announcement.id},
+          updated_at = now()
+        WHERE id = ${started.state.gameId}
+      `;
+    }
   }
 
   await scheduleIdleMultiplier(started.state.gameId, rules.idleMultiplierIntervalSeconds * 1000);
@@ -108,17 +174,32 @@ const handleDmStart = async (client: Client, message: Message) => {
   const key = keys.pendingDmStart(message.author.id);
   const pending = await getPending(key);
   pending.googleMapsUrl = findGoogleMapsUrl(message.content) ?? pending.googleMapsUrl;
-  pending.screenshotUrl = firstImageAttachmentUrl(message) ?? pending.screenshotUrl;
   pending.channelId = rules.gameChannelId;
 
-  const completed = await completeStartIfReady(client, message, pending);
+  const attachment = firstImageAttachment(message);
+  if (attachment) {
+    const screenshot = await downloadScreenshot(attachment);
+    pending.screenshotUrl = screenshot.url;
+    pending.screenshotName = screenshot.name;
+    await storePendingScreenshot(key, screenshot, rules.pendingStartTtlSeconds);
+  }
+
+  const completed = await completeStartIfReady(client, message, key, pending);
   if (completed) {
-    await redis.del(key);
+    await clearPending(key);
     return;
   }
 
   await setPending(key, pending, rules.pendingStartTtlSeconds);
-  await message.reply("Got it. Send the missing Google Maps link or screenshot to start the game.");
+  if (pending.googleMapsUrl && !pending.screenshotUrl) {
+    await message.reply("Got it. Now send the screenshot to start the game.");
+    return;
+  }
+  if (pending.screenshotUrl && !pending.googleMapsUrl) {
+    await message.reply("Got it. Now send the Google Maps link to start the game.");
+    return;
+  }
+  await message.reply("Send a Google Maps link and a screenshot to start the game.");
 };
 
 const handleChannelStart = async (client: Client, message: Message<true>) => {
@@ -137,23 +218,33 @@ const handleChannelStart = async (client: Client, message: Message<true>) => {
   }
 
   const googleMapsUrl = findGoogleMapsUrl(message.content);
-  const screenshotUrl = firstImageAttachmentUrl(message);
-  if (!googleMapsUrl && !screenshotUrl) {
+  const attachment = firstImageAttachment(message);
+  const key = keys.pendingStart(message.guild.id, message.author.id);
+  const pending = await getPending(key);
+
+  // Channel start is link-first only. Ignore standalone images so memes/chat
+  // photos do not begin a pending game start.
+  if (!googleMapsUrl && !(attachment && pending.googleMapsUrl)) {
     return false;
   }
 
-  const key = keys.pendingStart(message.guild.id, message.author.id);
-  const pending = await getPending(key);
   pending.googleMapsUrl = googleMapsUrl ?? pending.googleMapsUrl;
-  pending.screenshotUrl = screenshotUrl ?? pending.screenshotUrl;
   pending.guildId = message.guild.id;
   pending.channelId = message.channel.id;
 
+  // Download before deleting so Discord attachment URLs remain usable.
+  if (attachment) {
+    const screenshot = await downloadScreenshot(attachment);
+    pending.screenshotUrl = screenshot.url;
+    pending.screenshotName = screenshot.name;
+    await storePendingScreenshot(key, screenshot, rules.pendingStartTtlSeconds);
+  }
+
   await message.delete().catch(() => undefined);
 
-  const completed = await completeStartIfReady(client, message, pending);
+  const completed = await completeStartIfReady(client, message, key, pending);
   if (completed) {
-    await redis.del(key);
+    await clearPending(key);
     return true;
   }
 

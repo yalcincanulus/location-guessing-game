@@ -82,7 +82,18 @@ export const handleCommand = async (message: Message<true>) => {
       return true;
     }
 
-    await message.channel.send({ embeds: [{ image: { url: state.screenshotUrl } }] });
+    const response = await fetch(state.screenshotUrl);
+    if (!response.ok) {
+      await message.reply("I could not load the current screenshot.");
+      return true;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const filename =
+      new URL(state.screenshotUrl).pathname.split("/").pop() || "screenshot.png";
+    await message.channel.send({
+      files: [new AttachmentBuilder(buffer, { name: filename })],
+    });
     return true;
   }
 
