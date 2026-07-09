@@ -24,11 +24,11 @@ const scaleViewport = (base: BaseMapViewport): MapViewport => ({
 const baseMapViewports: Record<string, BaseMapViewport> = {
   world: {
     name: "world",
-    width: 1200,
-    height: 650,
-    scale: 190,
-    translate: [600, 340],
-    center: [0, 10],
+    width: 1400,
+    height: 950,
+    scale: 220,
+    translate: [700, 590],
+    center: [0, 0],
   },
   europe: {
     name: "europe",

@@ -9,6 +9,7 @@ export const enMessages = {
   mapLegend: {
     wrongGuesses: "Wrong guesses",
     correct: "Correct",
+    location: "Location",
   },
   start: {
     gameChannelNotConfigured: "Game channel is not configured.",

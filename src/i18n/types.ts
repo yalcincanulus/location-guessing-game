@@ -48,6 +48,7 @@ export type BotMessages = {
   mapLegend: {
     wrongGuesses: string;
     correct: string;
+    location: string;
   };
   start: {
     gameChannelNotConfigured: string;

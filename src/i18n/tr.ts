@@ -9,6 +9,7 @@ export const trMessages = {
   mapLegend: {
     wrongGuesses: "Yanlış tahminler",
     correct: "Doğru",
+    location: "Konum",
   },
   start: {
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
@@ -129,7 +130,7 @@ export const trMessages = {
       [
         regionName ? `Bölge: **${regionName}**` : undefined,
         `Koordinatlar: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
-        `Harita: ${googleMapsUrl}`,
+        `Link: ${googleMapsUrl}`,
       ]
         .filter(Boolean)
         .join("\n"),

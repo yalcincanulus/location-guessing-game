@@ -498,7 +498,8 @@ const completeGame = async (
   await clearActiveGame(state);
   await removeMultiplierJobsForGame(state.gameId);
 
-  const hash = mapHash(wrongCountries, state.targetCountryCode);
+  const marker = latitude != null && longitude != null ? { latitude, longitude } : undefined;
+  const hash = mapHash(wrongCountries, state.targetCountryCode, marker);
   const cached = await getCachedMap(state.gameId, "world", hash);
   const map = cached
     ? { buffer: cached, filename: messages.filenames.worldGuesses }
@@ -506,6 +507,7 @@ const completeGame = async (
         wrongCountries,
         correctCountry: state.targetCountryCode,
         viewport: "world",
+        marker,
       });
   if (!cached) {
     await setCachedMap(state.gameId, "world", hash, map.buffer);

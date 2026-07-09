@@ -93,5 +93,12 @@ export const setCachedMap = async (
   await redis.set(keys.mapCache(gameId, viewport, hash), buffer, "EX", 3600);
 };
 
-export const mapHash = (wrongCountries: string[], correctCountry?: string) =>
-  [...wrongCountries].sort().join(",") + `|${correctCountry ?? ""}`;
+export const mapHash = (
+  wrongCountries: string[],
+  correctCountry?: string,
+  marker?: { latitude: number; longitude: number },
+) => {
+  const markerKey =
+    marker == null ? "" : `|${marker.latitude.toFixed(5)},${marker.longitude.toFixed(5)}`;
+  return [...wrongCountries].sort().join(",") + `|${correctCountry ?? ""}${markerKey}`;
+};

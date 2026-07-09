@@ -4,6 +4,8 @@ export type MapTheme = {
   countryBorder: string;
   wrong: string;
   correct: string;
+  locationMarker: string;
+  locationCrosshair: string;
   legendBackground: string;
   legendText: string;
 };
@@ -15,6 +17,8 @@ export const mapThemes = {
     countryBorder: "#475569",
     wrong: "#ef4444",
     correct: "#22c55e",
+    locationMarker: "#dc2626",
+    locationCrosshair: "#dc262699",
     legendBackground: "#0f172ae0",
     legendText: "#ffffff",
   },
@@ -24,6 +28,8 @@ export const mapThemes = {
     countryBorder: "#64748b",
     wrong: "#f87171",
     correct: "#4ade80",
+    locationMarker: "#ef4444",
+    locationCrosshair: "#ef444499",
     legendBackground: "#020617e6",
     legendText: "#f8fafc",
   },
@@ -33,6 +39,8 @@ export const mapThemes = {
     countryBorder: "#78716c",
     wrong: "#dc2626",
     correct: "#15803d",
+    locationMarker: "#b91c1c",
+    locationCrosshair: "#b91c1c99",
     legendBackground: "#292524e6",
     legendText: "#fafaf9",
   },
@@ -42,6 +50,8 @@ export const mapThemes = {
     countryBorder: "#cdd6f4",
     wrong: "#f38ba8",
     correct: "#a6e3a1",
+    locationMarker: "#f38ba8",
+    locationCrosshair: "#f38ba899",
     legendBackground: "#11111be6",
     legendText: "#cdd6f4",
   },
@@ -51,6 +61,8 @@ export const mapThemes = {
     countryBorder: "#64748b",
     wrong: "#9f1239",
     correct: "#059669",
+    locationMarker: "#ef4444",
+    locationCrosshair: "#ef444499",
     legendBackground: "#0f172a",
     legendText: "#f1f5f9",
   },

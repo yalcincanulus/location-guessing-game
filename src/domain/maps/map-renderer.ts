@@ -33,16 +33,24 @@ const countryFeatures = (
   }
 ).features;
 
+export type MapCoordinates = {
+  latitude: number;
+  longitude: number;
+};
+
 export type RenderMapOptions = {
   wrongCountries: string[];
   correctCountry?: string;
   viewport?: string;
+  /** Exact answer location; draws a red crosshair + dot when provided. */
+  marker?: MapCoordinates;
 };
 
 export const renderMap = ({
   wrongCountries,
   correctCountry,
   viewport = "world",
+  marker,
 }: RenderMapOptions) => {
   const preset = mapViewports[viewport] ?? mapViewports.world;
   if (!preset) {
@@ -82,10 +90,42 @@ export const renderMap = ({
     context.stroke();
   }
 
+  if (marker) {
+    const projected = projection([marker.longitude, marker.latitude]);
+    if (projected) {
+      const [x, y] = projected;
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        context.strokeStyle = theme.locationCrosshair;
+        context.lineWidth = 1.25 * ui;
+
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(preset.width, y);
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x, preset.height);
+        context.stroke();
+
+        const radius = 5.5 * ui;
+        context.fillStyle = theme.locationMarker;
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
+
+        context.strokeStyle = "#ffffffcc";
+        context.lineWidth = 1.5 * ui;
+        context.stroke();
+      }
+    }
+  }
+
   context.font = `${16 * ui}px Arial, sans-serif`;
   const legendItems = [
     { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
     ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
+    ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
   ];
   const rowHeight = 26 * ui;
   const paddingX = 16 * ui;
