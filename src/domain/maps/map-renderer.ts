@@ -121,7 +121,8 @@ export const renderMap = ({
     }
   }
 
-  context.font = `${16 * ui}px Arial, sans-serif`;
+  // DejaVu is installed in the Alpine image; Arial is a host/dev fallback.
+  context.font = `${16 * ui}px "DejaVu Sans", Arial, sans-serif`;
   const legendItems = [
     { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
     ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),

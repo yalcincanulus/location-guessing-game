@@ -14,7 +14,7 @@ RUN bun build --compile --outfile location-game ./index.ts
 
 FROM alpine:3.24
 
-RUN apk add --no-cache ca-certificates libstdc++ libgcc
+RUN apk add --no-cache ca-certificates libstdc++ libgcc fontconfig font-dejavu
 
 WORKDIR /app
 
