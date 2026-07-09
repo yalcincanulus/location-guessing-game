@@ -10,7 +10,9 @@ import {
   closeQueues,
   logWorkerError,
   recoverActiveMultiplierJobs,
+  recoverStartReservationJobs,
   startMultiplierWorker,
+  startReservationWorker,
 } from "../jobs/queues.ts";
 
 export const startBot = async () => {
@@ -29,9 +31,12 @@ export const startBot = async () => {
     partials: [Partials.Channel, Partials.Message],
   });
 
-  const worker = startMultiplierWorker(client);
-  logWorkerError(worker);
+  const multiplierWorker = startMultiplierWorker(client);
+  const reservationWorker = startReservationWorker(client);
+  logWorkerError(multiplierWorker);
+  logWorkerError(reservationWorker);
   await recoverActiveMultiplierJobs();
+  await recoverStartReservationJobs();
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("Discord bot ready", { tag: readyClient.user.tag });
@@ -41,7 +46,8 @@ export const startBot = async () => {
 
   const shutdown = async () => {
     logger.info("Shutting down");
-    worker.close().catch(() => undefined);
+    multiplierWorker.close().catch(() => undefined);
+    reservationWorker.close().catch(() => undefined);
     await client.destroy();
     await closeQueues().catch(() => undefined);
     await closeRedis().catch(() => undefined);

@@ -1,12 +1,22 @@
 import { Queue, Worker } from "bullmq";
 import type { Client } from "discord.js";
 import { env } from "../config/env.ts";
-import { getGameStateById, updateGameState } from "../domain/game/active-game-state.ts";
+import {
+  getActiveGameState,
+  getGameStateById,
+  updateGameState,
+} from "../domain/game/active-game-state.ts";
+import {
+  clearPendingStart,
+  clearStartReservation,
+  getStartReservation,
+} from "../domain/game/start-reservation.ts";
 import { loadRules } from "../config/rules.ts";
 import { clampMultiplier } from "../domain/game/scoring.ts";
 import { sqlClient } from "../db/client.ts";
 import { logger } from "../util/logger.ts";
 import { redis } from "../redis/client.ts";
+import { keys } from "../redis/keys.ts";
 import { messages } from "../i18n/messages.ts";
 
 const redisUrl = new URL(env.redisUrl);
@@ -23,6 +33,13 @@ export const multiplierQueue = new Queue("game-multiplier", {
   connection: bullConnection,
 });
 
+export const startReservationQueue = new Queue("game-start-reservation", {
+  connection: bullConnection,
+});
+
+const startReservationJobId = (guildId: string, channelId: string) =>
+  `start-reservation:${guildId}:${channelId}`;
+
 export const scheduleIdleMultiplier = async (gameId: string, delayMs: number) => {
   const dueAt = Date.now() + Math.max(1000, delayMs);
   await multiplierQueue.add(
@@ -35,6 +52,71 @@ export const scheduleIdleMultiplier = async (gameId: string, delayMs: number) =>
       removeOnFail: 100,
     },
   );
+};
+
+export const scheduleStartReservationExpiry = async (
+  guildId: string,
+  channelId: string,
+  userId: string,
+  pendingKey: string,
+  missing: "screenshot" | "link",
+  delayMs: number,
+) => {
+  const jobId = startReservationJobId(guildId, channelId);
+  const existing = await startReservationQueue.getJob(jobId);
+  if (existing) {
+    await existing.remove().catch(() => undefined);
+  }
+
+  await startReservationQueue.add(
+    "expire-reservation",
+    { guildId, channelId, userId, pendingKey, missing },
+    {
+      jobId,
+      delay: Math.max(1000, delayMs),
+      removeOnComplete: true,
+      removeOnFail: 100,
+    },
+  );
+};
+
+export const cancelStartReservationExpiry = async (guildId: string, channelId: string) => {
+  const job = await startReservationQueue.getJob(startReservationJobId(guildId, channelId));
+  if (job) {
+    await job.remove().catch(() => undefined);
+  }
+};
+
+export const expireStartReservation = async (
+  client: Client,
+  guildId: string,
+  channelId: string,
+  userId: string,
+  pendingKey: string,
+  missing: "screenshot" | "link",
+) => {
+  const reservation = await getStartReservation(guildId, channelId);
+  if (reservation && reservation.userId !== userId) {
+    return;
+  }
+
+  const active = await getActiveGameState(guildId, channelId);
+  if (active) {
+    await clearStartReservation(guildId, channelId);
+    return;
+  }
+
+  // Reservation key may already have expired; still clear pending and announce
+  // using the job payload so the channel is unblocked.
+  await clearPendingStart(reservation?.pendingKey ?? pendingKey);
+  await clearStartReservation(guildId, channelId);
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (channel?.isSendable()) {
+    await channel.send(
+      messages.start.startReservationExpired(userId, reservation?.missing ?? missing),
+    );
+  }
 };
 
 export const recoverActiveMultiplierJobs = async () => {
@@ -65,6 +147,46 @@ export const recoverActiveMultiplierJobs = async () => {
     const interval = rules.idleMultiplierIntervalSeconds * 1000;
     await scheduleIdleMultiplier(gameId, Math.max(1000, interval - elapsed));
     logger.info("Recovered missing multiplier job", { gameId });
+  }
+};
+
+export const recoverStartReservationJobs = async () => {
+  const reservationKeys = await redis.keys("start-reservation:*");
+  const delayedJobs = await startReservationQueue.getDelayed();
+  const scheduled = new Set(
+    delayedJobs.map((job) =>
+      startReservationJobId(String(job.data?.guildId), String(job.data?.channelId)),
+    ),
+  );
+
+  for (const reservationKey of reservationKeys) {
+    const parts = reservationKey.split(":");
+    // start-reservation:{guildId}:{channelId}
+    if (parts.length < 3) {
+      continue;
+    }
+    const guildId = parts[1]!;
+    const channelId = parts.slice(2).join(":");
+    const jobId = startReservationJobId(guildId, channelId);
+    if (scheduled.has(jobId)) {
+      continue;
+    }
+
+    const reservation = await getStartReservation(guildId, channelId);
+    if (!reservation) {
+      continue;
+    }
+
+    const ttl = await redis.ttl(keys.startReservation(guildId, channelId));
+    await scheduleStartReservationExpiry(
+      guildId,
+      channelId,
+      reservation.userId,
+      reservation.pendingKey,
+      reservation.missing,
+      Math.max(1000, ttl > 0 ? ttl * 1000 : 1000),
+    );
+    logger.info("Recovered missing start reservation expiry job", { guildId, channelId });
   }
 };
 
@@ -156,8 +278,22 @@ export const startMultiplierWorker = (client: Client) =>
     { connection: bullConnection },
   );
 
+export const startReservationWorker = (client: Client) =>
+  new Worker(
+    "game-start-reservation",
+    async (job) => {
+      const guildId = String(job.data.guildId);
+      const channelId = String(job.data.channelId);
+      const userId = String(job.data.userId);
+      const pendingKey = String(job.data.pendingKey);
+      const missing = job.data.missing === "link" ? "link" : "screenshot";
+      await expireStartReservation(client, guildId, channelId, userId, pendingKey, missing);
+    },
+    { connection: bullConnection },
+  );
+
 export const closeQueues = async () => {
-  await multiplierQueue.close();
+  await Promise.all([multiplierQueue.close(), startReservationQueue.close()]);
 };
 
 export const logWorkerError = (worker: Worker) => {

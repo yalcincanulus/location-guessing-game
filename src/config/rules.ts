@@ -10,6 +10,7 @@ export type GameRules = {
   maxConsecutiveGuesses: number;
   consecutiveGuessIdleResetSeconds: number;
   pendingStartTtlSeconds: number;
+  startReservationSeconds: number;
   baseWinPoints: number;
   currentMultiplierMax: number;
   gmMultiplierMax: number;
@@ -62,6 +63,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
       max_consecutive_guesses,
       consecutive_guess_idle_reset_seconds,
       pending_start_ttl_seconds,
+      start_reservation_seconds,
       base_win_points,
       current_multiplier_max,
       gm_multiplier_max,
@@ -92,6 +94,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
     maxConsecutiveGuesses: row.max_consecutive_guesses,
     consecutiveGuessIdleResetSeconds: row.consecutive_guess_idle_reset_seconds,
     pendingStartTtlSeconds: row.pending_start_ttl_seconds,
+    startReservationSeconds: row.start_reservation_seconds,
     baseWinPoints: row.base_win_points,
     currentMultiplierMax: numberValue(row.current_multiplier_max),
     gmMultiplierMax: numberValue(row.gm_multiplier_max),

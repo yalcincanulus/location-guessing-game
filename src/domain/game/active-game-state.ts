@@ -21,12 +21,18 @@ export type ActiveGameState = {
 export const getActiveGameId = async (guildId: string, channelId: string) =>
   redis.get(keys.activeGame(guildId, channelId));
 
-export const setActiveGame = async (state: ActiveGameState) => {
-  await redis
-    .multi()
-    .set(keys.activeGame(state.guildId, state.channelId), state.gameId)
-    .set(keys.gameState(state.gameId), JSON.stringify(state))
-    .exec();
+export const setActiveGame = async (state: ActiveGameState): Promise<boolean> => {
+  const claimed = await redis.set(
+    keys.activeGame(state.guildId, state.channelId),
+    state.gameId,
+    "NX",
+  );
+  if (claimed !== "OK") {
+    return false;
+  }
+
+  await redis.set(keys.gameState(state.gameId), JSON.stringify(state));
+  return true;
 };
 
 export const getActiveGameState = async (guildId: string, channelId: string) => {

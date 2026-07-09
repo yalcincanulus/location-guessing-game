@@ -33,9 +33,14 @@ export const enMessages = {
       ].join("\n");
     },
     needsVerifiedRole: "You need the verified role to start games.",
-    nowSendScreenshot: "Got it. Now send the screenshot to start the game.",
-    nowSendGoogleMapsLink: "Got it. Now send the Google Maps link to start the game.",
-    sendLinkAndScreenshot: "Send a Google Maps link and a screenshot to start the game.",
+    startingWaitingForScreenshot: (userId) =>
+      `<@${userId}> is starting a new game. Waiting for screenshot.`,
+    startingWaitingForLink: (userId) =>
+      `<@${userId}> is starting a new game. Waiting for Google Maps link.`,
+    startReservationExpired: (userId, missing) =>
+      missing === "screenshot"
+        ? `<@${userId}> failed to add a screenshot in time. A new game can be started.`
+        : `<@${userId}> failed to add a Google Maps link in time. A new game can be started.`,
   },
   commands: {
     noActiveGameInChannel: "No active game in this channel.",

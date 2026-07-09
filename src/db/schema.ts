@@ -33,6 +33,7 @@ export const rule = snakeCase.table("rule", {
   maxConsecutiveGuesses: integer().notNull().default(6),
   consecutiveGuessIdleResetSeconds: integer().notNull().default(1800),
   pendingStartTtlSeconds: integer().notNull().default(1800),
+  startReservationSeconds: integer().notNull().default(60),
   baseWinPoints: integer().notNull().default(100),
   currentMultiplierMax: numeric({ precision: 6, scale: 2 }).notNull().default("2.00"),
   gmMultiplierMax: numeric({ precision: 6, scale: 2 }).notNull().default("3.00"),

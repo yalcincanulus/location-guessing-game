@@ -33,11 +33,14 @@ export const trMessages = {
       ].join("\n");
     },
     needsVerifiedRole: "Oyun başlatmak için doğrulanmış role sahip olman gerekiyor.",
-    nowSendScreenshot: "Tamam. Oyunu başlatmak için şimdi ekran görüntüsünü gönder.",
-    nowSendGoogleMapsLink:
-      "Tamam. Oyunu başlatmak için şimdi Google Haritalar bağlantısını gönder.",
-    sendLinkAndScreenshot:
-      "Oyunu başlatmak için bir Google Haritalar bağlantısı ve ekran görüntüsü gönder.",
+    startingWaitingForScreenshot: (userId) =>
+      `<@${userId}> yeni bir oyun başlatıyor. Ekran görüntüsü bekleniyor.`,
+    startingWaitingForLink: (userId) =>
+      `<@${userId}> yeni bir oyun başlatıyor. Google Haritalar bağlantısı bekleniyor.`,
+    startReservationExpired: (userId, missing) =>
+      missing === "screenshot"
+        ? `<@${userId}> zamanında ekran görüntüsü eklemedi. Yeni bir oyun başlatılabilir.`
+        : `<@${userId}> zamanında Google Haritalar bağlantısı eklemedi. Yeni bir oyun başlatılabilir.`,
   },
   commands: {
     noActiveGameInChannel: "Bu kanalda aktif oyun yok.",

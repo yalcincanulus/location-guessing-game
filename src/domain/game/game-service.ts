@@ -183,7 +183,19 @@ export const startGame = async ({
     isTest: isTestGame,
   };
 
-  await setActiveGame(state);
+  const claimed = await setActiveGame(state);
+  if (!claimed) {
+    await sqlClient`
+      UPDATE game
+      SET
+        status = 'cancelled',
+        cancel_reason = 'lost_active_slot_race',
+        ended_at = now(),
+        updated_at = now()
+      WHERE id = ${gameId}
+    `;
+    throw new Error("Another game became active in this channel");
+  }
 
   return {
     state,

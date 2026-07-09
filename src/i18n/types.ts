@@ -63,9 +63,9 @@ export type BotMessages = {
       },
     ) => string;
     needsVerifiedRole: string;
-    nowSendScreenshot: string;
-    nowSendGoogleMapsLink: string;
-    sendLinkAndScreenshot: string;
+    startingWaitingForScreenshot: (userId: string) => string;
+    startingWaitingForLink: (userId: string) => string;
+    startReservationExpired: (userId: string, missing: "screenshot" | "link") => string;
   };
   commands: {
     noActiveGameInChannel: string;

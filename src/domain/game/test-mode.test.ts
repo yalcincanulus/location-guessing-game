@@ -9,6 +9,7 @@ const baseRules: GameRules = {
   maxConsecutiveGuesses: 6,
   consecutiveGuessIdleResetSeconds: 1800,
   pendingStartTtlSeconds: 1800,
+  startReservationSeconds: 60,
   baseWinPoints: 100,
   currentMultiplierMax: 2,
   gmMultiplierMax: 3,
