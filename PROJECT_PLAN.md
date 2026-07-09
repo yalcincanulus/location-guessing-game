@@ -15,6 +15,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Tests implemented
 - [ ] Deployment documented
 
+
+
 ## Implementation Notes
 
 - [x] `bun run check` passes.
@@ -22,6 +24,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] `.env` currently points `DATABASE_URL` at port `5432`, but the detected Docker port mapping is `6432->5432`. Normal app startup needs `DATABASE_URL` corrected to port `6432` unless the Postgres mapping changes.
 - [ ] Discord runtime was not live-tested because `DISCORD_TOKEN` and `DISCORD_GAME_CHANNEL_ID` are not currently present in `.env`.
 - [ ] Map rendering currently outputs SVG attachments generated from `world-atlas`, `topojson-client`, and `d3-geo`. If strict PNG output is required, add an SVG-to-PNG rasterization step compatible with Bun deployment.
+
+
 
 ## Confirmed Stack
 
@@ -35,6 +39,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - Map rendering: `d3-geo`, `topojson-client`, `world-atlas`
 - Image processing: `Bun.Image` / Bun image pipeline where needed, not Sharp
 
+
+
 ## Source Notes
 
 - Nominatim reverse geocoding endpoint is `https://nominatim.openstreetmap.org/reverse?lat=<value>&lon=<value>&<params>`. Use WGS84 latitude and longitude, request JSON, and read `address.country_code` where available.
@@ -45,7 +51,11 @@ This document is the implementation roadmap for the multiplayer Discord location
 - Drizzle Kit v1 migration layout changed. Do not assume old `journal.json` migration behavior.
 - Bun image APIs are a chainable native pipeline for decoding, resizing, transforming, and encoding common image formats. Use this when image composition or output conversion needs native image work.
 
+
+
 ## Product Scope
+
+
 
 ### Core Game Loop
 
@@ -64,6 +74,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] The bot posts the final wrong-guesses map with wrong countries in red and the correct country in green.
 - [ ] A new game can start after the current game ends.
 
+
+
 ### Access Rules
 
 - [ ] Only users with the configured player role, for example `verified`, can start games.
@@ -73,6 +85,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Messages from unverified users are ignored or optionally deleted/configurable.
 - [ ] Role names and role IDs are configurable through database rules and/or environment defaults.
 
+
+
 ### Consecutive Guess Limit
 
 - [ ] Consecutive guesses per player are limited by configurable rule, for example `6`.
@@ -81,7 +95,11 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] If no guesses are made for the configured idle reset duration, for example `30 minutes`, consecutive guess limits are cleared.
 - [ ] Rate-limit state is held in Redis for the active game and persisted enough in Postgres to audit behavior.
 
+
+
 ## Game Starting Workflows
+
+
 
 ### Method 1: Direct Message Start
 
@@ -92,6 +110,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Once both link and screenshot exist, the bot starts the game in the configured game channel if no game is active.
 - [ ] If a game is already active, the bot keeps or rejects the pending submission according to configured queue policy.
 
+
+
 ### Method 2: Channel Start
 
 - [ ] When no active game exists, the bot detects a Google Maps link in the game channel.
@@ -101,12 +121,16 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] The bot deletes the screenshot message after capturing the Discord attachment URL.
 - [ ] Once both link and screenshot exist, the bot starts the game.
 
+
+
 ### Hybrid Start
 
 - [ ] If a user sends the Google Maps link in the channel, they can complete the submission with a screenshot by DM.
-- [ ] If a user sends the screenshot in the channel, they can complete the submission with a link by DM only if this path is explicitly enabled.
+- [ ] If a user sends the screenshot by DM, they can complete the submission with a link to the channel. Bot will delete the link from the channel immediately to prevent players from opening it.
 - [ ] Pending hybrid submissions are scoped by guild, channel, and user.
 - [ ] Expired pending starts are cleaned from Redis and optionally logged to Postgres.
+
+
 
 ### Start Validation
 
@@ -117,6 +141,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Reject starts outside configured game channel unless DM workflow is being used.
 - [ ] Reject or queue starts when a game is already active, based on configured rule.
 - [ ] Log failed start attempts for debugging and future moderation features.
+
+
 
 ## Google Maps Link Parsing
 
@@ -132,6 +158,8 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Store original URL, resolved URL, extracted lat/lon, extraction strategy, and extraction errors.
 - [ ] Do not post or log secret game coordinates to the public channel.
 
+
+
 ## Nominatim Reverse Geocoding
 
 - [ ] Implement a `GeocodingService` module.
@@ -145,7 +173,11 @@ This document is the implementation roadmap for the multiplayer Discord location
 - [ ] Store region/admin information when available, for example state, province, county, or `geocodejson` admin levels.
 - [ ] Add a manual correction path in the data model even if no command is implemented yet.
 
+
+
 ## Guess Detection
+
+
 
 ### Country Dictionary
 
@@ -167,6 +199,8 @@ src/domain/countries/countries.json
 src/domain/countries/normalize-country-guess.ts
 ```
 
+
+
 ### Message Parsing
 
 - [ ] Implement a `GuessParser` module.
@@ -180,6 +214,8 @@ src/domain/countries/normalize-country-guess.ts
 - [ ] Decide and document whether multi-country messages are ignored or the first valid country is accepted.
 - [ ] Add parser unit tests with English, Turkish, ISO code, alias, typo-adjacent, and normal-chat examples.
 
+
+
 ### Repeat Guesses
 
 - [ ] Track all canonical wrong country guesses for the active game in Redis.
@@ -188,7 +224,11 @@ src/domain/countries/normalize-country-guess.ts
 - [ ] Repeat guesses should not count as new wrong guesses for map coloring or game-master difficulty metrics unless the rule table says otherwise.
 - [ ] Repeat guesses may still count toward player total messages/guess attempts if configured.
 
+
+
 ## Discord Runtime
+
+
 
 ### Bot Setup
 
@@ -204,6 +244,8 @@ src/domain/countries/normalize-country-guess.ts
 - [ ] Add startup health logs.
 - [ ] Add graceful shutdown for Discord, Redis, BullMQ, and database connections.
 
+
+
 ### Message Pipeline
 
 - [ ] Route all message create events through a small dispatcher.
@@ -212,12 +254,16 @@ src/domain/countries/normalize-country-guess.ts
 - [ ] Keep message handlers idempotent where possible.
 - [ ] Add structured logging with guild ID, channel ID, user ID, message ID, and game ID.
 
+
+
 ### Reactions and Responses
 
 - [ ] React quickly before performing slower persistence when safe.
 - [ ] Handle missing permission errors for adding reactions, deleting messages, sending files, and reading DMs.
 - [ ] If a reaction fails, log the error and continue the game state transition where appropriate.
 - [ ] Avoid leaking target country, region, or coordinates in errors.
+
+
 
 ## Commands
 
@@ -266,7 +312,11 @@ Command implementation tasks:
 - [ ] `!ss` should repost the current screenshot URL from Discord, not reupload from local storage.
 - [ ] Add tests for alias routing.
 
+
+
 ## Map Rendering
+
+
 
 ### Requirements
 
@@ -278,6 +328,8 @@ Command implementation tasks:
 - [ ] Unguessed countries are neutral.
 - [ ] Ocean/background and borders should be readable in Discord dark and light themes.
 - [ ] Output should be a PNG attachment or supported image buffer.
+
+
 
 ### Implementation Plan
 
@@ -295,6 +347,8 @@ Command implementation tasks:
 - [ ] Invalidate map cache after each new non-repeat wrong guess and at game end.
 - [ ] Add visual regression/snapshot tests if practical.
 
+
+
 ### Region Presets
 
 - [ ] World
@@ -305,6 +359,8 @@ Command implementation tasks:
 - [ ] South America
 - [ ] Oceania
 - [ ] Optional future: Middle East, Balkans, Scandinavia, Caribbean
+
+
 
 ## Active Game State
 
@@ -324,6 +380,8 @@ pending-start:{guildId}:{userId}
 pending-dm-start:{userId}
 ```
 
+
+
 ### Redis State Tasks
 
 - [ ] Store active game ID by guild/channel.
@@ -337,6 +395,8 @@ pending-dm-start:{userId}
 - [ ] Store pending start submissions.
 - [ ] Apply TTLs to pending starts and cache keys.
 - [ ] Rehydrate active game state from Postgres if Redis is lost and a game is still marked active.
+
+
 
 ## Database Design
 
@@ -360,6 +420,8 @@ All table names must be singular.
 - [ ] `command_log`
 - [ ] `start_attempt`
 - [ ] `schema_event` or audit table, optional
+
+
 
 ### `rule`
 
@@ -388,6 +450,8 @@ Single-row game settings table.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `player`
 
 - [ ] `id`
@@ -398,6 +462,8 @@ Single-row game settings table.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `guild`
 
 - [ ] `id`
@@ -405,6 +471,8 @@ Single-row game settings table.
 - [ ] `name`
 - [ ] `created_at`
 - [ ] `updated_at`
+
+
 
 ### `channel`
 
@@ -415,6 +483,8 @@ Single-row game settings table.
 - [ ] `kind`
 - [ ] `created_at`
 - [ ] `updated_at`
+
+
 
 ### `game`
 
@@ -442,6 +512,8 @@ Single-row game settings table.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `location`
 
 - [ ] `id`
@@ -464,6 +536,8 @@ Single-row game settings table.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `guess`
 
 - [ ] `id`
@@ -480,6 +554,8 @@ Single-row game settings table.
 - [ ] `reaction`
 - [ ] `created_at`
 
+
+
 ### `player_game`
 
 Participation join table for future achievement work.
@@ -495,6 +571,8 @@ Participation join table for future achievement work.
 - [ ] `last_guess_at`
 - [ ] `created_at`
 - [ ] `updated_at`
+
+
 
 ### `player_stat`
 
@@ -516,6 +594,8 @@ Denormalized stats for fast profile/leaderboard reads.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `country_stat`
 
 - [ ] `id`
@@ -527,6 +607,8 @@ Denormalized stats for fast profile/leaderboard reads.
 - [ ] `created_at`
 - [ ] `updated_at`
 
+
+
 ### `game_master_milestone`
 
 - [ ] `id`
@@ -535,6 +617,8 @@ Denormalized stats for fast profile/leaderboard reads.
 - [ ] `game_id`
 - [ ] `earned_multiplier_increment`
 - [ ] `earned_at`
+
+
 
 ### `point_ledger`
 
@@ -550,6 +634,8 @@ Append-only point changes.
 - [ ] `points_delta`
 - [ ] `created_at`
 
+
+
 ### `multiplier_event`
 
 - [ ] `id`
@@ -561,6 +647,8 @@ Append-only point changes.
 - [ ] `message_id`
 - [ ] `created_at`
 
+
+
 ### Future Achievement Compatibility
 
 - [ ] Keep `player_game` as the base fact table for participation achievements.
@@ -570,6 +658,8 @@ Append-only point changes.
   - [ ] `achievement`
   - [ ] `player_achievement`
   - [ ] `achievement_progress`
+
+
 
 ## Drizzle ORM Plan
 
@@ -592,7 +682,11 @@ src/db/migrations/
 src/db/seed.ts
 ```
 
+
+
 ## Points and Multipliers
+
+
 
 ### Player Reward Formula
 
@@ -605,6 +699,8 @@ src/db/seed.ts
 - [ ] Store all three parts in the game and point ledger.
 - [ ] Decide rounding policy and store it in `rule`, default integer rounding.
 
+
+
 ### Current Multiplier
 
 - [ ] Current multiplier starts at `1x`.
@@ -615,6 +711,8 @@ src/db/seed.ts
 - [ ] Long-game bonus can be added after configured duration or guess count.
 - [ ] One-shot bonus can be added if desired, but must be clearly defined before implementation.
 - [ ] Every multiplier change is written to `multiplier_event`.
+
+
 
 ### Game Master Multiplier
 
@@ -633,6 +731,8 @@ src/db/seed.ts
 - [ ] Store milestone awards in `game_master_milestone`.
 - [ ] Snapshot `gm_multiplier_at_start` onto each game so reward math remains historically stable.
 
+
+
 ## BullMQ Jobs
 
 - [ ] Configure Redis connection shared with BullMQ.
@@ -648,7 +748,11 @@ src/db/seed.ts
 - [ ] Persist multiplier changes before announcing them.
 - [ ] Add tests around idle timing and max multiplier cap.
 
+
+
 ## Stats Tracking
+
+
 
 ### Global Stats
 
@@ -662,6 +766,8 @@ src/db/seed.ts
 - [ ] Average guesses per completed game.
 - [ ] Hardest games by wrong guess count.
 - [ ] Most successful game masters.
+
+
 
 ### Player Stats
 
@@ -678,12 +784,16 @@ src/db/seed.ts
 - [ ] GM multiplier.
 - [ ] Best game as GM by guess count.
 
+
+
 ### Stats Implementation
 
 - [ ] Write normalized fact rows first: `game`, `guess`, `player_game`, `point_ledger`.
 - [ ] Update denormalized `player_stat` and `country_stat` in the same transaction where practical.
 - [ ] Add a rebuild script to recompute denormalized stats from fact tables.
 - [ ] Add tests for stats updates after wrong guess, repeat guess, correct guess, and game completion.
+
+
 
 ## Leaderboards
 
@@ -700,6 +810,8 @@ src/db/seed.ts
 - [ ] Use paginated Discord responses if output is long.
 - [ ] Add tests for leaderboard query ordering.
 
+
+
 ## Profiles
 
 - [ ] `!profile`/`!profil` shows the requesting player's summary.
@@ -707,6 +819,8 @@ src/db/seed.ts
 - [ ] Include participated games, wins, win rate, games started, total guesses, points, GM multiplier, and best GM game.
 - [ ] Keep profile read path fast through `player_stat`.
 - [ ] Fall back to zero/default stats for new players.
+
+
 
 ## Error Handling and Moderation
 
@@ -718,7 +832,11 @@ src/db/seed.ts
 - [ ] Add admin-only command later for manually correcting country/region.
 - [ ] Add admin-only command later for rebuilding stats.
 
+
+
 ## Configuration
+
+
 
 ### Environment Variables
 
@@ -733,6 +851,8 @@ src/db/seed.ts
 - [ ] `NOMINATIM_EMAIL`
 - [ ] `NODE_ENV`
 
+
+
 ### Runtime Rules
 
 - [ ] Rules live in the `rule` table.
@@ -740,6 +860,8 @@ src/db/seed.ts
 - [ ] On startup, create the singleton rule row if it does not exist.
 - [ ] Cache rules in memory with a short TTL.
 - [ ] Add a future admin command to reload rules.
+
+
 
 ## Suggested Module Layout
 
@@ -797,7 +919,11 @@ src/
     fixtures/
 ```
 
+
+
 ## Testing Plan
+
+
 
 ### Unit Tests
 
@@ -814,6 +940,8 @@ src/
 - [ ] Command alias routing.
 - [ ] Map country-code mapping.
 
+
+
 ### Integration Tests
 
 - [ ] Database migrations apply cleanly.
@@ -824,6 +952,8 @@ src/
 - [ ] Stats update transaction is correct.
 - [ ] BullMQ idle multiplier job updates and announces exactly once.
 - [ ] Redis recovery path can restore active game from Postgres.
+
+
 
 ### Manual Discord Test Checklist
 
@@ -845,7 +975,11 @@ src/
 - [ ] `!ss` reposts screenshot.
 - [ ] Winner announcement includes point formula.
 
+
+
 ## Implementation Phases
+
+
 
 ### Phase 1: Foundation
 
@@ -857,6 +991,8 @@ src/
 - [ ] Add Discord client startup and ready logging.
 - [ ] Add graceful shutdown.
 
+
+
 ### Phase 2: Country and Location
 
 - [ ] Add country dictionary and aliases.
@@ -864,6 +1000,8 @@ src/
 - [ ] Add Google Maps parser.
 - [ ] Add Nominatim client.
 - [ ] Add location persistence.
+
+
 
 ### Phase 3: Game Lifecycle
 
@@ -874,6 +1012,8 @@ src/
 - [ ] Implement screenshot posting.
 - [ ] Implement game completion.
 
+
+
 ### Phase 4: Guessing
 
 - [ ] Implement message guess parser.
@@ -882,6 +1022,8 @@ src/
 - [ ] Implement consecutive guess limiter.
 - [ ] Implement wrong/correct/repeat reactions.
 - [ ] Persist guesses and participation.
+
+
 
 ### Phase 5: Maps
 
@@ -893,6 +1035,8 @@ src/
 - [ ] Wire `!map` and localized aliases.
 - [ ] Wire final map into winner announcement.
 
+
+
 ### Phase 6: Scoring and Jobs
 
 - [ ] Implement point formula.
@@ -901,6 +1045,8 @@ src/
 - [ ] Implement GM milestone calculation.
 - [ ] Implement point ledger transaction.
 - [ ] Announce reward formula on game end.
+
+
 
 ### Phase 7: Stats and Leaderboards
 
@@ -913,6 +1059,8 @@ src/
 - [ ] Implement points leaderboard.
 - [ ] Implement game-master hardest-games leaderboard.
 
+
+
 ### Phase 8: Hardening
 
 - [ ] Add integration tests.
@@ -921,6 +1069,8 @@ src/
 - [ ] Add deployment docs.
 - [ ] Add operational notes for Nominatim usage policy.
 - [ ] Add backup/recovery notes for Postgres and Redis.
+
+
 
 ## Open Decisions
 
@@ -933,6 +1083,8 @@ src/
 - [ ] Should map rendering use SVG-to-PNG conversion, direct canvas rendering, or a lightweight HTML/canvas render path?
 - [ ] Should public Nominatim be used in production, or should deployment include a configured geocoding provider/self-hosted Nominatim option?
 
+
+
 ## Non-Goals for Initial Implementation
 
 - [ ] No image storage outside Discord attachment URLs.
@@ -942,8 +1094,11 @@ src/
 - [ ] No manual country correction command initially, but schema must support corrections.
 - [ ] No multi-game-per-channel support initially unless explicitly added later.
 
+
+
 ## References
 
-- Nominatim reverse geocoding: https://nominatim.org/release-docs/latest/api/Reverse/
-- Drizzle ORM v1 changes: https://raw.githubusercontent.com/drizzle-team/drizzle-orm-docs/5886f5a1cc39b68b433f773a89fbab459b99a3c3/src/content/docs/pg/v0-v1-changes.mdx
-- Bun Image API: https://bun.com/docs/runtime/image
+- Nominatim reverse geocoding: [https://nominatim.org/release-docs/latest/api/Reverse/](https://nominatim.org/release-docs/latest/api/Reverse/)
+- Drizzle ORM v1 changes: [https://raw.githubusercontent.com/drizzle-team/drizzle-orm-docs/5886f5a1cc39b68b433f773a89fbab459b99a3c3/src/content/docs/pg/v0-v1-changes.mdx](https://raw.githubusercontent.com/drizzle-team/drizzle-orm-docs/5886f5a1cc39b68b433f773a89fbab459b99a3c3/src/content/docs/pg/v0-v1-changes.mdx)
+- Bun Image API: [https://bun.com/docs/runtime/image](https://bun.com/docs/runtime/image)
+

@@ -1,4 +1,4 @@
-import type { Attachment, Client, Message, TextBasedChannel } from "discord.js";
+import type { Attachment, Client, Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../../config/rules.ts";
 import {
@@ -155,6 +155,14 @@ const completeStartIfReady = async (
   return true;
 };
 
+const resolveGameChannel = async (client: Client, gameChannelId: string) => {
+  const channel = await client.channels.fetch(gameChannelId).catch(() => null);
+  if (!channel?.isTextBased() || !("guild" in channel) || !channel.guild) {
+    return null;
+  }
+  return channel;
+};
+
 const handleDmStart = async (client: Client, message: Message) => {
   const rules = await loadRules();
   if (!rules.gameChannelId) {
@@ -162,26 +170,35 @@ const handleDmStart = async (client: Client, message: Message) => {
     return;
   }
 
-  const guildId = rules.gameChannelId
-    ? ((await client.channels
-        .fetch(rules.gameChannelId)
-        .catch(() => null)) as TextBasedChannel | null)
-    : undefined;
-  const channel = guildId && "guild" in guildId ? guildId : undefined;
-  const member = channel?.guild
-    ? await channel.guild.members.fetch(message.author.id).catch(() => null)
-    : null;
+  const channel = await resolveGameChannel(client, rules.gameChannelId);
+  if (!channel) {
+    await message.reply(messages.start.configuredGameChannelUnavailable);
+    return;
+  }
+
+  const member = await channel.guild.members.fetch(message.author.id).catch(() => null);
   if (!hasVerifiedRole(member, rules)) {
     await message.reply(messages.start.needsVerifiedRole);
     return;
   }
 
-  const key = keys.pendingDmStart(message.author.id);
+  const googleMapsUrl = findGoogleMapsUrl(message.content);
+  const attachment = firstImageAttachment(message);
+
+  // Share the same pending key as channel starts so hybrid DM↔channel
+  // submissions can complete each other.
+  const key = keys.pendingStart(channel.guild.id, message.author.id);
   const pending = await getPending(key);
-  pending.googleMapsUrl = findGoogleMapsUrl(message.content) ?? pending.googleMapsUrl;
+
+  if (!googleMapsUrl && !attachment && !pending.googleMapsUrl && !pending.screenshotUrl) {
+    await message.reply(messages.start.sendLinkAndScreenshot);
+    return;
+  }
+
+  pending.googleMapsUrl = googleMapsUrl ?? pending.googleMapsUrl;
+  pending.guildId = channel.guild.id;
   pending.channelId = rules.gameChannelId;
 
-  const attachment = firstImageAttachment(message);
   if (attachment) {
     const screenshot = await downloadScreenshot(attachment);
     pending.screenshotUrl = screenshot.url;
@@ -227,8 +244,10 @@ const handleChannelStart = async (client: Client, message: Message<true>) => {
   const key = keys.pendingStart(message.guild.id, message.author.id);
   const pending = await getPending(key);
 
-  // Channel start is link-first only. Ignore standalone images so memes/chat
-  // photos do not begin a pending game start.
+  // Accept a Maps link (optionally with image), or a follow-up image after a
+  // channel/DM link is already pending. Standalone images are ignored so
+  // memes/chat photos do not begin a pending game start. A DM screenshot can
+  // still complete a channel link (and vice versa) via the shared pending key.
   if (!googleMapsUrl && !(attachment && pending.googleMapsUrl)) {
     return false;
   }
