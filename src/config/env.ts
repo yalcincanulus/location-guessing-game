@@ -18,6 +18,7 @@ export const env = {
   discordToken: optional("DISCORD_TOKEN"),
   discordClientId: optional("DISCORD_CLIENT_ID"),
   discordGuildId: optional("DISCORD_GUILD_ID"),
+  discordAdminUserId: optional("DISCORD_ADMIN_USER_ID"),
   discordGameChannelId: optional("DISCORD_GAME_CHANNEL_ID"),
   discordLogChannelId: optional("DISCORD_LOG_CHANNEL_ID"),
   nominatimUserAgent:

@@ -94,6 +94,23 @@ export type BotMessages = {
     sampleMap: (correctCountry: string, wrongCountries: string[]) => string;
     unknownCommand: string;
   };
+  admin: {
+    help: string;
+    gameChannelNotConfigured: string;
+    gameChannelUnavailable: string;
+    noActiveGame: string;
+    cancelledGame: (gameId: string) => string;
+    cancelledAnnouncement: (gameId: string, reason: string) => string;
+    status: (input: TestStatusMessageInput) => string;
+    reveal: (input: TestRevealMessageInput) => string;
+    clearStartDone: string;
+    noStartState: string;
+    rulesReloaded: string;
+    multiplierCapped: (currentMultiplier: number) => string;
+    forcedMultiplierTick: (previousMultiplier: number, newMultiplier: number) => string;
+    multiplierNoChange: string;
+    unknownCommand: string;
+  };
   game: {
     foundCountry: (userId: string, countryName: string) => string;
     locationDetails: (input: {

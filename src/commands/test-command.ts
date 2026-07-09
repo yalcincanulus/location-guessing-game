@@ -1,31 +1,16 @@
 import type { Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../config/rules.ts";
-import { sqlClient } from "../db/client.ts";
 import {
-  clearGameKeys,
-  getActiveGameState,
-  getWrongCountries,
-} from "../domain/game/active-game-state.ts";
+  cancelOrFailActiveGame,
+  getActiveGameContext,
+} from "../domain/game/admin-game-ops.ts";
+import { getWrongCountries } from "../domain/game/active-game-state.ts";
 import { countries } from "../domain/countries/country-data.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
-import { upsertPlayer } from "../repositories/core-repository.ts";
-import { removeMultiplierJobsForGame, runIdleMultiplierCheck } from "../jobs/queues.ts";
+import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
-
-type ActiveDbGame = {
-  gameId: string;
-  status: string;
-  isTest: boolean;
-  gameMasterDiscordUserId: string;
-  countryCode: string;
-  countryName?: string;
-  regionName?: string;
-  latitude: number;
-  longitude: number;
-  currentMultiplier: number;
-};
 
 const normalize = (value: string) =>
   value
@@ -63,93 +48,38 @@ const authorize = async (message: Message<true>) => {
   return { ok: true as const, rules };
 };
 
-const getActiveDbGame = async (channelId: string): Promise<ActiveDbGame | undefined> => {
-  const rows = await sqlClient`
-    SELECT
-      g.id AS game_id,
-      g.status,
-      g.is_test,
-      gm.discord_user_id AS game_master_discord_user_id,
-      l.country_code,
-      l.country_name,
-      l.region_name,
-      l.latitude,
-      l.longitude,
-      g.current_multiplier_final
-    FROM game g
-    JOIN channel c ON c.id = g.channel_id
-    JOIN location l ON l.id = g.location_id
-    JOIN player gm ON gm.id = g.game_master_player_id
-    WHERE c.discord_channel_id = ${channelId}
-      AND g.status = 'active'
-    ORDER BY g.started_at DESC
-    LIMIT 1
-  `;
-
-  const row = rows[0];
-  if (!row) {
-    return undefined;
-  }
-
-  return {
-    gameId: row.game_id,
-    status: row.status,
-    isTest: row.is_test,
-    gameMasterDiscordUserId: row.game_master_discord_user_id,
-    countryCode: row.country_code,
-    countryName: row.country_name ?? undefined,
-    regionName: row.region_name ?? undefined,
-    latitude: Number(row.latitude),
-    longitude: Number(row.longitude),
-    currentMultiplier: Number(row.current_multiplier_final),
-  };
-};
-
-const getActiveContext = async (message: Message<true>) => {
-  const state = await getActiveGameState(message.guild.id, message.channel.id);
-  const dbGame = await getActiveDbGame(message.channel.id);
-  return {
-    state,
-    dbGame,
-    redisMissingButDbActive: !state && Boolean(dbGame),
-  };
-};
-
 const cancelOrFailGame = async (
   message: Message<true>,
   status: "cancelled" | "failed",
   reason: string,
 ) => {
-  const { state, dbGame } = await getActiveContext(message);
-  const gameId = state?.gameId ?? dbGame?.gameId;
-  if (!gameId) {
+  const result = await cancelOrFailActiveGame({
+    guildId: message.guild.id,
+    channelId: message.channel.id,
+    status,
+    reason,
+    cancelledBy: message.author,
+    displayName: message.member?.displayName,
+  });
+
+  if (!result.ok) {
     await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
   }
 
-  const player = await upsertPlayer(message.author, message.member?.displayName);
-  await sqlClient`
-    UPDATE game
-    SET
-      status = ${status},
-      ended_at = now(),
-      cancel_reason = ${reason},
-      cancelled_by_player_id = ${player.id},
-      updated_at = now()
-    WHERE id = ${gameId}
-      AND status = 'active'
-  `;
-
-  await clearGameKeys(message.guild.id, message.channel.id, gameId);
-  await removeMultiplierJobsForGame(gameId);
   await message.reply(
-    status === "cancelled" ? messages.test.cancelledGame(gameId) : messages.test.resetGameState,
+    status === "cancelled"
+      ? messages.test.cancelledGame(result.gameId)
+      : messages.test.resetGameState,
   );
   return true;
 };
 
 const statusCommand = async (message: Message<true>) => {
-  const { state, dbGame, redisMissingButDbActive } = await getActiveContext(message);
+  const { state, dbGame, redisMissingButDbActive } = await getActiveGameContext(
+    message.guild.id,
+    message.channel.id,
+  );
   const wrongCountries = state ? await getWrongCountries(state.gameId) : [];
   const target = dbGame
     ? `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`
@@ -177,7 +107,10 @@ const statusCommand = async (message: Message<true>) => {
 };
 
 const revealCommand = async (message: Message<true>) => {
-  const { dbGame, redisMissingButDbActive } = await getActiveContext(message);
+  const { dbGame, redisMissingButDbActive } = await getActiveGameContext(
+    message.guild.id,
+    message.channel.id,
+  );
   if (!dbGame) {
     await message.reply(messages.test.noActiveGameInTestChannel);
     return true;
@@ -198,7 +131,7 @@ const revealCommand = async (message: Message<true>) => {
 };
 
 const tickCommand = async (message: Message<true>) => {
-  const { state, dbGame } = await getActiveContext(message);
+  const { state, dbGame } = await getActiveGameContext(message.guild.id, message.channel.id);
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
     await message.reply(messages.test.noActiveGameInTestChannel);

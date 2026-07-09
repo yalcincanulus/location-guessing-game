@@ -127,6 +127,61 @@ export const trMessages = {
     unknownCommand:
       "Bilinmeyen test komutu. `!test status`, `cancel`, `reveal`, `tick`, `reset` veya `map` kullan.",
   },
+  admin: {
+    help: [
+      "Admin komutları (yalnızca DM):",
+      "`!admin help` — bu liste",
+      "`!admin status` — aktif oyun / Redis-DB sapması",
+      "`!admin cancel [sebep]` — aktif oyunu iptal et",
+      "`!admin reveal` — cevabı ve koordinatları göster",
+      "`!admin clear-start` — takılı başlangıç rezervasyonunu temizle",
+      "`!admin reload` — kuralları veritabanından yenile",
+      "`!admin tick` — boşta çarpan artışını zorla",
+    ].join("\n"),
+    gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
+    gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
+    noActiveGame: "Oyun kanalında aktif oyun yok.",
+    cancelledGame: (gameId) => `Oyun ${gameId} iptal edildi.`,
+    cancelledAnnouncement: (gameId, reason) =>
+      `Bu oyun bir admin tarafından iptal edildi (${gameId}). Sebep: ${reason}`,
+    status: ({ game, wrongCountryCount, currentMultiplier, isTestGame, redisMissingButDbActive }) =>
+      [
+        "Admin durumu",
+        game ? `Oyun: **${game.id}** (${game.status})` : "Oyun: **yok**",
+        game ? `Oyun kurucu: <@${game.gameMasterDiscordUserId}>` : undefined,
+        `Yanlış ülkeler: **${wrongCountryCount}**`,
+        `Güncel çarpan: **${currentMultiplier.toFixed(2)}x**`,
+        `Test oyunu: **${isTestGame}**`,
+        redisMissingButDbActive
+          ? "Redis aktif oyun durumu yok, ancak veritabanında aktif bir oyun var."
+          : undefined,
+        game ? `Hedef: **${game.target}**` : undefined,
+        game?.regionName ? `Bölge: **${game.regionName}**` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    reveal: ({ redisMissingButDbActive, answer, regionName, latitude, longitude }) =>
+      [
+        redisMissingButDbActive
+          ? "Redis aktif oyun durumu yok, ancak veritabanında aktif bir oyun var."
+          : undefined,
+        `Cevap: **${answer}**`,
+        regionName ? `Bölge: **${regionName}**` : undefined,
+        `Koordinatlar: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    clearStartDone: "Oyun kanalındaki başlangıç rezervasyonu ve bekleyen başlangıç temizlendi.",
+    noStartState: "Oyun kanalında temizlenecek başlangıç rezervasyonu yok.",
+    rulesReloaded: "Kurallar önbelleği veritabanından yenilendi.",
+    multiplierCapped: (currentMultiplier) =>
+      `Güncel çarpan zaten ${currentMultiplier.toFixed(2)}x sınırında.`,
+    forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
+      `Çarpan elle artırıldı: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
+    multiplierNoChange: "Çarpan kontrolü aktif oyunu değiştirmedi.",
+    unknownCommand:
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload` veya `tick` kullan.",
+  },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> ülkeyi buldu: **${countryName}**.`,
     locationDetails: ({ regionName, googleMapsUrl, latitude, longitude }) =>

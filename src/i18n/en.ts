@@ -127,6 +127,61 @@ export const enMessages = {
     unknownCommand:
       "Unknown test command. Use `!test status`, `cancel`, `reveal`, `tick`, `reset`, or `map`.",
   },
+  admin: {
+    help: [
+      "Admin commands (DM only):",
+      "`!admin help` — this list",
+      "`!admin status` — active game / Redis-DB drift",
+      "`!admin cancel [reason]` — cancel the active game",
+      "`!admin reveal` — show answer + coordinates",
+      "`!admin clear-start` — clear stuck start reservation",
+      "`!admin reload` — refresh rules from the database",
+      "`!admin tick` — force idle multiplier increase",
+    ].join("\n"),
+    gameChannelNotConfigured: "Game channel is not configured.",
+    gameChannelUnavailable: "Configured game channel is not available.",
+    noActiveGame: "No active game in the game channel.",
+    cancelledGame: (gameId) => `Cancelled game ${gameId}.`,
+    cancelledAnnouncement: (gameId, reason) =>
+      `This game was cancelled by an admin (${gameId}). Reason: ${reason}`,
+    status: ({ game, wrongCountryCount, currentMultiplier, isTestGame, redisMissingButDbActive }) =>
+      [
+        "Admin status",
+        game ? `Game: **${game.id}** (${game.status})` : "Game: **none**",
+        game ? `Game master: <@${game.gameMasterDiscordUserId}>` : undefined,
+        `Wrong countries: **${wrongCountryCount}**`,
+        `Current multiplier: **${currentMultiplier.toFixed(2)}x**`,
+        `Test game: **${isTestGame}**`,
+        redisMissingButDbActive
+          ? "Redis active state is missing, but an active database game exists."
+          : undefined,
+        game ? `Target: **${game.target}**` : undefined,
+        game?.regionName ? `Region: **${game.regionName}**` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    reveal: ({ redisMissingButDbActive, answer, regionName, latitude, longitude }) =>
+      [
+        redisMissingButDbActive
+          ? "Redis active state is missing, but an active database game exists."
+          : undefined,
+        `Answer: **${answer}**`,
+        regionName ? `Region: **${regionName}**` : undefined,
+        `Coordinates: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    clearStartDone: "Cleared start reservation and pending start for the game channel.",
+    noStartState: "No start reservation to clear in the game channel.",
+    rulesReloaded: "Rules cache reloaded from the database.",
+    multiplierCapped: (currentMultiplier) =>
+      `Current multiplier is already capped at ${currentMultiplier.toFixed(2)}x.`,
+    forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
+      `Forced multiplier tick: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
+    multiplierNoChange: "Multiplier tick did not change the active game.",
+    unknownCommand:
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, or `tick`.",
+  },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> found the country: **${countryName}**.`,
     locationDetails: ({ regionName, googleMapsUrl, latitude, longitude }) =>

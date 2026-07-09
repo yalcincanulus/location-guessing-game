@@ -19,6 +19,8 @@ import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import { handleCommand, isCommandMessage } from "../../commands/command-registry.ts";
+import { handleAdminCommand } from "../../commands/admin-command.ts";
+import { isBotAdmin } from "../admin.ts";
 import {
   cancelStartReservationExpiry,
   scheduleIdleMultiplier,
@@ -399,6 +401,10 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
 
   try {
     if (!message.inGuild()) {
+      if (isBotAdmin(message.author.id) && (await isCommandMessage(message.content))) {
+        await handleAdminCommand(message);
+        return;
+      }
       await handleDmStart(client, message);
       return;
     }
