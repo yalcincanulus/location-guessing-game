@@ -130,5 +130,6 @@ export type BotMessages = {
   };
   jobs: {
     multiplierIncreased: (currentMultiplier: number) => string;
+    channelIdleReminder: string;
   };
 };

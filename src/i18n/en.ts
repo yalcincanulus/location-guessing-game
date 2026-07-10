@@ -201,5 +201,7 @@ export const enMessages = {
   jobs: {
     multiplierIncreased: (currentMultiplier) =>
       `Current multiplier increased to **${currentMultiplier.toFixed(2)}x**.`,
+    channelIdleReminder:
+      "No game has started in the last hour. Start one by posting a **Google Maps link** and a **screenshot** in this channel, or by DMing the bot.",
   },
 } satisfies BotMessages;

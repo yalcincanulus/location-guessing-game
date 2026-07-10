@@ -37,6 +37,25 @@ export const startReservationQueue = new Queue("game-start-reservation", {
   connection: bullConnection,
 });
 
+export const idleReminderQueue = new Queue("channel-idle-reminder", {
+  connection: bullConnection,
+});
+
+/** Daytime reminder slots in Europe/Istanbul (never overnight). */
+export const IDLE_REMINDER_CRON = "0 9,12,15,18,21 * * *";
+export const IDLE_REMINDER_TZ = "Europe/Istanbul";
+
+const isIdleReminderQuietHours = (now = new Date()) => {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: IDLE_REMINDER_TZ,
+      hour: "numeric",
+      hourCycle: "h23",
+    }).format(now),
+  );
+  return hour < 9;
+};
+
 const startReservationJobId = (guildId: string, channelId: string) =>
   `start-reservation:${guildId}:${channelId}`;
 
@@ -292,8 +311,82 @@ export const startReservationWorker = (client: Client) =>
     { connection: bullConnection },
   );
 
+export type IdleReminderResult =
+  | { status: "no-channel" }
+  | { status: "channel-unavailable" }
+  | { status: "quiet-hours" }
+  | { status: "active-game" }
+  | { status: "start-reservation" }
+  | { status: "recent-game" }
+  | { status: "reminded" };
+
+export const runChannelIdleReminder = async (client: Client): Promise<IdleReminderResult> => {
+  if (isIdleReminderQuietHours()) {
+    return { status: "quiet-hours" };
+  }
+
+  const rules = await loadRules();
+  if (!rules.gameChannelId) {
+    return { status: "no-channel" };
+  }
+
+  const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
+  if (!channel?.isSendable() || !("guild" in channel) || !channel.guild) {
+    return { status: "channel-unavailable" };
+  }
+
+  const guildId = channel.guild.id;
+  const channelId = channel.id;
+
+  if (await getActiveGameState(guildId, channelId)) {
+    return { status: "active-game" };
+  }
+
+  if (await getStartReservation(guildId, channelId)) {
+    return { status: "start-reservation" };
+  }
+
+  const rows = await sqlClient`
+    SELECT EXISTS (
+      SELECT 1
+      FROM game g
+      JOIN channel c ON c.id = g.channel_id
+      WHERE c.discord_channel_id = ${channelId}
+        AND g.is_test = false
+        AND g.started_at >= now() - interval '1 hour'
+    ) AS had_recent_game
+  `;
+  if (rows[0]?.had_recent_game) {
+    return { status: "recent-game" };
+  }
+
+  await channel.send(messages.jobs.channelIdleReminder);
+  return { status: "reminded" };
+};
+
+export const ensureIdleReminderSchedule = async () => {
+  await idleReminderQueue.upsertJobScheduler(
+    "channel-idle-reminder",
+    { pattern: IDLE_REMINDER_CRON, tz: IDLE_REMINDER_TZ },
+    { name: "check-channel-idle", data: {} },
+  );
+};
+
+export const startIdleReminderWorker = (client: Client) =>
+  new Worker(
+    "channel-idle-reminder",
+    async () => {
+      await runChannelIdleReminder(client);
+    },
+    { connection: bullConnection },
+  );
+
 export const closeQueues = async () => {
-  await Promise.all([multiplierQueue.close(), startReservationQueue.close()]);
+  await Promise.all([
+    multiplierQueue.close(),
+    startReservationQueue.close(),
+    idleReminderQueue.close(),
+  ]);
 };
 
 export const logWorkerError = (worker: Worker) => {

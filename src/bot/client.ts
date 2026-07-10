@@ -8,9 +8,11 @@ import { closeDatabase } from "../db/client.ts";
 import { closeRedis } from "../redis/client.ts";
 import {
   closeQueues,
+  ensureIdleReminderSchedule,
   logWorkerError,
   recoverActiveMultiplierJobs,
   recoverStartReservationJobs,
+  startIdleReminderWorker,
   startMultiplierWorker,
   startReservationWorker,
 } from "../jobs/queues.ts";
@@ -33,10 +35,13 @@ export const startBot = async () => {
 
   const multiplierWorker = startMultiplierWorker(client);
   const reservationWorker = startReservationWorker(client);
+  const idleReminderWorker = startIdleReminderWorker(client);
   logWorkerError(multiplierWorker);
   logWorkerError(reservationWorker);
+  logWorkerError(idleReminderWorker);
   await recoverActiveMultiplierJobs();
   await recoverStartReservationJobs();
+  await ensureIdleReminderSchedule();
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("Discord bot ready", { tag: readyClient.user.tag });
@@ -48,6 +53,7 @@ export const startBot = async () => {
     logger.info("Shutting down");
     multiplierWorker.close().catch(() => undefined);
     reservationWorker.close().catch(() => undefined);
+    idleReminderWorker.close().catch(() => undefined);
     await client.destroy();
     await closeQueues().catch(() => undefined);
     await closeRedis().catch(() => undefined);
