@@ -95,6 +95,7 @@ export const getLeaderboard = async (
       SELECT p.display_name, p.discord_user_id, ps.${orderColumn} AS value
       FROM player_stat ps
       JOIN player p ON p.id = ps.player_id
+      WHERE ps.${orderColumn} > 0
       ORDER BY ps.${orderColumn} DESC, p.display_name ASC
       LIMIT $1
     `,
