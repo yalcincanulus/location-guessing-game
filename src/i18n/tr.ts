@@ -21,14 +21,14 @@ export const trMessages = {
         coverageSource === "google"
           ? "**Kapsama:** Resmi Google Street View"
           : coverageSource === "third-party"
-            ? "**Kapsama:** Üçüncü taraf / photosphere"
+            ? "**Kapsama:** Üçüncü taraf / photosphere. Resmi görüntü değil."
             : "**Kapsama:** Bilinmiyor (bağlantıdan anlaşılamadı)";
 
       return [
         `<@${userId}> yeni bir konum oyunu başlattı. Ülkeyi tahmin etmek için ülke adını veya ISO kodunu yazın.`,
         inTheGame
-          ? "**Oyunda:** Evet. Bu ülkenin GeoGuessr'da resmi kapsaması var. Plonkit rehberi var."
-          : "**Oyunda:** Hayır. Bu ülke resmi GeoGuessr kapsama setinde değil.",
+          ? "**Oyunda:** Var. Bu ülkede resmi Google Street View var."
+          : "**Oyunda:** Yok. Bu ülkede resmi Google Street View yok.",
         coverageLine,
       ].join("\n");
     },
