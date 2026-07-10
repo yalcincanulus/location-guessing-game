@@ -124,7 +124,20 @@ export const handleCommand = async (message: Message<true>) => {
     return true;
   }
 
-  if (["leaderboard", "liderlik", "top"].includes(command)) {
+  const replyLeaderboard = async (kind: "points" | "wins" | "started" | "hardest") => {
+    const rows = await getLeaderboard(kind);
+    const lines = rows.map((row, index) =>
+      messages.commands.leaderboardRow(index + 1, row.display_name, row.value),
+    );
+    await message.reply(lines.length > 0 ? lines.join("\n") : messages.commands.noLeaderboardData);
+  };
+
+  if (["hardest", "zor", "bestgm"].includes(command)) {
+    await replyLeaderboard("hardest");
+    return true;
+  }
+
+  if (["leaderboard", "liderlik", "top", "best"].includes(command)) {
     const arg = normalizeCommand(message.content.slice(prefix.length).split(/\s+/)[1] ?? "points");
     const kind =
       arg === "wins" || arg === "win"
@@ -134,11 +147,7 @@ export const handleCommand = async (message: Message<true>) => {
           : arg === "hardest"
             ? "hardest"
             : "points";
-    const rows = await getLeaderboard(kind);
-    const lines = rows.map((row, index) =>
-      messages.commands.leaderboardRow(index + 1, row.display_name, row.value),
-    );
-    await message.reply(lines.length > 0 ? lines.join("\n") : messages.commands.noLeaderboardData);
+    await replyLeaderboard(kind);
     return true;
   }
 
