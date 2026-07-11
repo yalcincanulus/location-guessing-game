@@ -46,6 +46,50 @@ export type RenderMapOptions = {
   marker?: MapCoordinates;
 };
 
+const buildProjection = (
+  preset: NonNullable<(typeof mapViewports)[string]>,
+  marker: MapCoordinates | undefined,
+  correctNumericId: string | undefined,
+) => {
+  if (!marker) {
+    return geoMercator()
+      .scale(preset.scale)
+      .center(preset.center)
+      .translate(preset.translate);
+  }
+
+  const center: [number, number] = [marker.longitude, marker.latitude];
+  const translate: [number, number] = [preset.width / 2, preset.height / 2];
+  const projection = geoMercator().center(center).translate(translate);
+
+  const country = correctNumericId
+    ? countryFeatures.find((entry) => String(entry.id).padStart(3, "0") === correctNumericId)
+    : undefined;
+
+  if (country) {
+    const pad = 56 * MAP_RESOLUTION_SCALE;
+    projection.fitExtent(
+      [
+        [pad, pad],
+        [preset.width - pad, preset.height - pad],
+      ],
+      country as never,
+    );
+    // Keep country framing, but pin the exact location to the canvas center.
+    const minScale = 450 * MAP_RESOLUTION_SCALE;
+    const maxScale = 3500 * MAP_RESOLUTION_SCALE;
+    const fittedScale = projection.scale() * 0.9;
+    projection
+      .scale(Math.min(maxScale, Math.max(minScale, fittedScale)))
+      .center(center)
+      .translate(translate);
+  } else {
+    projection.scale(1100 * MAP_RESOLUTION_SCALE);
+  }
+
+  return projection;
+};
+
 export const renderMap = ({
   wrongCountries,
   correctCountry,
@@ -60,10 +104,7 @@ export const renderMap = ({
   const correctNumericId = correctCountry ? getCountryNumericId(correctCountry) : undefined;
   const theme = activeMapTheme;
 
-  const projection = geoMercator()
-    .scale(preset.scale)
-    .center(preset.center)
-    .translate(preset.translate);
+  const projection = buildProjection(preset, marker, correctNumericId);
   const canvas = createCanvas(preset.width, preset.height);
   const context = canvas.getContext("2d");
   const path = geoPath(projection, context as never);
