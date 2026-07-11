@@ -26,7 +26,10 @@ const baseMapViewports: Record<string, BaseMapViewport> = {
     name: "world",
     width: 1400,
     height: 950,
-    scale: 220,
+    // Slightly under full-canvas width so ±180° wrap tiles are visible at the edges
+    // (Alaska east of Russia / Chukotka west of Alaska) instead of a hard cut.
+    scale: 200,
+    // scale: 220,
     translate: [700, 590],
     center: [0, 0],
   },

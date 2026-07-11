@@ -46,21 +46,40 @@ export type RenderMapOptions = {
   marker?: MapCoordinates;
 };
 
+type MapProjection = ReturnType<typeof geoMercator>;
+
+/** Frame so [longitude, latitude] lands at `translate`, with the antimeridian cut opposite the view. */
+const frameProjection = (
+  projection: MapProjection,
+  longitude: number,
+  latitude: number,
+  translate: [number, number],
+  scale?: number,
+) => {
+  projection.rotate([-longitude, 0]).center([0, latitude]).translate(translate);
+  if (scale != null) {
+    projection.scale(scale);
+  }
+  return projection;
+};
+
 const buildProjection = (
   preset: NonNullable<(typeof mapViewports)[string]>,
   marker: MapCoordinates | undefined,
   correctNumericId: string | undefined,
 ) => {
   if (!marker) {
-    return geoMercator()
-      .scale(preset.scale)
-      .center(preset.center)
-      .translate(preset.translate);
+    // Same rotate framing as zoomed maps so regional views near ±180° wrap correctly.
+    return frameProjection(
+      geoMercator().scale(preset.scale),
+      preset.center[0],
+      preset.center[1],
+      preset.translate,
+    );
   }
 
-  const center: [number, number] = [marker.longitude, marker.latitude];
   const translate: [number, number] = [preset.width / 2, preset.height / 2];
-  const projection = geoMercator().center(center).translate(translate);
+  const projection = frameProjection(geoMercator(), marker.longitude, marker.latitude, translate);
 
   const country = correctNumericId
     ? countryFeatures.find((entry) => String(entry.id).padStart(3, "0") === correctNumericId)
@@ -79,16 +98,22 @@ const buildProjection = (
     const minScale = 450 * MAP_RESOLUTION_SCALE;
     const maxScale = 3500 * MAP_RESOLUTION_SCALE;
     const fittedScale = projection.scale() * 0.9;
-    projection
-      .scale(Math.min(maxScale, Math.max(minScale, fittedScale)))
-      .center(center)
-      .translate(translate);
+    frameProjection(
+      projection,
+      marker.longitude,
+      marker.latitude,
+      translate,
+      Math.min(maxScale, Math.max(minScale, fittedScale)),
+    );
   } else {
-    projection.scale(1100 * MAP_RESOLUTION_SCALE);
+    frameProjection(projection, marker.longitude, marker.latitude, translate, 1100 * MAP_RESOLUTION_SCALE);
   }
 
   return projection;
 };
+
+/** Mercator world width in pixels; shift translate by this to tile horizontally across ±180°. */
+const mercatorWorldWidth = (projection: MapProjection) => 2 * Math.PI * projection.scale();
 
 export const renderMap = ({
   wrongCountries,
@@ -117,19 +142,26 @@ export const renderMap = ({
   context.strokeStyle = theme.countryBorder;
   context.lineWidth = 0.45 * ui;
 
-  for (const country of countryFeatures) {
-    const id = String(country.id).padStart(3, "0");
-    context.beginPath();
-    path(country as never);
-    context.fillStyle =
-      correctNumericId && id === correctNumericId
-        ? theme.correct
-        : wrongNumericIds.has(id)
-          ? theme.wrong
-          : theme.country;
-    context.fill();
-    context.stroke();
+  const [baseTx, baseTy] = projection.translate();
+  const wrapPeriod = mercatorWorldWidth(projection);
+  // Draw three horizontal tiles so geography continues past ±180° instead of hard-clipping.
+  for (const shift of [-wrapPeriod, 0, wrapPeriod]) {
+    projection.translate([baseTx + shift, baseTy]);
+    for (const country of countryFeatures) {
+      const id = String(country.id).padStart(3, "0");
+      context.beginPath();
+      path(country as never);
+      context.fillStyle =
+        correctNumericId && id === correctNumericId
+          ? theme.correct
+          : wrongNumericIds.has(id)
+            ? theme.wrong
+            : theme.country;
+      context.fill();
+      context.stroke();
+    }
   }
+  projection.translate([baseTx, baseTy]);
 
   if (marker) {
     const projected = projection([marker.longitude, marker.latitude]);
