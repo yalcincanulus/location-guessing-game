@@ -9,12 +9,18 @@ import {
   type StandingRow,
 } from "../domain/awards/periods.ts";
 
+/** postgres.js (under Bun) rejects Date params; pass ISO strings instead. */
+const sqlTimestamp = (date: Date) => date.toISOString();
+
 export const getPeriodStandings = async (
   category: AwardCategory,
   startsAt: Date,
   endsAt: Date,
   limit = 10,
 ): Promise<StandingRow[]> => {
+  const startsAtSql = sqlTimestamp(startsAt);
+  const endsAtSql = sqlTimestamp(endsAt);
+
   let rows: Array<{
     player_id: string;
     display_name: string;
@@ -34,8 +40,8 @@ export const getPeriodStandings = async (
         JOIN game g ON g.id = pl.game_id
         JOIN player p ON p.id = pl.player_id
         WHERE g.is_test = false
-          AND pl.created_at >= ${startsAt}
-          AND pl.created_at < ${endsAt}
+          AND pl.created_at >= ${startsAtSql}
+          AND pl.created_at < ${endsAtSql}
         GROUP BY p.id, p.display_name, p.discord_user_id
         HAVING SUM(pl.points_delta) > 0
         ORDER BY value DESC, p.display_name ASC
@@ -54,8 +60,8 @@ export const getPeriodStandings = async (
         WHERE g.is_test = false
           AND g.status = 'completed'
           AND g.winner_player_id IS NOT NULL
-          AND g.ended_at >= ${startsAt}
-          AND g.ended_at < ${endsAt}
+          AND g.ended_at >= ${startsAtSql}
+          AND g.ended_at < ${endsAtSql}
         GROUP BY p.id, p.display_name, p.discord_user_id
         ORDER BY value DESC, p.display_name ASC
         LIMIT ${limit}
@@ -71,8 +77,8 @@ export const getPeriodStandings = async (
         FROM game g
         JOIN player p ON p.id = g.game_master_player_id
         WHERE g.is_test = false
-          AND g.started_at >= ${startsAt}
-          AND g.started_at < ${endsAt}
+          AND g.started_at >= ${startsAtSql}
+          AND g.started_at < ${endsAtSql}
         GROUP BY p.id, p.display_name, p.discord_user_id
         ORDER BY value DESC, p.display_name ASC
         LIMIT ${limit}
@@ -89,8 +95,8 @@ export const getPeriodStandings = async (
         JOIN player p ON p.id = g.game_master_player_id
         WHERE g.is_test = false
           AND g.status = 'completed'
-          AND g.ended_at >= ${startsAt}
-          AND g.ended_at < ${endsAt}
+          AND g.ended_at >= ${startsAtSql}
+          AND g.ended_at < ${endsAtSql}
           AND g.unique_wrong_country_count > 0
         GROUP BY p.id, p.display_name, p.discord_user_id
         ORDER BY value DESC, p.display_name ASC
@@ -153,11 +159,13 @@ export const finalizePeriodAwards = async (window: PeriodWindow): Promise<Finali
   }
 
   const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10);
+  const startsAtSql = sqlTimestamp(window.startsAt);
+  const endsAtSql = sqlTimestamp(window.endsAt);
 
   const awardPeriodId = await sqlClient.begin(async (tx) => {
     const upserted = await tx`
       INSERT INTO award_period (period_type, period_key, starts_at, ends_at)
-      VALUES (${window.periodType}, ${window.periodKey}, ${window.startsAt}, ${window.endsAt})
+      VALUES (${window.periodType}, ${window.periodKey}, ${startsAtSql}, ${endsAtSql})
       ON CONFLICT (period_type, period_key)
       DO UPDATE SET
         starts_at = EXCLUDED.starts_at,
