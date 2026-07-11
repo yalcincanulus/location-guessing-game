@@ -17,6 +17,18 @@ export type GameStatsMessageInput = {
   totalGuesses: number | string;
 };
 
+export type AwardPeriodType = "daily" | "weekly" | "monthly" | "seasonal" | "yearly";
+export type AwardCategory = "points" | "wins" | "started" | "hardest";
+
+export type MedalLeaderboardMessageInput = {
+  rank: number;
+  displayName: string;
+  medalPoints: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+};
+
 export type TestStatusMessageInput = {
   game?: {
     id: string;
@@ -77,6 +89,21 @@ export type BotMessages = {
     stats: (input: GameStatsMessageInput) => string;
     helpCommands: string;
     helpTestCommands: string;
+  };
+  awards: {
+    liveHeader: (periodType: AwardPeriodType, periodKey: string) => string;
+    resultsHeader: (periodType: AwardPeriodType, periodKey: string) => string;
+    categoryTitle: (category: AwardCategory) => string;
+    standingRow: (
+      rank: number,
+      displayName: string,
+      value: number | string,
+      medalEmoji?: string,
+    ) => string;
+    noCategoryData: string;
+    noMedalData: string;
+    medalRow: (input: MedalLeaderboardMessageInput) => string;
+    medalsHeader: string;
   };
   test: {
     modeDisabled: string;

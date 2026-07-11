@@ -9,11 +9,13 @@ import { closeRedis } from "../redis/client.ts";
 import {
   closeQueues,
   ensureIdleReminderSchedule,
+  ensurePeriodAwardsSchedule,
   logWorkerError,
   recoverActiveMultiplierJobs,
   recoverStartReservationJobs,
   startIdleReminderWorker,
   startMultiplierWorker,
+  startPeriodAwardsWorker,
   startReservationWorker,
 } from "../jobs/queues.ts";
 
@@ -36,12 +38,15 @@ export const startBot = async () => {
   const multiplierWorker = startMultiplierWorker(client);
   const reservationWorker = startReservationWorker(client);
   const idleReminderWorker = startIdleReminderWorker(client);
+  const periodAwardsWorker = startPeriodAwardsWorker(client);
   logWorkerError(multiplierWorker);
   logWorkerError(reservationWorker);
   logWorkerError(idleReminderWorker);
+  logWorkerError(periodAwardsWorker);
   await recoverActiveMultiplierJobs();
   await recoverStartReservationJobs();
   await ensureIdleReminderSchedule();
+  await ensurePeriodAwardsSchedule();
 
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("Discord bot ready", { tag: readyClient.user.tag });
@@ -54,6 +59,7 @@ export const startBot = async () => {
     multiplierWorker.close().catch(() => undefined);
     reservationWorker.close().catch(() => undefined);
     idleReminderWorker.close().catch(() => undefined);
+    periodAwardsWorker.close().catch(() => undefined);
     await client.destroy();
     await closeQueues().catch(() => undefined);
     await closeRedis().catch(() => undefined);

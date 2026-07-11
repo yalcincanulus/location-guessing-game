@@ -18,6 +18,8 @@ import { logger } from "../util/logger.ts";
 import { redis } from "../redis/client.ts";
 import { keys } from "../redis/keys.ts";
 import { messages } from "../i18n/messages.ts";
+import { runPeriodAwardsCheck } from "../domain/awards/announce.ts";
+import { AWARDS_TZ } from "../domain/awards/periods.ts";
 
 const redisUrl = new URL(env.redisUrl);
 const bullConnection = {
@@ -41,9 +43,17 @@ export const idleReminderQueue = new Queue("channel-idle-reminder", {
   connection: bullConnection,
 });
 
+export const periodAwardsQueue = new Queue("period-awards", {
+  connection: bullConnection,
+});
+
 /** Daytime reminder slots in Europe/Istanbul (never overnight). */
 export const IDLE_REMINDER_CRON = "0 9,12,15,18,21 * * *";
 export const IDLE_REMINDER_TZ = "Europe/Istanbul";
+
+/** Midnight period awards in Europe/Istanbul. */
+export const PERIOD_AWARDS_CRON = "0 0 * * *";
+export const PERIOD_AWARDS_TZ = AWARDS_TZ;
 
 const isIdleReminderQuietHours = (now = new Date()) => {
   const hour = Number(
@@ -381,11 +391,30 @@ export const startIdleReminderWorker = (client: Client) =>
     { connection: bullConnection },
   );
 
+export const ensurePeriodAwardsSchedule = async () => {
+  await periodAwardsQueue.upsertJobScheduler(
+    "period-awards",
+    { pattern: PERIOD_AWARDS_CRON, tz: PERIOD_AWARDS_TZ },
+    { name: "finalize-period-awards", data: {} },
+  );
+};
+
+export const startPeriodAwardsWorker = (client: Client) =>
+  new Worker(
+    "period-awards",
+    async () => {
+      const result = await runPeriodAwardsCheck(client);
+      logger.info("Period awards check completed", result);
+    },
+    { connection: bullConnection },
+  );
+
 export const closeQueues = async () => {
   await Promise.all([
     multiplierQueue.close(),
     startReservationQueue.close(),
     idleReminderQueue.close(),
+    periodAwardsQueue.close(),
   ]);
 };
 

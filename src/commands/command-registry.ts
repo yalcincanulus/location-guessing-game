@@ -8,9 +8,12 @@ import {
   mapHash,
   setCachedMap,
 } from "../domain/game/active-game-state.ts";
+import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
+import { getCurrentPeriodWindow, type PeriodType } from "../domain/awards/periods.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
 import { viewportAliases } from "../domain/maps/region-presets.ts";
 import { getLeaderboard, getPlayerProfile } from "../repositories/core-repository.ts";
+import { getAllCategoryStandings, getMedalLeaderboard } from "../repositories/awards-repository.ts";
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
@@ -22,6 +25,22 @@ const normalizeCommand = (value: string) =>
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{Letter}\p{Number}]/gu, "");
+
+const periodCommandAliases: Record<string, PeriodType> = {
+  daily: "daily",
+  gunluk: "daily",
+  weekly: "weekly",
+  haftalik: "weekly",
+  monthly: "monthly",
+  aylik: "monthly",
+  seasonal: "seasonal",
+  season: "seasonal",
+  mevsim: "seasonal",
+  mevsimlik: "seasonal",
+  yearly: "yearly",
+  year: "yearly",
+  yillik: "yearly",
+};
 
 export const isCommandMessage = async (content: string) => {
   const rules = await loadRules();
@@ -148,6 +167,38 @@ export const handleCommand = async (message: Message<true>) => {
             ? "hardest"
             : "points";
     await replyLeaderboard(kind);
+    return true;
+  }
+
+  const periodType = periodCommandAliases[command];
+  if (periodType) {
+    const window = getCurrentPeriodWindow(periodType);
+    const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10);
+    await message.reply(formatPeriodStandingsMessage(window, standings, "live"));
+    return true;
+  }
+
+  if (["medals", "awards", "madalya"].includes(command)) {
+    const rows = await getMedalLeaderboard();
+    if (rows.length === 0) {
+      await message.reply(messages.awards.noMedalData);
+      return true;
+    }
+
+    const lines = [
+      messages.awards.medalsHeader,
+      ...rows.map((row, index) =>
+        messages.awards.medalRow({
+          rank: index + 1,
+          displayName: row.displayName,
+          medalPoints: row.medalPoints,
+          gold: row.gold,
+          silver: row.silver,
+          bronze: row.bronze,
+        }),
+      ),
+    ];
+    await message.reply(lines.join("\n"));
     return true;
   }
 

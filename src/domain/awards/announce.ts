@@ -1,0 +1,134 @@
+import type { Client } from "discord.js";
+import { loadRules } from "../../config/rules.ts";
+import {
+  MEDAL_EMOJI,
+  getPreviousPeriodWindow,
+  periodsToFinalize,
+  type AwardCategory,
+  type Medal,
+  type PeriodType,
+  type PeriodWindow,
+} from "./periods.ts";
+import { messages } from "../../i18n/messages.ts";
+import { logger } from "../../util/logger.ts";
+import {
+  finalizePeriodAwards,
+  markPeriodAnnounced,
+  type CategoryStandings,
+} from "../../repositories/awards-repository.ts";
+
+const medalByPlayer = (standings: CategoryStandings): Map<string, Medal> => {
+  const map = new Map<string, Medal>();
+  for (const award of standings.medals) {
+    map.set(award.playerId, award.medal);
+  }
+  return map;
+};
+
+export const formatCategoryStandings = (standings: CategoryStandings): string => {
+  const title = messages.awards.categoryTitle(standings.category);
+  if (standings.rows.length === 0) {
+    return `${title}\n${messages.awards.noCategoryData}`;
+  }
+
+  const medals = medalByPlayer(standings);
+  const lines = standings.rows.map((row, index) => {
+    const medal = medals.get(row.playerId);
+    return messages.awards.standingRow(
+      index + 1,
+      row.displayName,
+      row.value,
+      medal ? MEDAL_EMOJI[medal] : undefined,
+    );
+  });
+
+  return [title, ...lines].join("\n");
+};
+
+export const formatPeriodStandingsMessage = (
+  window: PeriodWindow,
+  standings: CategoryStandings[],
+  kind: "live" | "results",
+): string => {
+  const header =
+    kind === "results"
+      ? messages.awards.resultsHeader(window.periodType, window.periodKey)
+      : messages.awards.liveHeader(window.periodType, window.periodKey);
+
+  return [header, ...standings.map(formatCategoryStandings)].join("\n\n");
+};
+
+export const announcePeriodResults = async (
+  client: Client,
+  window: PeriodWindow,
+  standings: CategoryStandings[],
+): Promise<boolean> => {
+  const rules = await loadRules();
+  if (!rules.gameChannelId) {
+    logger.warn("Period awards: game channel not configured", {
+      periodType: window.periodType,
+      periodKey: window.periodKey,
+    });
+    return false;
+  }
+
+  const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
+  if (!channel?.isSendable()) {
+    logger.warn("Period awards: game channel unavailable", {
+      periodType: window.periodType,
+      periodKey: window.periodKey,
+      channelId: rules.gameChannelId,
+    });
+    return false;
+  }
+
+  await channel.send(formatPeriodStandingsMessage(window, standings, "results"));
+  return true;
+};
+
+export type PeriodAwardsCheckResult = {
+  finalized: PeriodType[];
+  skipped: PeriodType[];
+  announced: PeriodType[];
+};
+
+export const runPeriodAwardsCheck = async (
+  client: Client,
+  now: Date = new Date(),
+): Promise<PeriodAwardsCheckResult> => {
+  const result: PeriodAwardsCheckResult = {
+    finalized: [],
+    skipped: [],
+    announced: [],
+  };
+
+  for (const periodType of periodsToFinalize(now)) {
+    const window = getPreviousPeriodWindow(periodType, now);
+    const finalized = await finalizePeriodAwards(window);
+
+    if (finalized.status === "skipped") {
+      result.skipped.push(periodType);
+      continue;
+    }
+
+    result.finalized.push(periodType);
+
+    if (finalized.shouldAnnounce) {
+      const announced = await announcePeriodResults(client, window, finalized.standings);
+      if (announced) {
+        await markPeriodAnnounced(finalized.awardPeriodId);
+        result.announced.push(periodType);
+      } else {
+        logger.error("Period awards calculated but announcement failed", {
+          periodType: window.periodType,
+          periodKey: window.periodKey,
+          awardPeriodId: finalized.awardPeriodId,
+        });
+      }
+    }
+  }
+
+  return result;
+};
+
+export type { AwardCategory, PeriodType, PeriodWindow };

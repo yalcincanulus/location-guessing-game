@@ -301,6 +301,49 @@ export const startAttempt = snakeCase.table("start_attempt", {
   createdAt: timestamp().notNull().defaultNow(),
 });
 
+export const awardPeriod = snakeCase.table(
+  "award_period",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    periodType: varchar({ length: 32 }).notNull(),
+    periodKey: text().notNull(),
+    startsAt: timestamp().notNull(),
+    endsAt: timestamp().notNull(),
+    announcedAt: timestamp(),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("award_period_type_key_unique").on(table.periodType, table.periodKey)],
+);
+
+export const periodAward = snakeCase.table(
+  "period_award",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    awardPeriodId: uuid()
+      .notNull()
+      .references(() => awardPeriod.id),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    category: varchar({ length: 32 }).notNull(),
+    medal: varchar({ length: 16 }).notNull(),
+    rankValue: integer().notNull(),
+    medalPoints: integer().notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("period_award_period_category_player_unique").on(
+      table.awardPeriodId,
+      table.category,
+      table.playerId,
+    ),
+  ],
+);
+
 export const schema = {
   rule,
   guild,
@@ -317,4 +360,6 @@ export const schema = {
   multiplierEvent,
   commandLog,
   startAttempt,
+  awardPeriod,
+  periodAward,
 };

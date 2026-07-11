@@ -72,9 +72,49 @@ export const trMessages = {
         `Toplam tahmin: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
+  },
+  awards: {
+    liveHeader: (periodType, periodKey) => {
+      const labels = {
+        daily: "Günlük",
+        weekly: "Haftalık",
+        monthly: "Aylık",
+        seasonal: "Mevsimlik",
+        yearly: "Yıllık",
+      } as const;
+      return `**${labels[periodType]} sıralama** (${periodKey})`;
+    },
+    resultsHeader: (periodType, periodKey) => {
+      const labels = {
+        daily: "Günlük",
+        weekly: "Haftalık",
+        monthly: "Aylık",
+        seasonal: "Mevsimlik",
+        yearly: "Yıllık",
+      } as const;
+      return `**${labels[periodType]} ödüller** (${periodKey})`;
+    },
+    categoryTitle: (category) => {
+      const labels = {
+        points: "En Çok Puan",
+        wins: "En Çok Galibiyet",
+        started: "En Çok Başlatılan Oyun",
+        hardest: "En İyi Oyun Kurucu",
+      } as const;
+      return `**${labels[category]}**`;
+    },
+    standingRow: (rank, displayName, value, medalEmoji) =>
+      medalEmoji
+        ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
+        : `${rank}. ${displayName}: **${value}**`,
+    noCategoryData: "_Henüz veri yok._",
+    noMedalData: "Henüz madalya verilmedi.",
+    medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
+      `${rank}. ${displayName}: **${medalPoints}** puan (🥇${gold} 🥈${silver} 🥉${bronze})`,
+    medalsHeader: "**Madalya sıralaması**",
   },
   test: {
     modeDisabled: "Test modu kapalı.",

@@ -72,9 +72,49 @@ export const enMessages = {
         `Total guesses: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`.",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
+  },
+  awards: {
+    liveHeader: (periodType, periodKey) => {
+      const labels = {
+        daily: "Daily",
+        weekly: "Weekly",
+        monthly: "Monthly",
+        seasonal: "Seasonal",
+        yearly: "Yearly",
+      } as const;
+      return `**${labels[periodType]} standings** (${periodKey})`;
+    },
+    resultsHeader: (periodType, periodKey) => {
+      const labels = {
+        daily: "Daily",
+        weekly: "Weekly",
+        monthly: "Monthly",
+        seasonal: "Seasonal",
+        yearly: "Yearly",
+      } as const;
+      return `**${labels[periodType]} awards** (${periodKey})`;
+    },
+    categoryTitle: (category) => {
+      const labels = {
+        points: "Most Points",
+        wins: "Most Wins",
+        started: "Most Games Started",
+        hardest: "Best Game Master",
+      } as const;
+      return `**${labels[category]}**`;
+    },
+    standingRow: (rank, displayName, value, medalEmoji) =>
+      medalEmoji
+        ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
+        : `${rank}. ${displayName}: **${value}**`,
+    noCategoryData: "_No data yet._",
+    noMedalData: "No medals awarded yet.",
+    medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
+      `${rank}. ${displayName}: **${medalPoints}** pts (🥇${gold} 🥈${silver} 🥉${bronze})`,
+    medalsHeader: "**Medal rankings**",
   },
   test: {
     modeDisabled: "Test mode is disabled.",
