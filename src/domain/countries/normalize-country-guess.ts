@@ -18,6 +18,9 @@ const normalize = (value: string) =>
   value
     .trim()
     .toLocaleLowerCase("tr")
+    // Turkish locale maps ASCII "I" → "ı", while "İ" → "i". Fold so "IT" / "İt" / "it"
+    // all share one alias key (otherwise ISO codes indexed from "IT" never match "İt").
+    .replaceAll("ı", "i")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
@@ -76,7 +79,8 @@ const parseSingleGuess = (message: string): ParsedCountryGuess | undefined => {
     return undefined;
   }
 
-  const compact = trimmed.replace(/[^\p{Letter}\p{Number}]/gu, "").toUpperCase();
+  // Fold Turkish İ/ı through normalize so compact codes like "İt" still match "IT".
+  const compact = normalize(trimmed).replace(/\s+/g, "").toUpperCase();
   if (/^[A-Z]{2}$/.test(compact)) {
     const byAlpha2 = alpha2.get(compact);
     if (byAlpha2) {

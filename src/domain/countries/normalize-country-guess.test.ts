@@ -46,4 +46,10 @@ describe("normalizeCountryGuess overseas territories", () => {
       expect(normalizeCountryGuess(guess)?.countryCode).toBe("AQ");
     }
   });
+
+  test("treats Turkish İ/I/ı/i as the same letter in guesses", () => {
+    for (const guess of ["it", "It", "IT", "İt", "İT", "italya", "İtalya", "ITALYA", "Italy"]) {
+      expect(normalizeCountryGuess(guess)?.countryCode).toBe("IT");
+    }
+  });
 });
