@@ -9,6 +9,10 @@ export type ProfileMessageInput = {
   gamesStarted: number | string;
   guesses: number | string;
   gmMultiplier: number;
+  medalPoints: number;
+  gold: number;
+  silver: number;
+  bronze: number;
 };
 
 export type GameStatsMessageInput = {
@@ -102,8 +106,9 @@ export type BotMessages = {
     ) => string;
     noCategoryData: string;
     noMedalData: string;
+    medalsUsage: string;
     medalRow: (input: MedalLeaderboardMessageInput) => string;
-    medalsHeader: string;
+    medalsHeader: (periodType: AwardPeriodType) => string;
   };
   test: {
     modeDisabled: string;

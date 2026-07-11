@@ -68,9 +68,22 @@ export const getPlayerProfile = async (discordUserId: string) => {
       ps.points_total,
       ps.best_single_game_points,
       ps.current_gm_multiplier,
-      ps.max_game_wrong_guess_count_as_gm
+      ps.max_game_wrong_guess_count_as_gm,
+      COALESCE(medals.medal_points, 0)::int AS medal_points,
+      COALESCE(medals.gold, 0)::int AS gold,
+      COALESCE(medals.silver, 0)::int AS silver,
+      COALESCE(medals.bronze, 0)::int AS bronze
     FROM player p
     LEFT JOIN player_stat ps ON ps.player_id = p.id
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(SUM(pa.medal_points), 0) AS medal_points,
+        COUNT(*) FILTER (WHERE pa.medal = 'gold') AS gold,
+        COUNT(*) FILTER (WHERE pa.medal = 'silver') AS silver,
+        COUNT(*) FILTER (WHERE pa.medal = 'bronze') AS bronze
+      FROM period_award pa
+      WHERE pa.player_id = p.id
+    ) medals ON true
     WHERE p.discord_user_id = ${discordUserId}
   `;
 

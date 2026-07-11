@@ -138,6 +138,10 @@ export const handleCommand = async (message: Message<true>) => {
         gamesStarted: profile.games_started ?? 0,
         guesses: profile.total_guesses ?? 0,
         gmMultiplier: Number(profile.current_gm_multiplier ?? 1),
+        medalPoints: Number(profile.medal_points ?? 0),
+        gold: Number(profile.gold ?? 0),
+        silver: Number(profile.silver ?? 0),
+        bronze: Number(profile.bronze ?? 0),
       }),
     );
     return true;
@@ -179,14 +183,21 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["medals", "awards", "madalya"].includes(command)) {
-    const rows = await getMedalLeaderboard();
+    const periodArg = normalizeCommand(args[0] ?? "");
+    const medalsPeriodType = periodArg ? periodCommandAliases[periodArg] : undefined;
+    if (!medalsPeriodType) {
+      await message.reply(messages.awards.medalsUsage);
+      return true;
+    }
+
+    const rows = await getMedalLeaderboard(medalsPeriodType);
     if (rows.length === 0) {
       await message.reply(messages.awards.noMedalData);
       return true;
     }
 
     const lines = [
-      messages.awards.medalsHeader,
+      messages.awards.medalsHeader(medalsPeriodType),
       ...rows.map((row, index) =>
         messages.awards.medalRow({
           rank: index + 1,

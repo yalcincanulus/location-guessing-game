@@ -244,7 +244,10 @@ export type MedalLeaderboardRow = {
   bronze: number;
 };
 
-export const getMedalLeaderboard = async (limit = 10): Promise<MedalLeaderboardRow[]> => {
+export const getMedalLeaderboard = async (
+  periodType: PeriodType,
+  limit = 10,
+): Promise<MedalLeaderboardRow[]> => {
   const rows = await sqlClient`
     SELECT
       p.display_name,
@@ -254,7 +257,9 @@ export const getMedalLeaderboard = async (limit = 10): Promise<MedalLeaderboardR
       COUNT(*) FILTER (WHERE pa.medal = 'silver')::int AS silver,
       COUNT(*) FILTER (WHERE pa.medal = 'bronze')::int AS bronze
     FROM period_award pa
+    JOIN award_period ap ON ap.id = pa.award_period_id
     JOIN player p ON p.id = pa.player_id
+    WHERE ap.period_type = ${periodType}
     GROUP BY p.id, p.display_name, p.discord_user_id
     HAVING SUM(pa.medal_points) > 0
     ORDER BY medal_points DESC, gold DESC, silver DESC, bronze DESC, p.display_name ASC

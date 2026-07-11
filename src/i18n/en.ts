@@ -55,6 +55,10 @@ export const enMessages = {
       gamesStarted,
       guesses,
       gmMultiplier,
+      medalPoints,
+      gold,
+      silver,
+      bronze,
     }) =>
       [
         `**${displayName}**`,
@@ -63,6 +67,7 @@ export const enMessages = {
         `Games started: **${gamesStarted}**`,
         `Guesses: **${guesses}**`,
         `GM multiplier: **${gmMultiplier.toFixed(2)}x**`,
+        `Medals: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** pts)`,
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "No leaderboard data yet.",
@@ -72,7 +77,7 @@ export const enMessages = {
         `Total guesses: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals`.",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -111,10 +116,21 @@ export const enMessages = {
         ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
         : `${rank}. ${displayName}: **${value}**`,
     noCategoryData: "_No data yet._",
-    noMedalData: "No medals awarded yet.",
+    noMedalData: "No medals awarded yet for that period.",
+    medalsUsage:
+      "Usage: `!medals <period>` — period is `daily`, `weekly`, `monthly`, `seasonal`, or `yearly`.",
     medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
       `${rank}. ${displayName}: **${medalPoints}** pts (🥇${gold} 🥈${silver} 🥉${bronze})`,
-    medalsHeader: "**Medal rankings**",
+    medalsHeader: (periodType) => {
+      const labels = {
+        daily: "Daily",
+        weekly: "Weekly",
+        monthly: "Monthly",
+        seasonal: "Seasonal",
+        yearly: "Yearly",
+      } as const;
+      return `**${labels[periodType]} medal rankings**`;
+    },
   },
   test: {
     modeDisabled: "Test mode is disabled.",

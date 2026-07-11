@@ -55,6 +55,10 @@ export const trMessages = {
       gamesStarted,
       guesses,
       gmMultiplier,
+      medalPoints,
+      gold,
+      silver,
+      bronze,
     }) =>
       [
         `**${displayName}**`,
@@ -63,6 +67,7 @@ export const trMessages = {
         `Başlatılan oyun: **${gamesStarted}**`,
         `Tahmin: **${guesses}**`,
         `Oyun kurucu çarpanı: **${gmMultiplier.toFixed(2)}x**`,
+        `Madalyalar: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** puan)`,
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "Henüz liderlik verisi yok.",
@@ -72,7 +77,7 @@ export const trMessages = {
         `Toplam tahmin: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals`.",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -111,10 +116,21 @@ export const trMessages = {
         ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
         : `${rank}. ${displayName}: **${value}**`,
     noCategoryData: "_Henüz veri yok._",
-    noMedalData: "Henüz madalya verilmedi.",
+    noMedalData: "Bu dönem için henüz madalya verilmedi.",
+    medalsUsage:
+      "Kullanım: `!medals <dönem>` — dönem: `daily`, `weekly`, `monthly`, `seasonal` veya `yearly`.",
     medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
       `${rank}. ${displayName}: **${medalPoints}** puan (🥇${gold} 🥈${silver} 🥉${bronze})`,
-    medalsHeader: "**Madalya sıralaması**",
+    medalsHeader: (periodType) => {
+      const labels = {
+        daily: "Günlük",
+        weekly: "Haftalık",
+        monthly: "Aylık",
+        seasonal: "Mevsimlik",
+        yearly: "Yıllık",
+      } as const;
+      return `**${labels[periodType]} madalya sıralaması**`;
+    },
   },
   test: {
     modeDisabled: "Test modu kapalı.",
