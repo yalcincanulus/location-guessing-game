@@ -136,6 +136,10 @@ export type BotMessages = {
     multiplierCapped: (currentMultiplier: number) => string;
     forcedMultiplierTick: (previousMultiplier: number, newMultiplier: number) => string;
     multiplierNoChange: string;
+    awardsFinalized: (periodType: string, periodKey: string, medalCount: number) => string;
+    awardsAlreadyAnnounced: (periodType: string, periodKey: string) => string;
+    awardsAnnounceFailed: (periodType: string, periodKey: string) => string;
+    awardsInvalidPeriod: string;
     unknownCommand: string;
   };
   game: {

@@ -177,6 +177,7 @@ export const enMessages = {
       "`!admin clear-start` — clear stuck start reservation",
       "`!admin reload` — refresh rules from the database",
       "`!admin tick` — force idle multiplier increase",
+      "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — finalize & announce previous period (default: daily)",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -219,8 +220,16 @@ export const enMessages = {
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
       `Forced multiplier tick: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
     multiplierNoChange: "Multiplier tick did not change the active game.",
+    awardsFinalized: (periodType, periodKey, medalCount) =>
+      `Finalized **${periodType}** awards for **${periodKey}** (${medalCount} medals) and announced in the game channel.`,
+    awardsAlreadyAnnounced: (periodType, periodKey) =>
+      `**${periodType}** awards for **${periodKey}** were already calculated and announced.`,
+    awardsAnnounceFailed: (periodType, periodKey) =>
+      `Calculated **${periodType}** awards for **${periodKey}**, but posting to the game channel failed. Awards are saved; re-run after fixing the channel.`,
+    awardsInvalidPeriod:
+      "Unknown period. Use `daily`, `weekly`, `monthly`, `seasonal`, or `yearly` (default: `daily`).",
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, or `tick`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, or `awards`.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> found the country: **${countryName}**.`,

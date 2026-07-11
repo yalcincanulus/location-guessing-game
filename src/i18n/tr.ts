@@ -177,6 +177,7 @@ export const trMessages = {
       "`!admin clear-start` — takılı başlangıç rezervasyonunu temizle",
       "`!admin reload` — kuralları veritabanından yenile",
       "`!admin tick` — boşta çarpan artışını zorla",
+      "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — önceki dönemi hesapla ve duyur (varsayılan: daily)",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -219,8 +220,16 @@ export const trMessages = {
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
       `Çarpan elle artırıldı: ${previousMultiplier.toFixed(2)}x -> ${newMultiplier.toFixed(2)}x.`,
     multiplierNoChange: "Çarpan kontrolü aktif oyunu değiştirmedi.",
+    awardsFinalized: (periodType, periodKey, medalCount) =>
+      `**${periodType}** ödülleri **${periodKey}** için hesaplandı (${medalCount} madalya) ve oyun kanalında duyuruldu.`,
+    awardsAlreadyAnnounced: (periodType, periodKey) =>
+      `**${periodType}** ödülleri **${periodKey}** için zaten hesaplanmış ve duyurulmuş.`,
+    awardsAnnounceFailed: (periodType, periodKey) =>
+      `**${periodType}** ödülleri **${periodKey}** için hesaplandı, ancak oyun kanalına gönderilemedi. Ödüller kaydedildi; kanalı düzelttikten sonra tekrar çalıştır.`,
+    awardsInvalidPeriod:
+      "Bilinmeyen dönem. `daily`, `weekly`, `monthly`, `seasonal` veya `yearly` kullan (varsayılan: `daily`).",
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload` veya `tick` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick` veya `awards` kullan.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> ülkeyi buldu: **${countryName}**.`,

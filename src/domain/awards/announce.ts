@@ -86,6 +86,67 @@ export const announcePeriodResults = async (
   return true;
 };
 
+export type PeriodAwardsForTypeResult =
+  | {
+      status: "skipped";
+      reason: "already-announced";
+      window: PeriodWindow;
+    }
+  | {
+      status: "finalized";
+      window: PeriodWindow;
+      awardPeriodId: string;
+      announced: boolean;
+      medalCount: number;
+    }
+  | {
+      status: "announce-failed";
+      window: PeriodWindow;
+      awardPeriodId: string;
+      medalCount: number;
+    };
+
+/** Finalize and announce the previous window for a single period type. */
+export const runPeriodAwardsForType = async (
+  client: Client,
+  periodType: PeriodType,
+  now: Date = new Date(),
+): Promise<PeriodAwardsForTypeResult> => {
+  const window = getPreviousPeriodWindow(periodType, now);
+  const finalized = await finalizePeriodAwards(window);
+
+  if (finalized.status === "skipped") {
+    return { status: "skipped", reason: "already-announced", window };
+  }
+
+  const medalCount = finalized.standings.reduce((sum, category) => sum + category.medals.length, 0);
+
+  const announced = await announcePeriodResults(client, window, finalized.standings);
+  if (announced) {
+    await markPeriodAnnounced(finalized.awardPeriodId);
+    return {
+      status: "finalized",
+      window,
+      awardPeriodId: finalized.awardPeriodId,
+      announced: true,
+      medalCount,
+    };
+  }
+
+  logger.error("Period awards calculated but announcement failed", {
+    periodType: window.periodType,
+    periodKey: window.periodKey,
+    awardPeriodId: finalized.awardPeriodId,
+  });
+
+  return {
+    status: "announce-failed",
+    window,
+    awardPeriodId: finalized.awardPeriodId,
+    medalCount,
+  };
+};
+
 export type PeriodAwardsCheckResult = {
   finalized: PeriodType[];
   skipped: PeriodType[];
@@ -103,28 +164,16 @@ export const runPeriodAwardsCheck = async (
   };
 
   for (const periodType of periodsToFinalize(now)) {
-    const window = getPreviousPeriodWindow(periodType, now);
-    const finalized = await finalizePeriodAwards(window);
+    const outcome = await runPeriodAwardsForType(client, periodType, now);
 
-    if (finalized.status === "skipped") {
+    if (outcome.status === "skipped") {
       result.skipped.push(periodType);
       continue;
     }
 
     result.finalized.push(periodType);
-
-    if (finalized.shouldAnnounce) {
-      const announced = await announcePeriodResults(client, window, finalized.standings);
-      if (announced) {
-        await markPeriodAnnounced(finalized.awardPeriodId);
-        result.announced.push(periodType);
-      } else {
-        logger.error("Period awards calculated but announcement failed", {
-          periodType: window.periodType,
-          periodKey: window.periodKey,
-          awardPeriodId: finalized.awardPeriodId,
-        });
-      }
+    if (outcome.status === "finalized" && outcome.announced) {
+      result.announced.push(periodType);
     }
   }
 

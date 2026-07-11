@@ -8,6 +8,8 @@ import {
 } from "../domain/game/admin-game-ops.ts";
 import { getWrongCountries } from "../domain/game/active-game-state.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
+import { runPeriodAwardsForType } from "../domain/awards/announce.ts";
+import type { PeriodType } from "../domain/awards/periods.ts";
 import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
 
@@ -100,7 +102,9 @@ const cancelCommand = async (message: Message, ctx: GameChannelContext, reason: 
     return true;
   }
 
-  await ctx.channel.send(messages.admin.cancelledAnnouncement(result.gameId, reason)).catch(() => undefined);
+  await ctx.channel
+    .send(messages.admin.cancelledAnnouncement(result.gameId, reason))
+    .catch(() => undefined);
   await message.reply(messages.admin.cancelledGame(result.gameId));
   return true;
 };
@@ -176,6 +180,56 @@ const tickCommand = async (message: Message, ctx: GameChannelContext) => {
   return true;
 };
 
+const awardsPeriodAliases: Record<string, PeriodType> = {
+  daily: "daily",
+  gunluk: "daily",
+  weekly: "weekly",
+  haftalik: "weekly",
+  monthly: "monthly",
+  aylik: "monthly",
+  seasonal: "seasonal",
+  season: "seasonal",
+  mevsim: "seasonal",
+  mevsimlik: "seasonal",
+  yearly: "yearly",
+  year: "yearly",
+  yillik: "yearly",
+};
+
+const awardsCommand = async (message: Message, args: string[]) => {
+  const periodArg = normalize(args[0] ?? "daily");
+  const periodType = awardsPeriodAliases[periodArg];
+  if (!periodType) {
+    await message.reply(messages.admin.awardsInvalidPeriod);
+    return true;
+  }
+
+  const result = await runPeriodAwardsForType(message.client, periodType);
+
+  if (result.status === "skipped") {
+    await message.reply(
+      messages.admin.awardsAlreadyAnnounced(result.window.periodType, result.window.periodKey),
+    );
+    return true;
+  }
+
+  if (result.status === "announce-failed") {
+    await message.reply(
+      messages.admin.awardsAnnounceFailed(result.window.periodType, result.window.periodKey),
+    );
+    return true;
+  }
+
+  await message.reply(
+    messages.admin.awardsFinalized(
+      result.window.periodType,
+      result.window.periodKey,
+      result.medalCount,
+    ),
+  );
+  return true;
+};
+
 export const handleAdminCommand = async (message: Message) => {
   if (!isBotAdmin(message.author.id)) {
     return false;
@@ -203,6 +257,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["reload", "yenile"].includes(subcommand)) {
     return reloadCommand(message);
+  }
+
+  if (["awards", "oduller", "ödüller"].includes(subcommand)) {
+    return awardsCommand(message, args.slice(1));
   }
 
   const resolved = await resolveGameChannelContext(message);
