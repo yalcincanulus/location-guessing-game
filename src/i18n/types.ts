@@ -13,6 +13,7 @@ export type ProfileMessageInput = {
   gold: number;
   silver: number;
   bronze: number;
+  achievementsUnlocked: number;
 };
 
 export type GameStatsMessageInput = {
@@ -145,7 +146,26 @@ export type BotMessages = {
     awardsAlreadyAnnounced: (periodType: string, periodKey: string) => string;
     awardsAnnounceFailed: (periodType: string, periodKey: string) => string;
     awardsInvalidPeriod: string;
+    achievementsBackfillDone: (players: number, unlocks: number, errors: number) => string;
     unknownCommand: string;
+  };
+  achievements: {
+    name: (id: string) => string;
+    description: (id: string) => string;
+    unlockedDm: (id: string, tier: number | null) => string;
+    unlockedChannel: (id: string, tier: number | null, displayName: string) => string;
+    header: string;
+    listHeader: string;
+    progressLine: (
+      id: string,
+      earnedTiers: number[],
+      nextTier: number | null,
+      currentValue: number | string,
+      streakCurrent?: number,
+    ) => string;
+    empty: string;
+    usage: string;
+    hiddenDescription: string;
   };
   game: {
     foundCountry: (userId: string, countryName: string) => string;

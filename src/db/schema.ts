@@ -344,6 +344,32 @@ export const periodAward = snakeCase.table(
   ],
 );
 
+export const playerAchievement = snakeCase.table(
+  "player_achievement",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    achievementId: text().notNull(),
+    /** Ladder threshold, or `0` for oneshots. */
+    tier: integer().notNull().default(0),
+    earnedAt: timestamp().notNull().defaultNow(),
+    sourceGameId: uuid().references(() => game.id),
+    meta: jsonb().$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("player_achievement_player_id_tier_unique").on(
+      table.playerId,
+      table.achievementId,
+      table.tier,
+    ),
+  ],
+);
+
 export const schema = {
   rule,
   guild,
@@ -362,4 +388,5 @@ export const schema = {
   startAttempt,
   awardPeriod,
   periodAward,
+  playerAchievement,
 };

@@ -16,6 +16,7 @@ import {
   markPeriodAnnounced,
   type CategoryStandings,
 } from "../../repositories/awards-repository.ts";
+import { onPeriodAwardsFinalized } from "../achievements/hooks.ts";
 
 const medalByPlayer = (standings: CategoryStandings): Map<string, Medal> => {
   const map = new Map<string, Medal>();
@@ -120,6 +121,17 @@ export const runPeriodAwardsForType = async (
   }
 
   const medalCount = finalized.standings.reduce((sum, category) => sum + category.medals.length, 0);
+
+  const goldPlayerIds = [
+    ...new Set(
+      finalized.standings.flatMap((category) =>
+        category.medals.filter((medal) => medal.medal === "gold").map((medal) => medal.playerId),
+      ),
+    ),
+  ];
+  if (goldPlayerIds.length > 0) {
+    await onPeriodAwardsFinalized(client, periodType, goldPlayerIds);
+  }
 
   const announced = await announcePeriodResults(client, window, finalized.standings);
   if (announced) {

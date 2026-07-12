@@ -20,6 +20,7 @@ import { keys } from "../redis/keys.ts";
 import { messages } from "../i18n/messages.ts";
 import { runPeriodAwardsCheck } from "../domain/awards/announce.ts";
 import { AWARDS_TZ } from "../domain/awards/periods.ts";
+import { runDailyAchievementStreaks } from "../domain/achievements/hooks.ts";
 
 const redisUrl = new URL(env.redisUrl);
 const bullConnection = {
@@ -47,6 +48,10 @@ export const periodAwardsQueue = new Queue("period-awards", {
   connection: bullConnection,
 });
 
+export const achievementStreakQueue = new Queue("achievement-streaks", {
+  connection: bullConnection,
+});
+
 /** Daytime reminder slots in Europe/Istanbul (never overnight). */
 export const IDLE_REMINDER_CRON = "0 9,12,15,18,21 * * *";
 export const IDLE_REMINDER_TZ = "Europe/Istanbul";
@@ -54,6 +59,10 @@ export const IDLE_REMINDER_TZ = "Europe/Istanbul";
 /** Midnight period awards in Europe/Istanbul. */
 export const PERIOD_AWARDS_CRON = "0 0 * * *";
 export const PERIOD_AWARDS_TZ = AWARDS_TZ;
+
+/** Streak catch-up shortly after midnight awards. */
+export const ACHIEVEMENT_STREAK_CRON = "5 0 * * *";
+export const ACHIEVEMENT_STREAK_TZ = AWARDS_TZ;
 
 const isIdleReminderQuietHours = (now = new Date()) => {
   const hour = Number(
@@ -409,12 +418,31 @@ export const startPeriodAwardsWorker = (client: Client) =>
     { connection: bullConnection },
   );
 
+export const ensureAchievementStreakSchedule = async () => {
+  await achievementStreakQueue.upsertJobScheduler(
+    "achievement-streaks",
+    { pattern: ACHIEVEMENT_STREAK_CRON, tz: ACHIEVEMENT_STREAK_TZ },
+    { name: "evaluate-achievement-streaks", data: {} },
+  );
+};
+
+export const startAchievementStreakWorker = (client: Client) =>
+  new Worker(
+    "achievement-streaks",
+    async () => {
+      const result = await runDailyAchievementStreaks(client);
+      logger.info("Achievement streak check completed", result);
+    },
+    { connection: bullConnection },
+  );
+
 export const closeQueues = async () => {
   await Promise.all([
     multiplierQueue.close(),
     startReservationQueue.close(),
     idleReminderQueue.close(),
     periodAwardsQueue.close(),
+    achievementStreakQueue.close(),
   ]);
 };
 

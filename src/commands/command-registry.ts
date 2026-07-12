@@ -12,8 +12,18 @@ import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
 import { getCurrentPeriodWindow, type PeriodType } from "../domain/awards/periods.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
 import { viewportAliases } from "../domain/maps/region-presets.ts";
-import { getLeaderboard, getPlayerProfile } from "../repositories/core-repository.ts";
+import { getLeaderboard, getPlayerProfile, upsertPlayer } from "../repositories/core-repository.ts";
 import { getAllCategoryStandings, getMedalLeaderboard } from "../repositories/awards-repository.ts";
+import {
+  countPlayerUnlocksByDiscordId,
+  getPlayerUnlocks,
+} from "../repositories/achievements-repository.ts";
+import { ACHIEVEMENT_CATALOG, ONESHOT_TIER } from "../domain/achievements/catalog.ts";
+import {
+  getHostStreak,
+  getPlayStreak,
+  getPlayerStatSnapshot,
+} from "../domain/achievements/metrics.ts";
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
@@ -142,6 +152,7 @@ export const handleCommand = async (message: Message<true>) => {
         gold: Number(profile.gold ?? 0),
         silver: Number(profile.silver ?? 0),
         bronze: Number(profile.bronze ?? 0),
+        achievementsUnlocked: await countPlayerUnlocksByDiscordId(message.author.id),
       }),
     );
     return true;
@@ -210,6 +221,129 @@ export const handleCommand = async (message: Message<true>) => {
       ),
     ];
     await message.reply(lines.join("\n"));
+    return true;
+  }
+
+  if (["achievements", "basarim", "basarimlar"].includes(command)) {
+    const sub = normalizeCommand(args[0] ?? "");
+    if (sub === "list" || sub === "liste") {
+      const owned = new Set<string>();
+      try {
+        const player = await upsertPlayer(message.author);
+        const unlocks = await getPlayerUnlocks(player.id);
+        for (const unlock of unlocks) {
+          owned.add(unlock.achievementId);
+        }
+      } catch {
+        // profile may not exist yet
+      }
+
+      const lines = [messages.achievements.listHeader];
+      for (const item of ACHIEVEMENT_CATALOG) {
+        const desc =
+          item.hiddenUntilEarn && !owned.has(item.id)
+            ? messages.achievements.hiddenDescription
+            : messages.achievements.description(item.id);
+        lines.push(`**${messages.achievements.name(item.id)}** — ${desc}`);
+      }
+      // Chunk if needed
+      let chunk = "";
+      for (const line of lines) {
+        if (chunk.length + line.length + 1 > 1900) {
+          await message.reply(chunk);
+          chunk = line;
+        } else {
+          chunk = chunk ? `${chunk}\n${line}` : line;
+        }
+      }
+      if (chunk) {
+        await message.reply(chunk);
+      }
+      return true;
+    }
+
+    if (sub && sub !== "list" && sub !== "liste") {
+      await message.reply(messages.achievements.usage);
+      return true;
+    }
+
+    const player = await upsertPlayer(message.author);
+    const unlocks = await getPlayerUnlocks(player.id);
+    if (unlocks.length === 0) {
+      await message.reply(messages.achievements.empty);
+      return true;
+    }
+
+    const byId = new Map<string, number[]>();
+    for (const unlock of unlocks) {
+      const tiers = byId.get(unlock.achievementId) ?? [];
+      if (unlock.tier !== ONESHOT_TIER) {
+        tiers.push(unlock.tier);
+      }
+      byId.set(unlock.achievementId, tiers);
+    }
+
+    const stats = await getPlayerStatSnapshot(player.id);
+    const hostStreak = await getHostStreak(player.id);
+    const playStreak = await getPlayStreak(player.id);
+    const lines = [messages.achievements.header];
+
+    for (const item of ACHIEVEMENT_CATALOG) {
+      if (!byId.has(item.id) && item.kind === "oneshot") {
+        // only show owned oneshots in progress view
+        const ownedOneshot = unlocks.some(
+          (u) => u.achievementId === item.id && u.tier === ONESHOT_TIER,
+        );
+        if (!ownedOneshot) {
+          continue;
+        }
+        lines.push(`**${messages.achievements.name(item.id)}** ✓`);
+        continue;
+      }
+      if (!byId.has(item.id) && item.kind === "ladder") {
+        continue;
+      }
+
+      if (item.kind === "oneshot") {
+        lines.push(`**${messages.achievements.name(item.id)}** ✓`);
+        continue;
+      }
+
+      const earned = (byId.get(item.id) ?? []).sort((a, b) => a - b);
+      const nextTier = item.tiers.find((tier) => !earned.includes(tier)) ?? null;
+      let currentValue: number | string = "?";
+      let streakCurrent: number | undefined;
+      if (item.id === "host_games") currentValue = stats.gamesStarted;
+      else if (item.id === "play_games") currentValue = stats.gamesParticipated;
+      else if (item.id === "win_games") currentValue = stats.gamesWon;
+      else if (item.id === "points_total") currentValue = stats.pointsTotal;
+      else if (item.id === "host_streak_days") {
+        currentValue = hostStreak.best;
+        streakCurrent = hostStreak.current;
+      } else if (item.id === "play_streak_days") {
+        currentValue = playStreak.best;
+        streakCurrent = playStreak.current;
+      } else if (earned.length > 0) {
+        currentValue = earned[earned.length - 1]!;
+      }
+
+      lines.push(
+        messages.achievements.progressLine(item.id, earned, nextTier, currentValue, streakCurrent),
+      );
+    }
+
+    let chunk = "";
+    for (const line of lines) {
+      if (chunk.length + line.length + 1 > 1900) {
+        await message.reply(chunk);
+        chunk = line;
+      } else {
+        chunk = chunk ? `${chunk}\n${line}` : line;
+      }
+    }
+    if (chunk) {
+      await message.reply(chunk);
+    }
     return true;
   }
 

@@ -6,6 +6,7 @@ import {
   parseGoogleMapsUrl,
 } from "../../domain/geocoding/google-maps-parser.ts";
 import { startGame, handleGuess } from "../../domain/game/game-service.ts";
+import { onGameStarted } from "../../domain/achievements/hooks.ts";
 import { isOfficiallyCovered } from "../../domain/countries/official-coverage.ts";
 import { getActiveGameState, updateGameState } from "../../domain/game/active-game-state.ts";
 import {
@@ -218,6 +219,16 @@ const completeStartIfReady = async ({
   }
 
   await scheduleIdleMultiplier(started.state.gameId, rules.idleMultiplierIntervalSeconds * 1000);
+
+  if (!started.state.isTest) {
+    await onGameStarted(author.client, {
+      playerId: started.state.gameMasterPlayerId,
+      gameId: started.state.gameId,
+      countryCode: started.state.targetCountryCode,
+      at: new Date(),
+    });
+  }
+
   return true;
 };
 

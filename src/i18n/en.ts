@@ -1,4 +1,9 @@
 import type { BotMessages } from "./types.ts";
+import {
+  achievementDescriptionsEn,
+  achievementNamesEn,
+  formatAchievementTier,
+} from "./achievement-copy.ts";
 
 export const enMessages = {
   locale: "en",
@@ -59,6 +64,7 @@ export const enMessages = {
       gold,
       silver,
       bronze,
+      achievementsUnlocked,
     }) =>
       [
         `**${displayName}**`,
@@ -68,6 +74,7 @@ export const enMessages = {
         `Guesses: **${guesses}**`,
         `GM multiplier: **${gmMultiplier.toFixed(2)}x**`,
         `Medals: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** pts)`,
+        `Achievements: **${achievementsUnlocked}** unlocked`,
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "No leaderboard data yet.",
@@ -77,7 +84,7 @@ export const enMessages = {
         `Total guesses: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`.",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -194,6 +201,7 @@ export const enMessages = {
       "`!admin reload` — refresh rules from the database",
       "`!admin tick` — force idle multiplier increase",
       "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — finalize & announce previous period (default: daily)",
+      "`!admin achievements backfill` — recompute achievements for all players (silent)",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -244,8 +252,39 @@ export const enMessages = {
       `Calculated **${periodType}** awards for **${periodKey}**, but posting to the game channel failed. Awards are saved; re-run after fixing the channel.`,
     awardsInvalidPeriod:
       "Unknown period. Use `daily`, `weekly`, `monthly`, `seasonal`, or `yearly` (default: `daily`).",
+    achievementsBackfillDone: (players, unlocks, errors) =>
+      `Achievements backfill complete: **${players}** players, **${unlocks}** unlocks inserted, **${errors}** errors.`,
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, or `awards`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, or `achievements backfill`.",
+  },
+  achievements: {
+    name: (id) => achievementNamesEn[id] ?? id,
+    description: (id) => achievementDescriptionsEn[id] ?? "",
+    unlockedDm: (id, tier) => {
+      const name = achievementNamesEn[id] ?? id;
+      const tierLabel = formatAchievementTier(id, tier);
+      return tierLabel ? `Unlocked: **${name}** (${tierLabel})` : `Unlocked: **${name}**`;
+    },
+    unlockedChannel: (id, tier, displayName) => {
+      const name = achievementNamesEn[id] ?? id;
+      const tierLabel = formatAchievementTier(id, tier);
+      return tierLabel
+        ? `Achievement unlocked: **${name}** (${tierLabel}) — ${displayName}`
+        : `Achievement unlocked: **${name}** — ${displayName}`;
+    },
+    header: "**Your achievements**",
+    listHeader: "**Achievement catalog**",
+    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent) => {
+      const name = achievementNamesEn[id] ?? id;
+      const earned = earnedTiers.length > 0 ? earnedTiers.map(String).join(",") : "—";
+      const next =
+        nextTier === null ? "max" : (formatAchievementTier(id, nextTier) ?? String(nextTier));
+      const streak = streakCurrent === undefined ? "" : ` · current streak **${streakCurrent}**`;
+      return `**${name}** · earned [${earned}] · now **${currentValue}** · next **${next}**${streak}`;
+    },
+    empty: "No achievements unlocked yet.",
+    usage: "Usage: `!achievements` or `!achievements list`",
+    hiddenDescription: "Hidden until earned.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> found the country: **${countryName}**.`,

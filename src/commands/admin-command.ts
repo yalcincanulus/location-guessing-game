@@ -10,6 +10,7 @@ import { getWrongCountries } from "../domain/game/active-game-state.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { runPeriodAwardsForType } from "../domain/awards/announce.ts";
 import type { PeriodType } from "../domain/awards/periods.ts";
+import { runAchievementsBackfill } from "../domain/achievements/hooks.ts";
 import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
 
@@ -261,6 +262,19 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {
     return awardsCommand(message, args.slice(1));
+  }
+
+  if (["achievements", "basarim", "basarimlar"].includes(subcommand)) {
+    const action = normalize(args[1] ?? "");
+    if (action !== "backfill") {
+      await message.reply(messages.admin.unknownCommand);
+      return true;
+    }
+    const result = await runAchievementsBackfill();
+    await message.reply(
+      messages.admin.achievementsBackfillDone(result.players, result.unlocks, result.errors),
+    );
+    return true;
   }
 
   const resolved = await resolveGameChannelContext(message);

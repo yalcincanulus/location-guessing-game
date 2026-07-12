@@ -23,6 +23,8 @@ import {
   upsertGuild,
   upsertPlayer,
 } from "../../repositories/core-repository.ts";
+import { getGameParticipantIds } from "../achievements/metrics.ts";
+import { onGameCompleted } from "../achievements/hooks.ts";
 import {
   normalizeCountryGuess,
   getCountryDisplayName,
@@ -476,6 +478,22 @@ const completeGame = async (
       `;
     }
   });
+
+  if (!state.isTest) {
+    const rules = await loadRules();
+    const participantPlayerIds = await getGameParticipantIds(state.gameId);
+    await onGameCompleted(message.client, {
+      gameId: state.gameId,
+      winnerPlayerId,
+      gameMasterPlayerId: state.gameMasterPlayerId,
+      participantPlayerIds,
+      uniqueWrongCountryCount: wrongCountries.length,
+      currentMultiplier: state.currentMultiplier,
+      currentMultiplierMax: rules.currentMultiplierMax,
+      targetCountryCode: state.targetCountryCode,
+      at: new Date(),
+    });
+  }
 
   const locationRows = await sqlClient`
     SELECT

@@ -1,4 +1,9 @@
 import type { BotMessages } from "./types.ts";
+import {
+  achievementDescriptionsTr,
+  achievementNamesTr,
+  formatAchievementTier,
+} from "./achievement-copy.ts";
 
 export const trMessages = {
   locale: "tr",
@@ -59,6 +64,7 @@ export const trMessages = {
       gold,
       silver,
       bronze,
+      achievementsUnlocked,
     }) =>
       [
         `**${displayName}**`,
@@ -68,6 +74,7 @@ export const trMessages = {
         `Tahmin: **${guesses}**`,
         `Oyun kurucu çarpanı: **${gmMultiplier.toFixed(2)}x**`,
         `Madalyalar: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** puan)`,
+        `Başarımlar: **${achievementsUnlocked}** açıldı`,
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "Henüz liderlik verisi yok.",
@@ -77,7 +84,7 @@ export const trMessages = {
         `Toplam tahmin: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`.",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -194,6 +201,7 @@ export const trMessages = {
       "`!admin reload` — kuralları veritabanından yenile",
       "`!admin tick` — boşta çarpan artışını zorla",
       "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — önceki dönemi hesapla ve duyur (varsayılan: daily)",
+      "`!admin achievements backfill` — tüm oyuncular için başarımları yeniden hesapla (sessiz)",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -244,8 +252,39 @@ export const trMessages = {
       `**${periodType}** ödülleri **${periodKey}** için hesaplandı, ancak oyun kanalına gönderilemedi. Ödüller kaydedildi; kanalı düzelttikten sonra tekrar çalıştır.`,
     awardsInvalidPeriod:
       "Bilinmeyen dönem. `daily`, `weekly`, `monthly`, `seasonal` veya `yearly` kullan (varsayılan: `daily`).",
+    achievementsBackfillDone: (players, unlocks, errors) =>
+      `Başarım backfill tamam: **${players}** oyuncu, **${unlocks}** yeni unlock, **${errors}** hata.`,
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick` veya `awards` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards` veya `achievements backfill` kullan.",
+  },
+  achievements: {
+    name: (id) => achievementNamesTr[id] ?? id,
+    description: (id) => achievementDescriptionsTr[id] ?? "",
+    unlockedDm: (id, tier) => {
+      const name = achievementNamesTr[id] ?? id;
+      const tierLabel = formatAchievementTier(id, tier);
+      return tierLabel ? `Açıldı: **${name}** (${tierLabel})` : `Açıldı: **${name}**`;
+    },
+    unlockedChannel: (id, tier, displayName) => {
+      const name = achievementNamesTr[id] ?? id;
+      const tierLabel = formatAchievementTier(id, tier);
+      return tierLabel
+        ? `Başarım açıldı: **${name}** (${tierLabel}) — ${displayName}`
+        : `Başarım açıldı: **${name}** — ${displayName}`;
+    },
+    header: "**Başarımların**",
+    listHeader: "**Başarım kataloğu**",
+    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent) => {
+      const name = achievementNamesTr[id] ?? id;
+      const earned = earnedTiers.length > 0 ? earnedTiers.map(String).join(",") : "—";
+      const next =
+        nextTier === null ? "max" : (formatAchievementTier(id, nextTier) ?? String(nextTier));
+      const streak = streakCurrent === undefined ? "" : ` · güncel seri **${streakCurrent}**`;
+      return `**${name}** · kazanılan [${earned}] · şimdi **${currentValue}** · sıradaki **${next}**${streak}`;
+    },
+    empty: "Henüz başarım açılmadı.",
+    usage: "Kullanım: `!achievements` veya `!achievements list`",
+    hiddenDescription: "Kazanılana kadar gizli.",
   },
   game: {
     foundCountry: (userId, countryName) => `<@${userId}> ülkeyi buldu: **${countryName}**.`,
