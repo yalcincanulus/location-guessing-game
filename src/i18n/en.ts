@@ -84,7 +84,7 @@ export const enMessages = {
         `Total guesses: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`.",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM).",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -283,7 +283,9 @@ export const enMessages = {
       return `**${name}** · earned [${earned}] · now **${currentValue}** · next **${next}**${streak}`;
     },
     empty: "No achievements unlocked yet.",
-    usage: "Usage: `!achievements` or `!achievements list`",
+    usage: "Usage: `!achievements` or `!achievements list` (works in the game channel or DM).",
+    dmUsage:
+      "In DM you can use `!achievements` or `!achievements list`. Other commands belong in the game channel.",
     hiddenDescription: "Hidden until earned.",
   },
   game: {

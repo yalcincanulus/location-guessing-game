@@ -245,8 +245,7 @@ export const handleAdminCommand = async (message: Message) => {
   const parts = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = normalize(parts[0] ?? "");
   if (command !== "admin") {
-    await message.reply(messages.admin.unknownCommand);
-    return true;
+    return false;
   }
 
   const args = parts.slice(1);

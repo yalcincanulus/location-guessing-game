@@ -19,7 +19,7 @@ import {
 import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
-import { handleCommand, isCommandMessage } from "../../commands/command-registry.ts";
+import { handleCommand, handleAchievementsCommand, isCommandMessage } from "../../commands/command-registry.ts";
 import { handleAdminCommand } from "../../commands/admin-command.ts";
 import { isBotAdmin } from "../admin.ts";
 import {
@@ -412,8 +412,14 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
 
   try {
     if (!message.inGuild()) {
-      if (isBotAdmin(message.author.id) && (await isCommandMessage(message.content))) {
-        await handleAdminCommand(message);
+      if (await isCommandMessage(message.content)) {
+        if (isBotAdmin(message.author.id) && (await handleAdminCommand(message))) {
+          return;
+        }
+        if (await handleAchievementsCommand(message)) {
+          return;
+        }
+        await message.reply(messages.achievements.dmUsage);
         return;
       }
       await handleDmStart(client, message);

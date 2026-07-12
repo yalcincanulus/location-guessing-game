@@ -84,7 +84,7 @@ export const trMessages = {
         `Toplam tahmin: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`.",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır).",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -283,7 +283,9 @@ export const trMessages = {
       return `**${name}** · kazanılan [${earned}] · şimdi **${currentValue}** · sıradaki **${next}**${streak}`;
     },
     empty: "Henüz başarım açılmadı.",
-    usage: "Kullanım: `!achievements` veya `!achievements list`",
+    usage: "Kullanım: `!achievements` veya `!achievements list` (oyun kanalında veya DM'de).",
+    dmUsage:
+      "DM'de `!achievements` veya `!achievements list` kullanabilirsin. Diğer komutlar oyun kanalında.",
     hiddenDescription: "Kazanılana kadar gizli.",
   },
   game: {

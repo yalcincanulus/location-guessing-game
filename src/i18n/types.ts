@@ -165,6 +165,7 @@ export type BotMessages = {
     ) => string;
     empty: string;
     usage: string;
+    dmUsage: string;
     hiddenDescription: string;
   };
   game: {
