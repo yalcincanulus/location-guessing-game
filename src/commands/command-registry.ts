@@ -122,7 +122,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
         item.hiddenUntilEarn && !owned.has(item.id)
           ? messages.achievements.hiddenDescription
           : messages.achievements.description(item.id);
-      lines.push(`**${messages.achievements.name(item.id)}** — ${desc}`);
+      lines.push(`**${messages.achievements.name(item.id)}**: ${desc}`);
     }
     await replyChunked(message, lines);
     return true;

@@ -89,7 +89,7 @@ export const achievementNamesTr: Record<string, string> = {
   oneshot_win: "Tek Atış",
   comeback_win: "Geri Dönüş",
   first_blood: "İlk Hamle",
-  dual_threat: "Çift Tehdit",
+  dual_threat: "Çifte Tehdit",
   medalist_daily: "Günlük Madalya",
   medalist_weekly: "Haftalık Madalya",
   medalist_monthly: "Aylık Madalya",
@@ -102,11 +102,11 @@ export const achievementNamesTr: Record<string, string> = {
   multiplier_thief: "Çarpan Hırsızı",
   patient_zero: "Sıfırıncı Hasta",
   night_owl: "Gece Kuşu",
-  early_bird: "Erken Kalkan",
+  early_bird: "Erkenci",
 };
 
 export const achievementDescriptionsTr: Record<string, string> = {
-  host_games: "Oyun kurucu olarak oyun başlat.",
+  host_games: "Oyun başlat.",
   host_hard: "Çok sayıda benzersiz yanlış tahmini olan tamamlanmış oyun kur.",
   host_milestones: "Oyun kurucu zorluk kilometre taşları kazan.",
   host_crowd: "Çok katılımcılı tamamlanmış oyun kur.",
