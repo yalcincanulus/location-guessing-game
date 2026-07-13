@@ -176,6 +176,7 @@ export type BotMessages = {
       latitude: number;
       longitude: number;
     }) => string;
+    wrongGuessCount: (count: number) => string;
     testNoPoints: string;
     reward: (
       points: number,

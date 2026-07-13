@@ -298,6 +298,7 @@ export const trMessages = {
       ]
         .filter(Boolean)
         .join("\n"),
+    wrongGuessCount: (count) => `Yanlış tahminler: **${count}**.`,
     testNoPoints: "Test oyunu: puan verilmedi.",
     reward: (points, basePoints, currentMultiplier, gmMultiplier) =>
       `Ödül: **${points}** puan (${basePoints} x ${currentMultiplier.toFixed(2)} x ${gmMultiplier.toFixed(2)}).`,

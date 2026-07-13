@@ -558,6 +558,7 @@ const completeGame = async (
             longitude,
           })
         : undefined,
+      messages.game.wrongGuessCount(wrongCountries.length),
       state.isTest
         ? messages.game.testNoPoints
         : messages.game.reward(

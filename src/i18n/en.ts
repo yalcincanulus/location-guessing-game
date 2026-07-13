@@ -298,6 +298,7 @@ export const enMessages = {
       ]
         .filter(Boolean)
         .join("\n"),
+    wrongGuessCount: (count) => `Wrong guesses: **${count}**.`,
     testNoPoints: "Test game: no points awarded.",
     reward: (points, basePoints, currentMultiplier, gmMultiplier) =>
       `Reward: **${points}** points (${basePoints} x ${currentMultiplier.toFixed(2)} x ${gmMultiplier.toFixed(2)}).`,
