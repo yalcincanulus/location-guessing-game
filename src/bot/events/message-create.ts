@@ -446,7 +446,7 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
     }
 
     const result = await handleGuess(message, state);
-    if (result === "ignored" || result === "game-master-blocked") {
+    if (result === "ignored" || result === "game-master-blocked" || result === "already-reacted") {
       return;
     }
 

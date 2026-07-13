@@ -54,6 +54,18 @@ export const updateGameState = async (state: ActiveGameState) => {
   await redis.set(keys.gameState(state.gameId), JSON.stringify(state));
 };
 
+/** Safety TTL if a claim is left behind after a crash mid-completion. */
+const WIN_CLAIM_TTL_SECONDS = 300;
+
+export const tryClaimGameWin = async (gameId: string, messageId: string): Promise<boolean> => {
+  const result = await redis.set(keys.winClaim(gameId), messageId, "EX", WIN_CLAIM_TTL_SECONDS, "NX");
+  return result === "OK";
+};
+
+export const releaseGameWinClaim = async (gameId: string) => {
+  await redis.del(keys.winClaim(gameId));
+};
+
 export const clearGameKeys = async (guildId: string, channelId: string, gameId: string) => {
   const cacheKeys = await redis.keys(`game:${gameId}:map-cache:*`);
   const multi = redis
@@ -61,7 +73,8 @@ export const clearGameKeys = async (guildId: string, channelId: string, gameId: 
     .del(keys.activeGame(guildId, channelId))
     .del(keys.gameState(gameId))
     .del(keys.wrongCountries(gameId))
-    .del(keys.guessStreaks(gameId));
+    .del(keys.guessStreaks(gameId))
+    .del(keys.winClaim(gameId));
   if (cacheKeys.length > 0) {
     multi.del(...cacheKeys);
   }

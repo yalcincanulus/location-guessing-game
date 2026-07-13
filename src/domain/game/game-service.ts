@@ -12,8 +12,10 @@ import {
   getWrongCountries,
   hasWrongCountry,
   mapHash,
+  releaseGameWinClaim,
   setCachedMap,
   setActiveGame,
+  tryClaimGameWin,
   updateGameState,
   type ActiveGameState,
 } from "./active-game-state.ts";
@@ -37,6 +39,7 @@ import { renderMap } from "../maps/map-renderer.ts";
 import { removeMultiplierJobsForGame } from "../../jobs/queues.ts";
 import { canBypassGameMasterBlock } from "./test-mode.ts";
 import { messages } from "../../i18n/messages.ts";
+import { logger } from "../../util/logger.ts";
 
 export type StartGameInput = {
   guildChannel: GuildBasedChannel;
@@ -267,32 +270,47 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
     );
   }
 
-  const reaction = isCorrect ? "✅" : isRepeat ? "🔄" : "❌";
-  const guessId = await persistGuess(
-    message,
-    state,
-    player.id,
-    parsed.countryCode,
-    parsed.displayName,
-    parsed.strategy,
-    isCorrect,
-    isRepeat,
-    false,
-    reaction,
-  );
-
-  if (!isCorrect && !isRepeat) {
-    await addWrongCountry(state.gameId, parsed.countryCode);
-  }
-
-  state.lastGuessAt = now;
-  await updateGameState(state);
-
+  // Only the first concurrent correct guess may complete the game.
   if (isCorrect) {
-    return completeGame(message, state, player.id, guessId);
+    const claimed = await tryClaimGameWin(state.gameId, message.id);
+    if (!claimed) {
+      return "ignored" as const;
+    }
   }
 
-  return reaction;
+  try {
+    const reaction = isCorrect ? "✅" : isRepeat ? "🔄" : "❌";
+    const guessId = await persistGuess(
+      message,
+      state,
+      player.id,
+      parsed.countryCode,
+      parsed.displayName,
+      parsed.strategy,
+      isCorrect,
+      isRepeat,
+      false,
+      reaction,
+    );
+
+    if (!isCorrect && !isRepeat) {
+      await addWrongCountry(state.gameId, parsed.countryCode);
+    }
+
+    state.lastGuessAt = now;
+    await updateGameState(state);
+
+    if (isCorrect) {
+      return await completeGame(message, state, player.id, guessId);
+    }
+
+    return reaction;
+  } catch (error) {
+    if (isCorrect) {
+      await releaseGameWinClaim(state.gameId);
+    }
+    throw error;
+  }
 };
 
 const persistGuess = async (
@@ -418,8 +436,8 @@ const completeGame = async (
     ? 0
     : calculateReward(state.basePoints, state.currentMultiplier, state.gmMultiplier);
 
-  await sqlClient.begin(async (tx) => {
-    await tx`
+  const completed = await sqlClient.begin(async (tx) => {
+    const updated = await tx`
       UPDATE game
       SET
         status = 'completed',
@@ -430,7 +448,13 @@ const completeGame = async (
         points_awarded = ${points},
         updated_at = now()
       WHERE id = ${state.gameId}
+        AND status = 'active'
+      RETURNING id
     `;
+
+    if (!updated[0]) {
+      return false;
+    }
 
     if (!state.isTest) {
       await tx`
@@ -477,24 +501,41 @@ const completeGame = async (
         WHERE player_id = ${state.gameMasterPlayerId}
       `;
     }
+
+    return true;
   });
 
-  if (!state.isTest) {
-    const rules = await loadRules();
-    const participantPlayerIds = await getGameParticipantIds(state.gameId);
-    await onGameCompleted(message.client, {
-      gameId: state.gameId,
-      winnerPlayerId,
-      gameMasterPlayerId: state.gameMasterPlayerId,
-      participantPlayerIds,
-      uniqueWrongCountryCount: wrongCountries.length,
-      currentMultiplier: state.currentMultiplier,
-      currentMultiplierMax: rules.currentMultiplierMax,
-      targetCountryCode: state.targetCountryCode,
-      at: new Date(),
-    });
+  if (!completed) {
+    await releaseGameWinClaim(state.gameId);
+    return "ignored" as const;
   }
 
+  // Drop the active slot immediately so later messages cannot start another win path
+  // while we still render the end-of-game map/announcement.
+  await clearActiveGame(state);
+  await removeMultiplierJobsForGame(state.gameId);
+
+  // Confirm the win on the guess message before any map/announce work.
+  await message.react("✅").catch(() => undefined);
+
+  void announceGameWin(message, state, winnerPlayerId, points, wrongCountries).catch((error) => {
+    logger.error("Failed to post end-of-game announcement", {
+      gameId: state.gameId,
+      messageId: message.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  return "already-reacted" as const;
+};
+
+const announceGameWin = async (
+  message: Message<true>,
+  state: ActiveGameState,
+  winnerPlayerId: string,
+  points: number,
+  wrongCountries: string[],
+) => {
   const locationRows = await sqlClient`
     SELECT
       l.original_google_maps_url,
@@ -524,9 +565,6 @@ const completeGame = async (
     (latitude != null && longitude != null
       ? `https://www.google.com/maps/@${latitude},${longitude},3a,75y,0h,90t`
       : undefined);
-
-  await clearActiveGame(state);
-  await removeMultiplierJobsForGame(state.gameId);
 
   const marker = latitude != null && longitude != null ? { latitude, longitude } : undefined;
   const hash = mapHash(wrongCountries, state.targetCountryCode, marker);
@@ -575,5 +613,19 @@ const completeGame = async (
     flags: MessageFlags.SuppressEmbeds,
   });
 
-  return "✅" as const;
+  if (!state.isTest) {
+    const rules = await loadRules();
+    const participantPlayerIds = await getGameParticipantIds(state.gameId);
+    await onGameCompleted(message.client, {
+      gameId: state.gameId,
+      winnerPlayerId,
+      gameMasterPlayerId: state.gameMasterPlayerId,
+      participantPlayerIds,
+      uniqueWrongCountryCount: wrongCountries.length,
+      currentMultiplier: state.currentMultiplier,
+      currentMultiplierMax: rules.currentMultiplierMax,
+      targetCountryCode: state.targetCountryCode,
+      at: new Date(),
+    });
+  }
 };

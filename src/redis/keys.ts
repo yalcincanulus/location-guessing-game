@@ -3,6 +3,7 @@ export const keys = {
   gameState: (gameId: string) => `game:${gameId}:state`,
   wrongCountries: (gameId: string) => `game:${gameId}:wrong-countries`,
   guessStreaks: (gameId: string) => `game:${gameId}:guess-streaks`,
+  winClaim: (gameId: string) => `game:${gameId}:win-claim`,
   mapCache: (gameId: string, viewport: string, hash: string) =>
     `game:${gameId}:map-cache:${viewport}:${hash}`,
   pendingStart: (guildId: string, userId: string) => `pending-start:${guildId}:${userId}`,
