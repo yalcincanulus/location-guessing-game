@@ -28,6 +28,10 @@ import {
   scheduleStartReservationExpiry,
 } from "../../jobs/queues.ts";
 import { logger } from "../../util/logger.ts";
+import {
+  fitScreenshotForDiscord,
+  MAX_SCREENSHOT_MB,
+} from "../../util/fit-screenshot.ts";
 import { sqlClient } from "../../db/client.ts";
 import { messages } from "../../i18n/messages.ts";
 
@@ -54,16 +58,27 @@ const isImageAttachment = (attachment: Attachment) =>
 const firstImageAttachment = (message: Message) =>
   message.attachments.find((attachment) => isImageAttachment(attachment));
 
-const downloadScreenshot = async (attachment: Attachment): Promise<CapturedScreenshot> => {
+const downloadScreenshot = async (
+  attachment: Attachment,
+): Promise<CapturedScreenshot | undefined> => {
   const response = await fetch(attachment.url);
   if (!response.ok) {
     throw new Error(`Failed to download screenshot (${response.status})`);
   }
 
+  const name = attachment.name || messages.filenames.fallbackScreenshot;
+  const fitted = await fitScreenshotForDiscord(
+    Buffer.from(await response.arrayBuffer()),
+    name,
+  );
+  if (!fitted) {
+    return undefined;
+  }
+
   return {
     url: attachment.url,
-    name: attachment.name || messages.filenames.fallbackScreenshot,
-    buffer: Buffer.from(await response.arrayBuffer()),
+    name: fitted.name,
+    buffer: fitted.buffer,
   };
 };
 
@@ -164,9 +179,26 @@ const completeStartIfReady = async ({
     return true;
   }
 
-  const screenshotBuffer =
+  const rawScreenshotBuffer =
     (await loadPendingScreenshot(pendingKey)) ??
     Buffer.from(await (await fetch(pending.screenshotUrl)).arrayBuffer());
+  const fittedScreenshot = await fitScreenshotForDiscord(
+    rawScreenshotBuffer,
+    pending.screenshotName || messages.filenames.fallbackScreenshot,
+  );
+  if (!fittedScreenshot) {
+    await sendToGameChannel(
+      gameChannel,
+      messages.start.screenshotTooLarge(author.id, MAX_SCREENSHOT_MB),
+    );
+    await clearPendingStart(pendingKey);
+    await clearStartReservation(gameChannel.guild.id, gameChannel.id);
+    await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
+    return true;
+  }
+
+  const screenshotBuffer = fittedScreenshot.buffer;
+  const screenshotName = fittedScreenshot.name;
 
   let started;
   try {
@@ -193,13 +225,12 @@ const completeStartIfReady = async ({
   await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
 
   if (gameChannel.isSendable()) {
-    const filename = pending.screenshotName || messages.filenames.fallbackScreenshot;
     const announcement = await gameChannel.send({
       content: messages.start.gameStarted(author.id, {
         inTheGame: isOfficiallyCovered(started.state.targetCountryCode),
         coverageSource: parsedLocation.coverageSource,
       }),
-      files: [new AttachmentBuilder(screenshotBuffer, { name: filename })],
+      files: [new AttachmentBuilder(screenshotBuffer, { name: screenshotName })],
     });
 
     const durableScreenshotUrl = announcement.attachments.first()?.url;
@@ -271,9 +302,42 @@ const processStartAttempt = async ({
     channelId,
   };
 
+  const rejectUnusableScreenshot = async () => {
+    if (deleteMessage) {
+      await deleteMessage.delete().catch(() => undefined);
+    }
+
+    const notice = messages.start.screenshotTooLarge(author.id, MAX_SCREENSHOT_MB);
+    if (deleteMessage) {
+      await sendToGameChannel(gameChannel, notice);
+    } else {
+      await dmUser(author, notice);
+    }
+
+    // Keep any Maps link so the player can retry with a smaller screenshot.
+    if (googleMapsUrl) {
+      await setPending(
+        pendingKey,
+        { googleMapsUrl, guildId, channelId },
+        ttlSeconds,
+      );
+      await redis.del(keys.pendingScreenshot(pendingKey));
+      await processStartAttempt({
+        author,
+        gameChannel,
+        googleMapsUrl,
+      });
+    }
+  };
+
   let screenshot: CapturedScreenshot | undefined;
   if (attachment) {
     screenshot = await downloadScreenshot(attachment);
+    if (!screenshot) {
+      await rejectUnusableScreenshot();
+      return;
+    }
+
     nextPending.screenshotUrl = screenshot.url;
     nextPending.screenshotName = screenshot.name;
   }

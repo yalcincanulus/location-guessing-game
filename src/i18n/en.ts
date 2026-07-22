@@ -46,6 +46,8 @@ export const enMessages = {
       missing === "screenshot"
         ? `<@${userId}> failed to add a screenshot in time. A new game can be started.`
         : `<@${userId}> failed to add a Google Maps link in time. A new game can be started.`,
+    screenshotTooLarge: (userId, maxMb) =>
+      `<@${userId}> that screenshot could not be compressed under Discord's **${maxMb} MB** upload limit. Please send a smaller image to start the game.`,
   },
   commands: {
     noActiveGameInChannel: "No active game in this channel.",

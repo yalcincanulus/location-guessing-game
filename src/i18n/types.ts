@@ -83,6 +83,7 @@ export type BotMessages = {
     startingWaitingForScreenshot: (userId: string) => string;
     startingWaitingForLink: (userId: string) => string;
     startReservationExpired: (userId: string, missing: "screenshot" | "link") => string;
+    screenshotTooLarge: (userId: string, maxMb: number) => string;
   };
   commands: {
     noActiveGameInChannel: string;

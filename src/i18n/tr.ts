@@ -46,6 +46,8 @@ export const trMessages = {
       missing === "screenshot"
         ? `<@${userId}> zamanında ekran görüntüsü eklemedi. Yeni bir oyun başlatılabilir.`
         : `<@${userId}> zamanında Google Haritalar bağlantısı eklemedi. Yeni bir oyun başlatılabilir.`,
+    screenshotTooLarge: (userId, maxMb) =>
+      `<@${userId}> ekran görüntüsü Discord'un **${maxMb} MB** yükleme sınırının altına sıkıştırılamadı. Oyunu başlatmak için daha küçük bir görsel gönder.`,
   },
   commands: {
     noActiveGameInChannel: "Bu kanalda aktif oyun yok.",
