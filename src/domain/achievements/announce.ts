@@ -7,6 +7,9 @@ import type { ProposedUnlock } from "./evaluate.ts";
 import { insertUnlocks, type StoredUnlock } from "../../repositories/achievements-repository.ts";
 import { getPlayerDiscordUserId } from "./metrics.ts";
 
+/** Set to true to DM players when they unlock achievements. */
+export const SEND_ACHIEVEMENT_UNLOCK_DMS = false;
+
 const dmUser = async (client: Client, discordUserId: string, content: string) => {
   try {
     const user: User = await client.users.fetch(discordUserId);
@@ -70,14 +73,16 @@ export const persistAndAnnounceUnlocks = async (
   const channelLines: string[] = [];
 
   for (const [, bucket] of byPlayer) {
-    const dmLines = bucket.unlocks.map((unlock) =>
-      messages.achievements.unlockedDm(
-        unlock.achievementId,
-        unlock.tier === ONESHOT_TIER ? null : unlock.tier,
-      ),
-    );
-    if (dmLines.length > 0) {
-      await dmUser(client, bucket.discordUserId, dmLines.join("\n"));
+    if (SEND_ACHIEVEMENT_UNLOCK_DMS) {
+      const dmLines = bucket.unlocks.map((unlock) =>
+        messages.achievements.unlockedDm(
+          unlock.achievementId,
+          unlock.tier === ONESHOT_TIER ? null : unlock.tier,
+        ),
+      );
+      if (dmLines.length > 0) {
+        await dmUser(client, bucket.discordUserId, dmLines.join("\n"));
+      }
     }
 
     if (options.announceChannel) {
