@@ -10,6 +10,9 @@ import { getPlayerDiscordUserId } from "./metrics.ts";
 /** Set to true to DM players when they unlock achievements. */
 export const SEND_ACHIEVEMENT_UNLOCK_DMS = false;
 
+/** Set to true to announce notable achievement unlocks in the game channel. */
+export const SEND_ACHIEVEMENT_CHANNEL_ANNOUNCEMENTS = false;
+
 const dmUser = async (client: Client, discordUserId: string, content: string) => {
   try {
     const user: User = await client.users.fetch(discordUserId);
@@ -85,7 +88,7 @@ export const persistAndAnnounceUnlocks = async (
       }
     }
 
-    if (options.announceChannel) {
+    if (SEND_ACHIEVEMENT_CHANNEL_ANNOUNCEMENTS && options.announceChannel) {
       for (const unlock of bucket.unlocks) {
         if (isChannelNotable(unlock.definition, unlock.tier === ONESHOT_TIER ? 0 : unlock.tier)) {
           channelLines.push(
@@ -100,7 +103,11 @@ export const persistAndAnnounceUnlocks = async (
     }
   }
 
-  if (options.announceChannel && channelLines.length > 0) {
+  if (
+    SEND_ACHIEVEMENT_CHANNEL_ANNOUNCEMENTS &&
+    options.announceChannel &&
+    channelLines.length > 0
+  ) {
     const rules = await loadRules();
     if (rules.gameChannelId) {
       const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
