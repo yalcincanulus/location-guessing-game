@@ -98,7 +98,9 @@ const parseSingleGuess = (message: string): ParsedCountryGuess | undefined => {
   // Fall through so 3-letter nicknames like "abd" / "uae" still match aliases
   // when they are not ISO alpha-3 codes.
   const normalized = normalize(trimmed);
-  if (!normalized || normalized.split(" ").length > 5) {
+  // Exact aliases are safe to accept regardless of word count; some canonical
+  // territory names, including GS, contain more than five words.
+  if (!normalized) {
     return undefined;
   }
 

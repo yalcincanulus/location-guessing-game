@@ -47,6 +47,12 @@ describe("normalizeCountryGuess overseas territories", () => {
     }
   });
 
+  test("accepts the full South Georgia and South Sandwich Islands name", () => {
+    expect(normalizeCountryGuess("south georgia and the south sandwich islands")?.countryCode).toBe(
+      "GS",
+    );
+  });
+
   test("treats Turkish İ/I/ı/i as the same letter in guesses", () => {
     for (const guess of ["it", "It", "IT", "İt", "İT", "italya", "İtalya", "ITALYA", "Italy"]) {
       expect(normalizeCountryGuess(guess)?.countryCode).toBe("IT");
