@@ -13,6 +13,10 @@ import type { PeriodType } from "../domain/awards/periods.ts";
 import { runAchievementsBackfill } from "../domain/achievements/hooks.ts";
 import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
+import { truncateFeedback } from "../domain/feedback.ts";
+import { getFeedbackById, listFeedback } from "../repositories/feedback-repository.ts";
+import { clearFeedbackRateLimit } from "../repositories/feedback-rate-limit-repository.ts";
+import { findPlayersByDisplayName } from "../repositories/core-repository.ts";
 
 const normalize = (value: string) =>
   value
@@ -55,6 +59,193 @@ const resolveGameChannelContext = async (
 
 const helpCommand = async (message: Message) => {
   await message.reply(messages.admin.help);
+  return true;
+};
+
+const FEEDBACK_LIST_DEFAULT_LIMIT = 20;
+const FEEDBACK_LIST_MAX_LIMIT = 50;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const splitForDiscord = (lines: string[], maxLength = 1_900) => {
+  const chunks: string[] = [];
+  let chunk = "";
+
+  const append = (line: string) => {
+    if (!line) {
+      return;
+    }
+
+    if (line.length > maxLength) {
+      if (chunk) {
+        chunks.push(chunk);
+        chunk = "";
+      }
+      for (let offset = 0; offset < line.length; offset += maxLength) {
+        chunks.push(line.slice(offset, offset + maxLength));
+      }
+      return;
+    }
+
+    const next = chunk ? `${chunk}\n${line}` : line;
+    if (next.length > maxLength) {
+      if (chunk) {
+        chunks.push(chunk);
+      }
+      chunk = line;
+    } else {
+      chunk = next;
+    }
+  };
+
+  for (const line of lines) {
+    append(line);
+  }
+  if (chunk) {
+    chunks.push(chunk);
+  }
+  return chunks;
+};
+
+const replyChunked = async (message: Message, lines: string[]) => {
+  for (const chunk of splitForDiscord(lines)) {
+    await message.reply({
+      content: chunk,
+      allowedMentions: { parse: [] },
+    });
+  }
+};
+
+const parseFeedbackLimit = (value: string | undefined) => {
+  if (value === undefined || value === "") {
+    return FEEDBACK_LIST_DEFAULT_LIMIT;
+  }
+
+  if (!/^\d+$/.test(value)) {
+    return undefined;
+  }
+
+  const limit = Number(value);
+  return Number.isSafeInteger(limit) && limit > 0 && limit <= FEEDBACK_LIST_MAX_LIMIT
+    ? limit
+    : undefined;
+};
+
+const listFeedbackCommand = async (message: Message, limitArg?: string) => {
+  const limit = parseFeedbackLimit(limitArg);
+  if (limit === undefined) {
+    await message.reply(messages.feedback.adminUsage);
+    return true;
+  }
+
+  const rows = await listFeedback(limit);
+  if (rows.length === 0) {
+    await message.reply(messages.feedback.noFeedback);
+    return true;
+  }
+
+  await replyChunked(message, [
+    messages.feedback.adminHeader(rows.length),
+    ...rows.map((row) =>
+      messages.feedback.adminRow({
+        id: row.id,
+        displayName: row.displayName,
+        discordUserId: row.discordUserId,
+        createdAt: row.createdAt.toISOString(),
+        message: truncateFeedback(row.message),
+      }),
+    ),
+  ]);
+  return true;
+};
+
+const viewFeedbackCommand = async (message: Message, id: string) => {
+  if (!UUID_PATTERN.test(id)) {
+    await message.reply(messages.feedback.adminUsage);
+    return true;
+  }
+
+  const feedback = await getFeedbackById(id);
+  if (!feedback) {
+    await message.reply(messages.feedback.notFound);
+    return true;
+  }
+
+  await replyChunked(message, [
+    messages.feedback.adminDetail({
+      id: feedback.id,
+      displayName: feedback.displayName,
+      discordUserId: feedback.discordUserId,
+      createdAt: feedback.createdAt.toISOString(),
+    }),
+    feedback.message,
+  ]);
+  return true;
+};
+
+const clearFeedbackRateLimitCommand = async (message: Message, args: string[]) => {
+  const displayName = args.join(" ").trim();
+  if (!displayName) {
+    await message.reply(messages.feedback.adminRateLimitClearUsage);
+    return true;
+  }
+
+  const players = await findPlayersByDisplayName(displayName);
+  if (players.length === 0) {
+    await message.reply(messages.feedback.adminPlayerNotFound(displayName));
+    return true;
+  }
+
+  if (players.length > 1) {
+    await message.reply(
+      messages.feedback.adminPlayerAmbiguous(
+        displayName,
+        players.map((player) => `${player.displayName} (${player.discordUserId})`),
+      ),
+    );
+    return true;
+  }
+
+  const player = players[0]!;
+  await clearFeedbackRateLimit(player.discordUserId);
+  await message.reply(messages.feedback.adminRateLimitCleared(player.displayName));
+  return true;
+};
+
+const feedbackCommand = async (message: Message, args: string[]) => {
+  if (args.length === 0) {
+    return listFeedbackCommand(message);
+  }
+
+  const action = normalize(args[0] ?? "");
+  if (["clear", "reset", "temizle", "sifirla"].includes(action)) {
+    return clearFeedbackRateLimitCommand(message, args.slice(1));
+  }
+
+  if (["list", "liste"].includes(action)) {
+    if (args.length > 2) {
+      await message.reply(messages.feedback.adminUsage);
+      return true;
+    }
+    return listFeedbackCommand(message, args[1]);
+  }
+
+  if (["view", "show", "gor", "goster", "göster"].includes(action)) {
+    if (args.length !== 2) {
+      await message.reply(messages.feedback.adminUsage);
+      return true;
+    }
+    return viewFeedbackCommand(message, args[1]!);
+  }
+
+  if (args.length === 1 && /^\d+$/.test(args[0] ?? "")) {
+    return listFeedbackCommand(message, args[0]);
+  }
+
+  if (args.length === 1) {
+    return viewFeedbackCommand(message, args[0]!);
+  }
+
+  await message.reply(messages.feedback.adminUsage);
   return true;
 };
 
@@ -274,6 +465,10 @@ export const handleAdminCommand = async (message: Message) => {
       messages.admin.achievementsBackfillDone(result.players, result.unlocks, result.errors),
     );
     return true;
+  }
+
+  if (["feedback", "geribildirim", "geribildirimler"].includes(subcommand)) {
+    return feedbackCommand(message, args.slice(1));
   }
 
   const resolved = await resolveGameChannelContext(message);

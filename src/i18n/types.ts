@@ -150,6 +150,34 @@ export type BotMessages = {
     achievementsBackfillDone: (players: number, unlocks: number, errors: number) => string;
     unknownCommand: string;
   };
+  feedback: {
+    usage: string;
+    tooLong: (maxLength: number) => string;
+    playerNotFound: string;
+    rateLimited: (retryAfterMinutes: number) => string;
+    saved: string;
+    adminUsage: string;
+    adminRateLimitClearUsage: string;
+    adminRateLimitCleared: (displayName: string) => string;
+    adminPlayerNotFound: (displayName: string) => string;
+    adminPlayerAmbiguous: (displayName: string, matches: string[]) => string;
+    adminHeader: (count: number) => string;
+    adminRow: (input: {
+      id: string;
+      displayName: string;
+      discordUserId: string;
+      createdAt: string;
+      message: string;
+    }) => string;
+    noFeedback: string;
+    notFound: string;
+    adminDetail: (input: {
+      id: string;
+      displayName: string;
+      discordUserId: string;
+      createdAt: string;
+    }) => string;
+  };
   achievements: {
     name: (id: string) => string;
     description: (id: string) => string;

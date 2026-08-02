@@ -85,6 +85,18 @@ export const player = snakeCase.table("player", {
   ...timestamps,
 });
 
+export const feedback = snakeCase.table("feedback", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  playerId: uuid()
+    .notNull()
+    .references(() => player.id),
+  discordMessageId: text().notNull().unique(),
+  message: text().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
 export const location = snakeCase.table("location", {
   id: uuid()
     .primaryKey()
@@ -375,6 +387,7 @@ export const schema = {
   guild,
   channel,
   player,
+  feedback,
   location,
   game,
   guess,

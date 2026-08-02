@@ -86,7 +86,7 @@ export const enMessages = {
         `Total guesses: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM).",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM), `!feedback <message>` (DM only).",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -204,6 +204,9 @@ export const enMessages = {
       "`!admin tick` — force idle multiplier increase",
       "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — finalize & announce previous period (default: daily)",
       "`!admin achievements backfill` — recompute achievements for all players (silent)",
+      "`!admin feedback [limit]` — view recent player feedback (default: 20, max: 50)",
+      "`!admin feedback <id>` — view one feedback message in full",
+      "`!admin feedback clear <username>` — clear that player's feedback rate limit",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -257,7 +260,34 @@ export const enMessages = {
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Achievements backfill complete: **${players}** players, **${unlocks}** unlocks inserted, **${errors}** errors.`,
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, or `achievements backfill`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, or `achievements backfill`.",
+  },
+  feedback: {
+    usage: "Usage: `!feedback <message>` — send feedback to the admin from a DM.",
+    tooLong: (maxLength) => `Feedback must be ${maxLength} characters or fewer.`,
+    playerNotFound: "You need to interact with the game at least once before sending feedback.",
+    rateLimited: (retryAfterMinutes) =>
+      `Feedback limit reached: at most **4 messages per rolling hour**. Try again in about **${retryAfterMinutes} minute(s)**.`,
+    saved: "Thanks — your feedback was sent to the admin.",
+    adminUsage: [
+      "Usage:",
+      "`!admin feedback [limit]` — view recent feedback (default: 20, max: 50)",
+      "`!admin feedback <id>` — view one feedback message in full",
+      "`!admin feedback clear <username>` — clear that player's feedback rate limit",
+    ].join("\n"),
+    adminRateLimitClearUsage: "Usage: `!admin feedback clear <username>`.",
+    adminRateLimitCleared: (displayName) =>
+      `Cleared the feedback rate limit for **${displayName}**.`,
+    adminPlayerNotFound: (displayName) => `No player found with the username **${displayName}**.`,
+    adminPlayerAmbiguous: (displayName, matches) =>
+      `More than one player matches **${displayName}**: ${matches.join(", ")}. Use a unique username.`,
+    adminHeader: (count) => `**Recent player feedback** (${count})`,
+    adminRow: ({ id, displayName, discordUserId, createdAt, message }) =>
+      [`**${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`, message].join("\n"),
+    noFeedback: "No feedback has been submitted yet.",
+    notFound: "Feedback not found. Use the full ID from `!admin feedback`.",
+    adminDetail: ({ id, displayName, discordUserId, createdAt }) =>
+      `**Feedback ${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`,
   },
   achievements: {
     name: (id) => achievementNamesEn[id] ?? id,

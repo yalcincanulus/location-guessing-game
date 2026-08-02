@@ -34,6 +34,7 @@ import {
 } from "../../util/fit-screenshot.ts";
 import { sqlClient } from "../../db/client.ts";
 import { messages } from "../../i18n/messages.ts";
+import { handleFeedbackCommand } from "../../commands/feedback-command.ts";
 
 type PendingStart = {
   googleMapsUrl?: string;
@@ -478,6 +479,9 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
     if (!message.inGuild()) {
       if (await isCommandMessage(message.content)) {
         if (isBotAdmin(message.author.id) && (await handleAdminCommand(message))) {
+          return;
+        }
+        if (await handleFeedbackCommand(message)) {
           return;
         }
         if (await handleAchievementsCommand(message)) {

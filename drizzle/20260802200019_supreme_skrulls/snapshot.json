@@ -1,0 +1,3709 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "e0ac91db-e21f-4c63-835f-2d9483f35859",
+  "prevIds": [
+    "d312c305-739d-4eaf-b5ca-d8cc0e5e49c6"
+  ],
+  "ddl": [
+    {
+      "isRlsEnabled": false,
+      "name": "award_period",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "channel",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "command_log",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "country_stat",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "feedback",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "game",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "game_master_milestone",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "guess",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "guild",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "location",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "multiplier_event",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "period_award",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "player",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "player_achievement",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "player_game",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "player_stat",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "point_ledger",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "rule",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "start_attempt",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "period_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "period_key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "starts_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ends_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "announced_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guild_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "discord_channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'game'",
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guild_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "raw_message",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "varchar(2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "times_used_as_target",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "times_guessed",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "times_guessed_wrong",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "times_guessed_correct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "country_stat"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "discord_message_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "message",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guild_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_master_player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "location_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "screenshot_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "screenshot_message_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "announcement_message_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "winner_player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "winning_guess_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "wrong_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "unique_wrong_country_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "total_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "repeat_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "100",
+      "generated": null,
+      "identity": null,
+      "name": "base_points",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'1.00'",
+      "generated": null,
+      "identity": null,
+      "name": "current_multiplier_final",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'1.00'",
+      "generated": null,
+      "identity": null,
+      "name": "gm_multiplier_at_start",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "points_awarded",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "is_test",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cancel_reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cancelled_by_player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "milestone_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'0.10'",
+      "generated": null,
+      "identity": null,
+      "name": "earned_multiplier_increment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "earned_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "discord_message_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "raw_message",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "varchar(2)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "parsed_country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "parsed_country_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "parser_strategy",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "is_correct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "is_repeat",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "is_rate_limited",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reaction",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guild"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "discord_guild_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guild"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guild"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guild"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "guild"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "original_google_maps_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resolved_google_maps_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "latitude",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "longitude",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "coordinate_source",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "varchar(2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "country_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "region_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "region_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nominatim_place_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nominatim_osm_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nominatim_osm_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nominatim_raw_json",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "varchar(2)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "manual_country_code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "manual_region_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "is_manually_corrected",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "location"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "previous_multiplier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "increment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "new_multiplier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "message_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "award_period_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "category",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "varchar(16)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "medal",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rank_value",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "medal_points",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "discord_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "display_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "first_seen_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "last_seen_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "achievement_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "tier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "earned_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "meta",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'player'",
+      "generated": null,
+      "identity": null,
+      "name": "role",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "unique_wrong_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "repeat_guess_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "first_guess_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_guess_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "games_started",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "games_participated",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "games_won",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "total_guesses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "correct_guesses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "wrong_guesses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "repeat_guesses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "points_total",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "best_single_game_points",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'1.00'",
+      "generated": null,
+      "identity": null,
+      "name": "current_gm_multiplier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "max_game_wrong_guess_count_as_gm",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "base_points",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "current_multiplier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "gm_multiplier",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "points_delta",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "verified_role_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'verified'",
+      "generated": null,
+      "identity": null,
+      "name": "verified_role_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "game_channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "log_channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[\"!\"]'",
+      "generated": null,
+      "identity": null,
+      "name": "command_prefixes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "6",
+      "generated": null,
+      "identity": null,
+      "name": "max_consecutive_guesses",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1800",
+      "generated": null,
+      "identity": null,
+      "name": "consecutive_guess_idle_reset_seconds",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1800",
+      "generated": null,
+      "identity": null,
+      "name": "pending_start_ttl_seconds",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "60",
+      "generated": null,
+      "identity": null,
+      "name": "start_reservation_seconds",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "100",
+      "generated": null,
+      "identity": null,
+      "name": "base_win_points",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'2.00'",
+      "generated": null,
+      "identity": null,
+      "name": "current_multiplier_max",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'3.00'",
+      "generated": null,
+      "identity": null,
+      "name": "gm_multiplier_max",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "900",
+      "generated": null,
+      "identity": null,
+      "name": "idle_multiplier_interval_seconds",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'0.10'",
+      "generated": null,
+      "identity": null,
+      "name": "idle_multiplier_increment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'0.10'",
+      "generated": null,
+      "identity": null,
+      "name": "long_game_multiplier_increment",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "numeric(6,2)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'0.00'",
+      "generated": null,
+      "identity": null,
+      "name": "one_shot_bonus",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "repeat_guess_counts_for_stats",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "repeat_guess_counts_for_gm_difficulty",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "queue_game_starts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "test_mode_enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "test_channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "name": "test_admin_user_ids",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nominatim_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rule"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guild_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "channel_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "player_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "varchar(32)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reason",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "original_google_maps_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "screenshot_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "period_type",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "period_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "award_period_type_key_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "award_period"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "player_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "milestone_guess_count",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "game_master_milestone_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "award_period_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "category",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "player_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "period_award_period_category_player_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "player_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "achievement_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "tier",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "player_achievement_player_id_tier_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "player_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "game_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "role",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "player_game_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "guild_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "guild",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "channel_guild_id_guild_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "channel"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "guild_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "guild",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "command_log_guild_id_guild_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "channel",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "command_log_channel_id_channel_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "command_log_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "command_log"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "feedback_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "feedback"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "guild_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "guild",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_guild_id_guild_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "channel",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_channel_id_channel_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_master_player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_game_master_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "location_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "location",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_location_id_location_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "winner_player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_winner_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "cancelled_by_player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_cancelled_by_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_master_milestone_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "game_master_milestone_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "game_master_milestone"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "guess_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "guess_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "guess"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "multiplier_event_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "multiplier_event"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "award_period_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "award_period",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "period_award_award_period_id_award_period_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "period_award_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "period_award"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "player_achievement_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "source_game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "player_achievement_source_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "player_achievement"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "player_game_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "player_game_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "player_game"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "player_stat_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "player_stat"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "point_ledger_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "game_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "game",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "point_ledger_game_id_game_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "point_ledger"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "guild_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "guild",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "start_attempt_guild_id_guild_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "channel",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "start_attempt_channel_id_channel_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "player",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "start_attempt_player_id_player_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "start_attempt"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "award_period_pkey",
+      "schema": "public",
+      "table": "award_period",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "channel_pkey",
+      "schema": "public",
+      "table": "channel",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "command_log_pkey",
+      "schema": "public",
+      "table": "command_log",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "country_stat_pkey",
+      "schema": "public",
+      "table": "country_stat",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "feedback_pkey",
+      "schema": "public",
+      "table": "feedback",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "game_pkey",
+      "schema": "public",
+      "table": "game",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "game_master_milestone_pkey",
+      "schema": "public",
+      "table": "game_master_milestone",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "guess_pkey",
+      "schema": "public",
+      "table": "guess",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "guild_pkey",
+      "schema": "public",
+      "table": "guild",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "location_pkey",
+      "schema": "public",
+      "table": "location",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "multiplier_event_pkey",
+      "schema": "public",
+      "table": "multiplier_event",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "period_award_pkey",
+      "schema": "public",
+      "table": "period_award",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "player_pkey",
+      "schema": "public",
+      "table": "player",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "player_achievement_pkey",
+      "schema": "public",
+      "table": "player_achievement",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "player_game_pkey",
+      "schema": "public",
+      "table": "player_game",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "player_stat_pkey",
+      "schema": "public",
+      "table": "player_stat",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "point_ledger_pkey",
+      "schema": "public",
+      "table": "point_ledger",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "rule_pkey",
+      "schema": "public",
+      "table": "rule",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "start_attempt_pkey",
+      "schema": "public",
+      "table": "start_attempt",
+      "entityType": "pks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "discord_channel_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "channel_discord_channel_id_key",
+      "schema": "public",
+      "table": "channel",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "country_code"
+      ],
+      "nullsNotDistinct": false,
+      "name": "country_stat_country_code_key",
+      "schema": "public",
+      "table": "country_stat",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "discord_message_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "feedback_discord_message_id_key",
+      "schema": "public",
+      "table": "feedback",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "discord_guild_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "guild_discord_guild_id_key",
+      "schema": "public",
+      "table": "guild",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "discord_user_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "player_discord_user_id_key",
+      "schema": "public",
+      "table": "player",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "player_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "player_stat_player_id_key",
+      "schema": "public",
+      "table": "player_stat",
+      "entityType": "uniques"
+    }
+  ],
+  "renames": []
+}

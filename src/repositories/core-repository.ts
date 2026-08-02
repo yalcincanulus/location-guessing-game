@@ -24,6 +24,41 @@ export const upsertPlayer = async (user: User, displayName?: string): Promise<Db
   return { id: row.id, discordUserId: row.discord_user_id, displayName: row.display_name };
 };
 
+export const findPlayerByDiscordUserId = async (
+  discordUserId: string,
+): Promise<DbPlayer | undefined> => {
+  const rows = await sqlClient`
+    SELECT id, discord_user_id, display_name
+    FROM player
+    WHERE discord_user_id = ${discordUserId}
+  `;
+
+  const row = rows[0];
+  return row
+    ? { id: row.id, discordUserId: row.discord_user_id, displayName: row.display_name }
+    : undefined;
+};
+
+export const findPlayersByDisplayName = async (displayName: string): Promise<DbPlayer[]> => {
+  const name = displayName.trim();
+  if (!name) {
+    return [];
+  }
+
+  const rows = await sqlClient`
+    SELECT id, discord_user_id, display_name
+    FROM player
+    WHERE lower(trim(display_name)) = lower(trim(${name}))
+    ORDER BY display_name ASC, discord_user_id ASC
+  `;
+
+  return rows.map((row) => ({
+    id: row.id,
+    discordUserId: row.discord_user_id,
+    displayName: row.display_name,
+  }));
+};
+
 export const ensurePlayerStat = async (playerId: string) => {
   await sqlClient`
     INSERT INTO player_stat (player_id)

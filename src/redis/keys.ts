@@ -10,4 +10,5 @@ export const keys = {
   pendingScreenshot: (pendingKey: string) => `${pendingKey}:screenshot`,
   startReservation: (guildId: string, channelId: string) =>
     `start-reservation:${guildId}:${channelId}`,
+  feedbackRateLimit: (userId: string) => `feedback:rate-limit:${userId}`,
 };

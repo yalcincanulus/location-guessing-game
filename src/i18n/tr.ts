@@ -86,7 +86,7 @@ export const trMessages = {
         `Toplam tahmin: **${totalGuesses}**`,
       ].join("\n"),
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır).",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM).",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -204,6 +204,9 @@ export const trMessages = {
       "`!admin tick` — boşta çarpan artışını zorla",
       "`!admin awards [daily|weekly|monthly|seasonal|yearly]` — önceki dönemi hesapla ve duyur (varsayılan: daily)",
       "`!admin achievements backfill` — tüm oyuncular için başarımları yeniden hesapla (sessiz)",
+      "`!admin feedback [limit]` — son oyuncu geri bildirimlerini göster (varsayılan: 20, en fazla: 50)",
+      "`!admin feedback <id>` — bir geri bildirimi tam göster",
+      "`!admin feedback clear <username>` — oyuncunun geri bildirim sınırını temizle",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -257,7 +260,35 @@ export const trMessages = {
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Başarım backfill tamam: **${players}** oyuncu, **${unlocks}** yeni unlock, **${errors}** hata.`,
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards` veya `achievements backfill` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback` veya `achievements backfill` kullan.",
+  },
+  feedback: {
+    usage: "Kullanım: `!feedback <mesaj>` -> DM'den admine geri bildirim gönder.",
+    tooLong: (maxLength) => `Geri bildirim ${maxLength} karakterden uzun olamaz.`,
+    playerNotFound: "Geri bildirim göndermeden önce oyunla en az bir kez etkileşime geçmelisin.",
+    rateLimited: (retryAfterMinutes) =>
+      `Geri bildirim sınırına ulaştın: bir saatte en fazla **4 mesaj** gönderebilirsin. Yaklaşık **${retryAfterMinutes} dakika** sonra tekrar dene.`,
+    saved: "Teşekkürler! Geri bildiriminiz kaydedildi.",
+    adminUsage: [
+      "Kullanım:",
+      "`!admin feedback [limit]` — son geri bildirimleri göster (varsayılan: 20, en fazla: 50)",
+      "`!admin feedback <id>` — bir geri bildirimi tam göster",
+      "`!admin feedback clear <username>` — oyuncunun geri bildirim sınırını temizle",
+    ].join("\n"),
+    adminRateLimitClearUsage: "Kullanım: `!admin feedback clear <username>`.",
+    adminRateLimitCleared: (displayName) =>
+      `**${displayName}** oyuncusunun geri bildirim sınırı temizlendi.`,
+    adminPlayerNotFound: (displayName) =>
+      `**${displayName}** kullanıcı adına sahip oyuncu bulunamadı.`,
+    adminPlayerAmbiguous: (displayName, matches) =>
+      `**${displayName}** birden fazla oyuncuyla eşleşiyor: ${matches.join(", ")}. Benzersiz bir kullanıcı adı kullan.`,
+    adminHeader: (count) => `**Son oyuncu geri bildirimleri** (${count})`,
+    adminRow: ({ id, displayName, discordUserId, createdAt, message }) =>
+      [`**${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`, message].join("\n"),
+    noFeedback: "Henüz geri bildirim gönderilmedi.",
+    notFound: "Geri bildirim bulunamadı. `!admin feedback` çıktısındaki tam ID'yi kullan.",
+    adminDetail: ({ id, displayName, discordUserId, createdAt }) =>
+      `**Geri bildirim ${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`,
   },
   achievements: {
     name: (id) => achievementNamesTr[id] ?? id,
