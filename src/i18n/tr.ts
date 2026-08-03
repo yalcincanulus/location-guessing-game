@@ -21,6 +21,8 @@ export const trMessages = {
     configuredGameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
     activeGameAlreadyExists: "Zaten aktif bir oyun var.",
     couldNotExtractCoordinates: "Bu Google Haritalar bağlantısından koordinat çıkaramadım.",
+    untrustedLocation:
+      "Bu oyun güvenli şekilde başlatılamadı. Nominatim, Falkland Adaları ile Güney Georgia ve Güney Sandwich Adaları konumlarını güvenilir şekilde tanımlayamıyor; bu yüzden oyun başlamadan iptal edildi. Lütfen başka bir konum seç.",
     gameStarted: (userId, { inTheGame, coverageSource }) => {
       const coverageLine =
         coverageSource === "google"

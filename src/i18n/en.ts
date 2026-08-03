@@ -21,6 +21,8 @@ export const enMessages = {
     configuredGameChannelUnavailable: "Configured game channel is not available.",
     activeGameAlreadyExists: "There is already an active game.",
     couldNotExtractCoordinates: "I could not extract coordinates from that Google Maps link.",
+    untrustedLocation:
+      "I could not safely start this game. Nominatim cannot reliably identify locations in the Falkland Islands or South Georgia and the South Sandwich Islands, so the game was cancelled before it started. Please choose a different location.",
     gameStarted: (userId, { inTheGame, coverageSource }) => {
       const coverageLine =
         coverageSource === "google"

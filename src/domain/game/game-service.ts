@@ -4,6 +4,7 @@ import { loadRules } from "../../config/rules.ts";
 import { sqlClient } from "../../db/client.ts";
 import { reverseGeocode } from "../geocoding/nominatim-client.ts";
 import type { ParsedGoogleMapsUrl } from "../geocoding/google-maps-parser.ts";
+import { isUntrustedReverseGeocodeCountry } from "../geocoding/untrusted-country.ts";
 import { calculateReward, earnedMilestonesForGuessCount } from "./scoring.ts";
 import {
   addWrongCountry,
@@ -48,6 +49,13 @@ export type StartGameInput = {
   screenshotUrl: string;
 };
 
+export class UntrustedReverseGeocodeCountryError extends Error {
+  constructor(public readonly countryCode: string) {
+    super(`Reverse geocoding is not trusted for country ${countryCode}`);
+    this.name = "UntrustedReverseGeocodeCountryError";
+  }
+}
+
 const decimal = (value: unknown) => Number(value ?? 1);
 
 const getCurrentGmMultiplier = async (playerId: string, max: number) => {
@@ -69,6 +77,16 @@ export const startGame = async ({
     throw new Error("Games can only start in guild channels");
   }
 
+  const geocode = await reverseGeocode(location.latitude, location.longitude);
+  if (isUntrustedReverseGeocodeCountry(geocode.countryCode)) {
+    throw new UntrustedReverseGeocodeCountryError(geocode.countryCode);
+  }
+  if (!isKnownCountryCode(geocode.countryCode)) {
+    throw new Error(
+      `Unsupported country code from Nominatim: ${geocode.countryCode}. Add it to the country catalog before starting a game there.`,
+    );
+  }
+
   const rules = await loadRules();
   const guildId = await upsertGuild(guildChannel.guild);
   const channelId = await upsertChannel(guildChannel, guildId);
@@ -76,12 +94,6 @@ export const startGame = async ({
   await ensurePlayerStat(player.id);
   const isTestGame = rules.testModeEnabled && rules.testChannelId === guildChannel.id;
 
-  const geocode = await reverseGeocode(location.latitude, location.longitude);
-  if (!isKnownCountryCode(geocode.countryCode)) {
-    throw new Error(
-      `Unsupported country code from Nominatim: ${geocode.countryCode}. Add it to the country catalog before starting a game there.`,
-    );
-  }
   const gmMultiplier = await getCurrentGmMultiplier(player.id, rules.gmMultiplierMax);
 
   const rows = await sqlClient.begin(async (tx) => {

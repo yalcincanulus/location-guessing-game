@@ -5,7 +5,11 @@ import {
   findGoogleMapsUrl,
   parseGoogleMapsUrl,
 } from "../../domain/geocoding/google-maps-parser.ts";
-import { startGame, handleGuess } from "../../domain/game/game-service.ts";
+import {
+  startGame,
+  handleGuess,
+  UntrustedReverseGeocodeCountryError,
+} from "../../domain/game/game-service.ts";
 import { onGameStarted } from "../../domain/achievements/hooks.ts";
 import { isOfficiallyCovered } from "../../domain/countries/official-coverage.ts";
 import { getActiveGameState, updateGameState } from "../../domain/game/active-game-state.ts";
@@ -210,6 +214,14 @@ const completeStartIfReady = async ({
       screenshotUrl: pending.screenshotUrl,
     });
   } catch (error) {
+    if (error instanceof UntrustedReverseGeocodeCountryError) {
+      await dmUser(author, messages.start.untrustedLocation);
+      await clearPendingStart(pendingKey);
+      await clearStartReservation(gameChannel.guild.id, gameChannel.id);
+      await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
+      return true;
+    }
+
     const messageText = error instanceof Error ? error.message : String(error);
     if (messageText.includes("Another game became active")) {
       await dmUser(author, messages.start.activeGameAlreadyExists);

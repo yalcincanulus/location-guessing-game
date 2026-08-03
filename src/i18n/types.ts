@@ -72,6 +72,7 @@ export type BotMessages = {
     configuredGameChannelUnavailable: string;
     activeGameAlreadyExists: string;
     couldNotExtractCoordinates: string;
+    untrustedLocation: string;
     gameStarted: (
       userId: string,
       input: {
