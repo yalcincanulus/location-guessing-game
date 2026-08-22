@@ -6,18 +6,13 @@
 import { closeDatabase } from "../../src/db/client.ts";
 import { env } from "../../src/config/env.ts";
 import { evaluateFullBackfillForPlayer } from "../../src/domain/achievements/evaluate.ts";
-import {
-  insertUnlocks,
-  listAllPlayerIds,
-} from "../../src/repositories/achievements-repository.ts";
+import { insertUnlocks, listAllPlayerIds } from "../../src/repositories/achievements-repository.ts";
 import { assertLocalDatabaseUrl } from "./guard.ts";
 
 const main = async () => {
   assertLocalDatabaseUrl(env.databaseUrl);
   const write = process.argv.includes("--write");
-  console.log(
-    `Achievement existing-data report (${write ? "WRITE" : "dry-run"}) — local DB OK\n`,
-  );
+  console.log(`Achievement existing-data report (${write ? "WRITE" : "dry-run"}) — local DB OK\n`);
 
   const playerIds = await listAllPlayerIds();
   const byAchievement = new Map<string, number>();
@@ -30,10 +25,7 @@ const main = async () => {
       const proposed = await evaluateFullBackfillForPlayer(playerId);
       totalProposed += proposed.length;
       for (const unlock of proposed) {
-        byAchievement.set(
-          unlock.achievementId,
-          (byAchievement.get(unlock.achievementId) ?? 0) + 1,
-        );
+        byAchievement.set(unlock.achievementId, (byAchievement.get(unlock.achievementId) ?? 0) + 1);
       }
       if (write && proposed.length > 0) {
         const inserted = await insertUnlocks(

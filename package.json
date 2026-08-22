@@ -23,27 +23,25 @@
     "check": "bun run typecheck && bun run test && bun run lint && bun run format"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^1.0.2",
-    "bullmq": "^5.79.2",
+    "@napi-rs/canvas": "^1.0.7",
+    "bullmq": "^6.2.0",
     "d3-geo": "^3.1.1",
-    "discord.js": "^14.26.4",
-    "drizzle-orm": "^1.0.0-rc.4",
-    "ioredis": "^5.11.1",
+    "discord.js": "^14.27.0",
+    "drizzle-orm": "^1.0.0-rc.5-ab785fc",
+    "ioredis": "^6.0.0",
     "postgres": "^3.4.9",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
-    "@faker-js/faker": "^10.5.0",
+    "@faker-js/faker": "^10.6.0",
     "@types/bun": "latest",
-    "@types/d3-geo": "^3.1.0",
+    "@types/d3-geo": "^3.1.1",
     "@types/topojson-client": "^3.1.5",
-    "drizzle-kit": "^1.0.0-rc.4",
-    "oxfmt": "^0.57.0",
-    "oxlint": "^1.72.0",
-    "oxlint-tsgolint": "^0.24.0"
-  },
-  "peerDependencies": {
-    "typescript": "rc"
+    "drizzle-kit": "^1.0.0-rc.5-ab785fc",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "typescript": "^7.0.2"
   }
 }

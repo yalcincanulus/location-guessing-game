@@ -221,11 +221,7 @@ export const addHostGamesOnDays = async (
 };
 
 /** Participation games for play streak (player is guesser, not necessarily winner). */
-export const addPlayGamesOnDays = async (
-  playerId: string,
-  hostPlayerId: string,
-  dates: Date[],
-) => {
+export const addPlayGamesOnDays = async (playerId: string, hostPlayerId: string, dates: Date[]) => {
   const gameIds: string[] = [];
   for (const at of dates) {
     const result = await createCompletedGame({

@@ -106,7 +106,13 @@ const buildProjection = (
       Math.min(maxScale, Math.max(minScale, fittedScale)),
     );
   } else {
-    frameProjection(projection, marker.longitude, marker.latitude, translate, 1100 * MAP_RESOLUTION_SCALE);
+    frameProjection(
+      projection,
+      marker.longitude,
+      marker.latitude,
+      translate,
+      1100 * MAP_RESOLUTION_SCALE,
+    );
   }
 
   return projection;

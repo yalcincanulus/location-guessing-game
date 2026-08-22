@@ -58,7 +58,13 @@ export const updateGameState = async (state: ActiveGameState) => {
 const WIN_CLAIM_TTL_SECONDS = 300;
 
 export const tryClaimGameWin = async (gameId: string, messageId: string): Promise<boolean> => {
-  const result = await redis.set(keys.winClaim(gameId), messageId, "EX", WIN_CLAIM_TTL_SECONDS, "NX");
+  const result = await redis.set(
+    keys.winClaim(gameId),
+    messageId,
+    "EX",
+    WIN_CLAIM_TTL_SECONDS,
+    "NX",
+  );
   return result === "OK";
 };
 

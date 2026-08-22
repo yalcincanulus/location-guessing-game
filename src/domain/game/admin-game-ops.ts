@@ -1,15 +1,8 @@
 import type { User } from "discord.js";
 import { sqlClient } from "../../db/client.ts";
 import { upsertPlayer } from "../../repositories/core-repository.ts";
-import {
-  cancelStartReservationExpiry,
-  removeMultiplierJobsForGame,
-} from "../../jobs/queues.ts";
-import {
-  clearGameKeys,
-  getActiveGameState,
-  type ActiveGameState,
-} from "./active-game-state.ts";
+import { cancelStartReservationExpiry, removeMultiplierJobsForGame } from "../../jobs/queues.ts";
+import { clearGameKeys, getActiveGameState, type ActiveGameState } from "./active-game-state.ts";
 import {
   clearPendingStart,
   clearStartReservation,

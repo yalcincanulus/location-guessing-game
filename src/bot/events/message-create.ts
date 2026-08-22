@@ -23,7 +23,11 @@ import {
 import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
-import { handleCommand, handleAchievementsCommand, isCommandMessage } from "../../commands/command-registry.ts";
+import {
+  handleCommand,
+  handleAchievementsCommand,
+  isCommandMessage,
+} from "../../commands/command-registry.ts";
 import { handleAdminCommand } from "../../commands/admin-command.ts";
 import { isBotAdmin } from "../admin.ts";
 import {
@@ -32,10 +36,7 @@ import {
   scheduleStartReservationExpiry,
 } from "../../jobs/queues.ts";
 import { logger } from "../../util/logger.ts";
-import {
-  fitScreenshotForDiscord,
-  MAX_SCREENSHOT_MB,
-} from "../../util/fit-screenshot.ts";
+import { fitScreenshotForDiscord, MAX_SCREENSHOT_MB } from "../../util/fit-screenshot.ts";
 import { sqlClient } from "../../db/client.ts";
 import { messages } from "../../i18n/messages.ts";
 import { handleFeedbackCommand } from "../../commands/feedback-command.ts";
@@ -72,10 +73,7 @@ const downloadScreenshot = async (
   }
 
   const name = attachment.name || messages.filenames.fallbackScreenshot;
-  const fitted = await fitScreenshotForDiscord(
-    Buffer.from(await response.arrayBuffer()),
-    name,
-  );
+  const fitted = await fitScreenshotForDiscord(Buffer.from(await response.arrayBuffer()), name);
   if (!fitted) {
     return undefined;
   }
@@ -329,11 +327,7 @@ const processStartAttempt = async ({
 
     // Keep any Maps link so the player can retry with a smaller screenshot.
     if (googleMapsUrl) {
-      await setPending(
-        pendingKey,
-        { googleMapsUrl, guildId, channelId },
-        ttlSeconds,
-      );
+      await setPending(pendingKey, { googleMapsUrl, guildId, channelId }, ttlSeconds);
       await redis.del(keys.pendingScreenshot(pendingKey));
       await processStartAttempt({
         author,

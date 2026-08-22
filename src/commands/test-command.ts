@@ -1,10 +1,7 @@
 import type { Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { loadRules } from "../config/rules.ts";
-import {
-  cancelOrFailActiveGame,
-  getActiveGameContext,
-} from "../domain/game/admin-game-ops.ts";
+import { cancelOrFailActiveGame, getActiveGameContext } from "../domain/game/admin-game-ops.ts";
 import { getWrongCountries } from "../domain/game/active-game-state.ts";
 import { countries } from "../domain/countries/country-data.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";

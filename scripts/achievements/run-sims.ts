@@ -23,7 +23,9 @@ import { color, formatUnlock } from "./term.ts";
 
 const parseArgs = (argv: string[]) => {
   const keep = argv.includes("--keep") || argv.includes("--no-cleanup");
-  const scenarioIdx = argv.findIndex((arg) => arg === "--scenario" || arg.startsWith("--scenario="));
+  const scenarioIdx = argv.findIndex(
+    (arg) => arg === "--scenario" || arg.startsWith("--scenario="),
+  );
   let scenarioName: string | undefined;
   if (scenarioIdx >= 0) {
     const arg = argv[scenarioIdx]!;
@@ -89,9 +91,7 @@ const printScenarioReport = (
     (u) =>
       !result.expected.some(
         (e) =>
-          e.playerId === u.playerId &&
-          e.achievementId === u.achievementId &&
-          e.tier === u.tier,
+          e.playerId === u.playerId && e.achievementId === u.achievementId && e.tier === u.tier,
       ),
   );
 
@@ -135,9 +135,7 @@ const main = async () => {
 
   console.log(color.bold("Achievement sims"), color.dim("—"), color.green("local DB OK"));
   console.log(
-    color.dim(
-      `Running ${selected.length} scenario(s)${keep ? " (keeping data after)" : ""}…`,
-    ),
+    color.dim(`Running ${selected.length} scenario(s)${keep ? " (keeping data after)" : ""}…`),
   );
   console.log();
 
