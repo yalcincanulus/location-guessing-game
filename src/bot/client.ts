@@ -37,6 +37,18 @@ export const startBot = async () => {
     partials: [Partials.Channel, Partials.Message],
   });
 
+  client.once(Events.ClientReady, (readyClient) => {
+    logger.info("Discord bot ready", { tag: readyClient.user.tag });
+  });
+
+  client.on(Events.MessageCreate, onMessageCreate(client));
+
+  await client.login(env.discordToken);
+
+  await ensureIdleReminderSchedule();
+  await ensurePeriodAwardsSchedule();
+  await ensureAchievementStreakSchedule();
+
   const multiplierWorker = startMultiplierWorker(client);
   const reservationWorker = startReservationWorker(client);
   const idleReminderWorker = startIdleReminderWorker(client);
@@ -49,23 +61,16 @@ export const startBot = async () => {
   logWorkerError(achievementStreakWorker);
   await recoverActiveMultiplierJobs();
   await recoverStartReservationJobs();
-  await ensureIdleReminderSchedule();
-  await ensurePeriodAwardsSchedule();
-  await ensureAchievementStreakSchedule();
-
-  client.once(Events.ClientReady, (readyClient) => {
-    logger.info("Discord bot ready", { tag: readyClient.user.tag });
-  });
-
-  client.on(Events.MessageCreate, onMessageCreate(client));
 
   const shutdown = async () => {
     logger.info("Shutting down");
-    multiplierWorker.close().catch(() => undefined);
-    reservationWorker.close().catch(() => undefined);
-    idleReminderWorker.close().catch(() => undefined);
-    periodAwardsWorker.close().catch(() => undefined);
-    achievementStreakWorker.close().catch(() => undefined);
+    await Promise.all([
+      multiplierWorker.close(),
+      reservationWorker.close(),
+      idleReminderWorker.close(),
+      periodAwardsWorker.close(),
+      achievementStreakWorker.close(),
+    ]).catch(() => undefined);
     await client.destroy();
     await closeQueues().catch(() => undefined);
     await closeRedis().catch(() => undefined);
@@ -75,6 +80,4 @@ export const startBot = async () => {
 
   process.once("SIGINT", shutdown);
   process.once("SIGTERM", shutdown);
-
-  await client.login(env.discordToken);
 };

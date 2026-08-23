@@ -1,6 +1,5 @@
 import { Queue, Worker } from "bullmq";
 import type { Client } from "discord.js";
-import { env } from "../config/env.ts";
 import {
   getActiveGameState,
   getGameStateById,
@@ -15,54 +14,61 @@ import { loadRules } from "../config/rules.ts";
 import { clampMultiplier } from "../domain/game/scoring.ts";
 import { sqlClient } from "../db/client.ts";
 import { logger } from "../util/logger.ts";
-import { redis } from "../redis/client.ts";
+import { createRedisConnection, redis } from "../redis/client.ts";
 import { keys } from "../redis/keys.ts";
 import { messages } from "../i18n/messages.ts";
 import { runPeriodAwardsCheck } from "../domain/awards/announce.ts";
-import { AWARDS_TZ } from "../domain/awards/periods.ts";
 import { runDailyAchievementStreaks } from "../domain/achievements/hooks.ts";
+import {
+  IDLE_REMINDER_TZ,
+  ONCE_TTL_SECONDS,
+  SCHEDULER_POLL_MS,
+  idleReminderHour,
+  istanbulDayKey,
+} from "./schedule.ts";
 
-const redisUrl = new URL(env.redisUrl);
-const bullConnection = {
-  host: redisUrl.hostname,
-  port: Number(redisUrl.port || 6379),
-  username: redisUrl.username || undefined,
-  password: redisUrl.password || undefined,
-  db: redisUrl.pathname.length > 1 ? Number(redisUrl.pathname.slice(1)) : undefined,
-  maxRetriesPerRequest: null,
+const bullmqConnection = createRedisConnection("bullmq");
+const schedulerJobOpts = {
+  removeOnComplete: 20,
+  removeOnFail: 50,
+};
+const heavyWorkerOpts = {
+  connection: bullmqConnection,
+  lockDuration: 120_000,
+  stalledInterval: 60_000,
 };
 
 export const multiplierQueue = new Queue("game-multiplier", {
-  connection: bullConnection,
+  connection: bullmqConnection,
 });
 
 export const startReservationQueue = new Queue("game-start-reservation", {
-  connection: bullConnection,
+  connection: bullmqConnection,
 });
 
 export const idleReminderQueue = new Queue("channel-idle-reminder", {
-  connection: bullConnection,
+  connection: bullmqConnection,
 });
 
 export const periodAwardsQueue = new Queue("period-awards", {
-  connection: bullConnection,
+  connection: bullmqConnection,
 });
 
 export const achievementStreakQueue = new Queue("achievement-streaks", {
-  connection: bullConnection,
+  connection: bullmqConnection,
 });
 
-/** Daytime reminder slots in Europe/Istanbul (never overnight). */
-export const IDLE_REMINDER_CRON = "0 9,12,15,18,21 * * *";
-export const IDLE_REMINDER_TZ = "Europe/Istanbul";
-
-/** Midnight period awards in Europe/Istanbul. */
-export const PERIOD_AWARDS_CRON = "0 0 * * *";
-export const PERIOD_AWARDS_TZ = AWARDS_TZ;
-
-/** Streak catch-up shortly after midnight awards. */
-export const ACHIEVEMENT_STREAK_CRON = "5 0 * * *";
-export const ACHIEVEMENT_STREAK_TZ = AWARDS_TZ;
+for (const queue of [
+  multiplierQueue,
+  startReservationQueue,
+  idleReminderQueue,
+  periodAwardsQueue,
+  achievementStreakQueue,
+]) {
+  queue.on("error", (error) => {
+    logger.error("BullMQ queue error", { queue: queue.name, error: error.message });
+  });
+}
 
 const isIdleReminderQuietHours = (now = new Date()) => {
   const hour = Number(
@@ -313,7 +319,7 @@ export const startMultiplierWorker = (client: Client) =>
         await scheduleIdleMultiplier(gameId, rules.idleMultiplierIntervalSeconds * 1000);
       }
     },
-    { connection: bullConnection },
+    { connection: bullmqConnection },
   );
 
 export const startReservationWorker = (client: Client) =>
@@ -327,7 +333,7 @@ export const startReservationWorker = (client: Client) =>
       const missing = job.data.missing === "link" ? "link" : "screenshot";
       await expireStartReservation(client, guildId, channelId, userId, pendingKey, missing);
     },
-    { connection: bullConnection },
+    { connection: bullmqConnection },
   );
 
 export type IdleReminderResult =
@@ -383,46 +389,87 @@ export const runChannelIdleReminder = async (client: Client): Promise<IdleRemind
   return { status: "reminded" };
 };
 
-export const ensureIdleReminderSchedule = async () => {
-  await idleReminderQueue.upsertJobScheduler(
-    "channel-idle-reminder",
-    { pattern: IDLE_REMINDER_CRON, tz: IDLE_REMINDER_TZ },
-    { name: "check-channel-idle", data: {} },
+const claimOnce = async (key: string, ttlSeconds = ONCE_TTL_SECONDS): Promise<boolean> => {
+  const result = await redis.set(key, "1", "EX", ttlSeconds, "NX");
+  return result === "OK";
+};
+
+const releaseOnce = async (key: string): Promise<void> => {
+  await redis.del(key);
+};
+
+const claimDailyJob = async (jobName: string, now = new Date()): Promise<string | null> => {
+  const key = keys.dailyJob(jobName, istanbulDayKey(now));
+  return (await claimOnce(key)) ? key : null;
+};
+
+const resetSchedulerQueue = async (queue: Queue) => {
+  await queue.drain(true);
+  await Promise.all([queue.clean(0, 10_000, "completed"), queue.clean(0, 10_000, "failed")]);
+};
+
+const upsertPollScheduler = async (queue: Queue, schedulerId: string, jobName: string) => {
+  await resetSchedulerQueue(queue);
+  await queue.upsertJobScheduler(
+    schedulerId,
+    { every: SCHEDULER_POLL_MS },
+    { name: jobName, data: {}, opts: schedulerJobOpts },
   );
+};
+
+export const ensureIdleReminderSchedule = async () => {
+  await upsertPollScheduler(idleReminderQueue, "channel-idle-reminder", "check-channel-idle");
 };
 
 export const startIdleReminderWorker = (client: Client) =>
   new Worker(
     "channel-idle-reminder",
     async () => {
-      await runChannelIdleReminder(client);
+      const hour = idleReminderHour();
+      if (hour === null) {
+        return { status: "not-slot" };
+      }
+
+      const slotKey = keys.idleReminderSlot(istanbulDayKey(), hour);
+      if (!(await claimOnce(slotKey))) {
+        return { status: "already-sent" };
+      }
+
+      return runChannelIdleReminder(client);
     },
-    { connection: bullConnection },
+    { connection: bullmqConnection },
   );
 
 export const ensurePeriodAwardsSchedule = async () => {
-  await periodAwardsQueue.upsertJobScheduler(
-    "period-awards",
-    { pattern: PERIOD_AWARDS_CRON, tz: PERIOD_AWARDS_TZ },
-    { name: "finalize-period-awards", data: {} },
-  );
+  await upsertPollScheduler(periodAwardsQueue, "period-awards", "finalize-period-awards");
 };
 
 export const startPeriodAwardsWorker = (client: Client) =>
   new Worker(
     "period-awards",
     async () => {
-      const result = await runPeriodAwardsCheck(client);
-      logger.info("Period awards check completed", result);
+      const claimKey = await claimDailyJob("period-awards");
+      if (!claimKey) {
+        return { skipped: true };
+      }
+
+      try {
+        const result = await runPeriodAwardsCheck(client);
+        logger.info("Period awards check completed", result);
+        return result;
+      } catch (error) {
+        await releaseOnce(claimKey);
+        throw error;
+      }
     },
-    { connection: bullConnection },
+    heavyWorkerOpts,
   );
 
 export const ensureAchievementStreakSchedule = async () => {
-  await achievementStreakQueue.upsertJobScheduler(
+  await upsertPollScheduler(
+    achievementStreakQueue,
     "achievement-streaks",
-    { pattern: ACHIEVEMENT_STREAK_CRON, tz: ACHIEVEMENT_STREAK_TZ },
-    { name: "evaluate-achievement-streaks", data: {} },
+    "evaluate-achievement-streaks",
   );
 };
 
@@ -430,10 +477,21 @@ export const startAchievementStreakWorker = (client: Client) =>
   new Worker(
     "achievement-streaks",
     async () => {
-      const result = await runDailyAchievementStreaks(client);
-      logger.info("Achievement streak check completed", result);
+      const claimKey = await claimDailyJob("achievement-streaks");
+      if (!claimKey) {
+        return { skipped: true };
+      }
+
+      try {
+        const result = await runDailyAchievementStreaks(client);
+        logger.info("Achievement streak check completed", result);
+        return result;
+      } catch (error) {
+        await releaseOnce(claimKey);
+        throw error;
+      }
     },
-    { connection: bullConnection },
+    heavyWorkerOpts,
   );
 
 export const closeQueues = async () => {
@@ -444,10 +502,18 @@ export const closeQueues = async () => {
     periodAwardsQueue.close(),
     achievementStreakQueue.close(),
   ]);
+  try {
+    await bullmqConnection.quit();
+  } catch {
+    bullmqConnection.disconnect();
+  }
 };
 
 export const logWorkerError = (worker: Worker) => {
   worker.on("failed", (job, error) => {
     logger.error("BullMQ job failed", { jobId: job?.id, name: job?.name, error: error.message });
+  });
+  worker.on("error", (error) => {
+    logger.error("BullMQ worker error", { error: error.message });
   });
 };

@@ -6,6 +6,8 @@ export const sqlClient = postgres(env.databaseUrl, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
+  // CREATE SCHEMA IF NOT EXISTS drizzle emits 42P06 NOTICE on every boot.
+  onnotice: () => undefined,
 });
 
 export const db = drizzle({ client: sqlClient });

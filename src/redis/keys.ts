@@ -11,4 +11,6 @@ export const keys = {
   startReservation: (guildId: string, channelId: string) =>
     `start-reservation:${guildId}:${channelId}`,
   feedbackRateLimit: (userId: string) => `feedback:rate-limit:${userId}`,
+  dailyJob: (name: string, dayKey: string) => `job:once:${name}:${dayKey}`,
+  idleReminderSlot: (dayKey: string, hour: number) => `job:once:idle-reminder:${dayKey}:${hour}`,
 };

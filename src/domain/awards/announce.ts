@@ -135,7 +135,14 @@ export const runPeriodAwardsForType = async (
 
   const announced = await announcePeriodResults(client, window, finalized.standings);
   if (announced) {
-    await markPeriodAnnounced(finalized.awardPeriodId);
+    const marked = await markPeriodAnnounced(finalized.awardPeriodId);
+    if (!marked) {
+      logger.warn("Period awards announced but mark did not update", {
+        periodType: window.periodType,
+        periodKey: window.periodKey,
+        awardPeriodId: finalized.awardPeriodId,
+      });
+    }
     return {
       status: "finalized",
       window,

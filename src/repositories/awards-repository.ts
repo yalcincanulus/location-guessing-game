@@ -227,12 +227,14 @@ export const finalizePeriodAwards = async (window: PeriodWindow): Promise<Finali
 };
 
 export const markPeriodAnnounced = async (awardPeriodId: string) => {
-  await sqlClient`
+  const rows = await sqlClient`
     UPDATE award_period
     SET announced_at = now(), updated_at = now()
     WHERE id = ${awardPeriodId}
       AND announced_at IS NULL
+    RETURNING id
   `;
+  return rows.length > 0;
 };
 
 export type MedalLeaderboardRow = {
