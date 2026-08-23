@@ -90,6 +90,8 @@ export const clearActiveGame = async (state: ActiveGameState) => {
   await clearGameKeys(state.guildId, state.channelId, state.gameId);
 };
 
+export const clearGuessStreaks = async (gameId: string) => redis.del(keys.guessStreaks(gameId));
+
 export const getWrongCountries = async (gameId: string) =>
   (await redis.smembers(keys.wrongCountries(gameId))).sort();
 

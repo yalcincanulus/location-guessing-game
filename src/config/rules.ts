@@ -112,6 +112,16 @@ export const loadRules = async (force = false): Promise<GameRules> => {
   return value;
 };
 
+export const updateMaxConsecutiveGuesses = async (maxConsecutiveGuesses: number) => {
+  await sqlClient`
+    UPDATE rule
+    SET
+      max_consecutive_guesses = ${maxConsecutiveGuesses},
+      updated_at = now()
+  `;
+  return loadRules(true);
+};
+
 export const isTestChannel = (_guildId: string, channelId: string, rules: GameRules) =>
   rules.testModeEnabled && rules.testChannelId === channelId;
 

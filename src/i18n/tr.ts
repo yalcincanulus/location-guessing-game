@@ -209,6 +209,8 @@ export const trMessages = {
       "`!admin feedback [limit]` — son oyuncu geri bildirimlerini göster (varsayılan: 20, en fazla: 50)",
       "`!admin feedback <id>` — bir geri bildirimi tam göster",
       "`!admin feedback clear <username>` — oyuncunun geri bildirim sınırını temizle",
+      "`!admin clear-guesses` — ardışık tahmin sınırını sıfırla; oyuncular tekrar tahmin edebilir",
+      "`!admin max-guesses [n]` — ardışık tahmin üst sınırını göster veya ayarla (1–100, hemen geçerli)",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -246,6 +248,14 @@ export const trMessages = {
     clearStartDone: "Oyun kanalındaki başlangıç rezervasyonu ve bekleyen başlangıç temizlendi.",
     noStartState: "Oyun kanalında temizlenecek başlangıç rezervasyonu yok.",
     rulesReloaded: "Kurallar önbelleği veritabanından yenilendi.",
+    guessesCleared:
+      "Aktif oyundaki ardışık tahmin sayaçları temizlendi. Oyuncular tekrar tahmin edebilir.",
+    maxGuessesCurrent: (current) =>
+      `Ardışık tahmin üst sınırı **${current}**. Değiştirmek için \`!admin max-guesses <n>\` kullan.`,
+    maxGuessesUpdated: (previous, next) =>
+      `Ardışık tahmin üst sınırı: **${previous}** → **${next}**. Aktif oyun hemen bu değeri kullanır.`,
+    maxGuessesUsage: (current, min, max) =>
+      `Kullanım: \`!admin max-guesses <n>\` — **${min}** ile **${max}** arası tam sayı. Şu an: **${current}**.`,
     multiplierCapped: (currentMultiplier) =>
       `Güncel çarpan zaten ${currentMultiplier.toFixed(2)}x sınırında.`,
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
@@ -262,7 +272,7 @@ export const trMessages = {
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Başarım backfill tamam: **${players}** oyuncu, **${unlocks}** yeni unlock, **${errors}** hata.`,
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback` veya `achievements backfill` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses` veya `max-guesses` kullan.",
   },
   feedback: {
     usage: "Kullanım: `!feedback <mesaj>` -> DM'den admine geri bildirim gönder.",

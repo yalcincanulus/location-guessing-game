@@ -141,6 +141,10 @@ export type BotMessages = {
     clearStartDone: string;
     noStartState: string;
     rulesReloaded: string;
+    guessesCleared: string;
+    maxGuessesCurrent: (current: number) => string;
+    maxGuessesUpdated: (previous: number, next: number) => string;
+    maxGuessesUsage: (current: number, min: number, max: number) => string;
     multiplierCapped: (currentMultiplier: number) => string;
     forcedMultiplierTick: (previousMultiplier: number, newMultiplier: number) => string;
     multiplierNoChange: string;

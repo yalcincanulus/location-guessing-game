@@ -209,6 +209,8 @@ export const enMessages = {
       "`!admin feedback [limit]` — view recent player feedback (default: 20, max: 50)",
       "`!admin feedback <id>` — view one feedback message in full",
       "`!admin feedback clear <username>` — clear that player's feedback rate limit",
+      "`!admin clear-guesses` — reset consecutive guess streaks so players can guess again",
+      "`!admin max-guesses [n]` — show or set max consecutive guesses (1–100, immediate)",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -246,6 +248,14 @@ export const enMessages = {
     clearStartDone: "Cleared start reservation and pending start for the game channel.",
     noStartState: "No start reservation to clear in the game channel.",
     rulesReloaded: "Rules cache reloaded from the database.",
+    guessesCleared:
+      "Cleared consecutive guess streaks for the active game. Players can guess again.",
+    maxGuessesCurrent: (current) =>
+      `Max consecutive guesses is **${current}**. Use \`!admin max-guesses <n>\` to change it.`,
+    maxGuessesUpdated: (previous, next) =>
+      `Max consecutive guesses: **${previous}** → **${next}**. Active game uses this immediately.`,
+    maxGuessesUsage: (current, min, max) =>
+      `Usage: \`!admin max-guesses <n>\` with an integer from **${min}** to **${max}**. Current: **${current}**.`,
     multiplierCapped: (currentMultiplier) =>
       `Current multiplier is already capped at ${currentMultiplier.toFixed(2)}x.`,
     forcedMultiplierTick: (previousMultiplier, newMultiplier) =>
@@ -262,7 +272,7 @@ export const enMessages = {
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Achievements backfill complete: **${players}** players, **${unlocks}** unlocks inserted, **${errors}** errors.`,
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, or `achievements backfill`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, or `max-guesses`.",
   },
   feedback: {
     usage: "Usage: `!feedback <message>` — send feedback to the admin from a DM.",

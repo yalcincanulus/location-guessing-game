@@ -1,12 +1,17 @@
 import type { GuildTextBasedChannel, Message } from "discord.js";
 import { isBotAdmin } from "../bot/admin.ts";
-import { loadRules } from "../config/rules.ts";
+import {
+  MAX_MAX_CONSECUTIVE_GUESSES,
+  MIN_MAX_CONSECUTIVE_GUESSES,
+  parseMaxConsecutiveGuesses,
+} from "../config/max-consecutive-guesses.ts";
+import { loadRules, updateMaxConsecutiveGuesses } from "../config/rules.ts";
 import {
   cancelOrFailActiveGame,
   clearChannelStartState,
   getActiveGameContext,
 } from "../domain/game/admin-game-ops.ts";
-import { getWrongCountries } from "../domain/game/active-game-state.ts";
+import { clearGuessStreaks, getWrongCountries } from "../domain/game/active-game-state.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { runPeriodAwardsForType } from "../domain/awards/announce.ts";
 import type { PeriodType } from "../domain/awards/periods.ts";
@@ -342,6 +347,54 @@ const reloadCommand = async (message: Message) => {
   return true;
 };
 
+const maxGuessesCommand = async (message: Message, args: string[]) => {
+  const rules = await loadRules();
+  if (args.length === 0) {
+    await message.reply(messages.admin.maxGuessesCurrent(rules.maxConsecutiveGuesses));
+    return true;
+  }
+
+  if (args.length !== 1) {
+    await message.reply(
+      messages.admin.maxGuessesUsage(
+        rules.maxConsecutiveGuesses,
+        MIN_MAX_CONSECUTIVE_GUESSES,
+        MAX_MAX_CONSECUTIVE_GUESSES,
+      ),
+    );
+    return true;
+  }
+
+  const next = parseMaxConsecutiveGuesses(args[0] ?? "");
+  if (next === undefined) {
+    await message.reply(
+      messages.admin.maxGuessesUsage(
+        rules.maxConsecutiveGuesses,
+        MIN_MAX_CONSECUTIVE_GUESSES,
+        MAX_MAX_CONSECUTIVE_GUESSES,
+      ),
+    );
+    return true;
+  }
+
+  const previous = rules.maxConsecutiveGuesses;
+  await updateMaxConsecutiveGuesses(next);
+  await message.reply(messages.admin.maxGuessesUpdated(previous, next));
+  return true;
+};
+
+const clearGuessesCommand = async (message: Message, ctx: GameChannelContext) => {
+  const { state } = await getActiveGameContext(ctx.guildId, ctx.channelId);
+  if (!state) {
+    await message.reply(messages.admin.noActiveGame);
+    return true;
+  }
+
+  await clearGuessStreaks(state.gameId);
+  await message.reply(messages.admin.guessesCleared);
+  return true;
+};
+
 const tickCommand = async (message: Message, ctx: GameChannelContext) => {
   const { state, dbGame } = await getActiveGameContext(ctx.guildId, ctx.channelId);
   const gameId = state?.gameId ?? dbGame?.gameId;
@@ -450,6 +503,10 @@ export const handleAdminCommand = async (message: Message) => {
     return reloadCommand(message);
   }
 
+  if (["maxguesses", "maxtahmin", "maxconsecutive"].includes(subcommand)) {
+    return maxGuessesCommand(message, args.slice(1));
+  }
+
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {
     return awardsCommand(message, args.slice(1));
   }
@@ -497,6 +554,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["tick", "carpan", "çarpan", "multiplier", "mult"].includes(subcommand)) {
     return tickCommand(message, ctx);
+  }
+
+  if (["clearguesses", "clearlimit", "tahminlimititemizle"].includes(subcommand)) {
+    return clearGuessesCommand(message, ctx);
   }
 
   await message.reply(messages.admin.unknownCommand);
