@@ -247,6 +247,7 @@ const completeStartIfReady = async ({
     const durableScreenshotUrl = announcement.attachments.first()?.url;
     if (durableScreenshotUrl) {
       started.state.screenshotUrl = durableScreenshotUrl;
+      started.state.screenshotMessageId = announcement.id;
       await updateGameState(started.state);
       await sqlClient`
         UPDATE game

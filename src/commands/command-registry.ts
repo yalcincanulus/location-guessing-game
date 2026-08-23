@@ -7,7 +7,10 @@ import {
   getWrongCountries,
   mapHash,
   setCachedMap,
+  updateGameState,
 } from "../domain/game/active-game-state.ts";
+import { loadGameScreenshot } from "../domain/game/load-screenshot.ts";
+import { logger } from "../util/logger.ts";
 import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
 import { getCurrentPeriodWindow, type PeriodType } from "../domain/awards/periods.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
@@ -55,6 +58,16 @@ const periodCommandAliases: Record<string, PeriodType> = {
 export const isCommandMessage = async (content: string) => {
   const rules = await loadRules();
   return rules.commandPrefixes.some((prefix) => content.startsWith(prefix));
+};
+
+const getGameScreenshotMessageId = async (gameId: string) => {
+  const rows = await sqlClient`
+    SELECT screenshot_message_id
+    FROM game
+    WHERE id = ${gameId}
+  `;
+  const messageId = rows[0]?.screenshot_message_id;
+  return typeof messageId === "string" && messageId.length > 0 ? messageId : undefined;
 };
 
 const parseCommand = async (message: Message) => {
@@ -255,18 +268,50 @@ export const handleCommand = async (message: Message<true>) => {
       return true;
     }
 
-    const response = await fetch(state.screenshotUrl);
-    if (!response.ok) {
+    const screenshotMessageId =
+      state.screenshotMessageId ?? (await getGameScreenshotMessageId(state.gameId));
+    const loaded = await loadGameScreenshot({
+      screenshotUrl: state.screenshotUrl,
+      fallbackName: messages.filenames.fallbackScreenshot,
+      refreshUrl: screenshotMessageId
+        ? async () => {
+            const original = await message.channel.messages
+              .fetch(screenshotMessageId)
+              .catch(() => null);
+            const attachment = original?.attachments.first();
+            if (!attachment) {
+              return undefined;
+            }
+            return { url: attachment.url, name: attachment.name ?? undefined };
+          }
+        : undefined,
+    });
+    if (!loaded) {
       await message.reply(messages.commands.couldNotLoadScreenshot);
       return true;
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const filename =
-      new URL(state.screenshotUrl).pathname.split("/").pop() ||
-      messages.filenames.fallbackScreenshot;
+    const urlChanged = loaded.url !== state.screenshotUrl;
+    if (urlChanged || (screenshotMessageId && state.screenshotMessageId !== screenshotMessageId)) {
+      state.screenshotUrl = loaded.url;
+      if (screenshotMessageId) {
+        state.screenshotMessageId = screenshotMessageId;
+      }
+      await updateGameState(state);
+      if (urlChanged) {
+        await sqlClient`
+          UPDATE game
+          SET screenshot_url = ${loaded.url}, updated_at = now()
+          WHERE id = ${state.gameId}
+        `;
+        logger.info("Refreshed Discord screenshot URL after CDN expiry", {
+          gameId: state.gameId,
+        });
+      }
+    }
+
     await message.channel.send({
-      files: [new AttachmentBuilder(buffer, { name: filename })],
+      files: [new AttachmentBuilder(loaded.buffer, { name: loaded.filename })],
     });
     return true;
   }

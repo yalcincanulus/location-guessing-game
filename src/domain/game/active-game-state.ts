@@ -10,6 +10,8 @@ export type ActiveGameState = {
   targetCountryCode: string;
   targetRegionName?: string;
   screenshotUrl: string;
+  /** Discord message id of the game-start announcement that holds the screenshot. */
+  screenshotMessageId?: string;
   currentMultiplier: number;
   gmMultiplier: number;
   basePoints: number;
