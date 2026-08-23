@@ -5,7 +5,7 @@ export const keys = {
   guessStreaks: (gameId: string) => `game:${gameId}:guess-streaks`,
   winClaim: (gameId: string) => `game:${gameId}:win-claim`,
   mapCache: (gameId: string, viewport: string, hash: string) =>
-    `game:${gameId}:map-cache:${viewport}:${hash}`,
+    `game:${gameId}:map-cache:${viewport}:${hash}:jpg`,
   pendingStart: (guildId: string, userId: string) => `pending-start:${guildId}:${userId}`,
   pendingScreenshot: (pendingKey: string) => `${pendingKey}:screenshot`,
   startReservation: (guildId: string, channelId: string) =>

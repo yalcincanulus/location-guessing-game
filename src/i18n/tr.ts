@@ -9,7 +9,7 @@ export const trMessages = {
   locale: "tr",
   filenames: {
     fallbackScreenshot: "ekran-goruntusu.png",
-    worldGuesses: "dunya-tahminleri.png",
+    worldGuesses: "dunya-tahminleri.jpg",
   },
   mapLegend: {
     wrongGuesses: "Yanlış tahminler",

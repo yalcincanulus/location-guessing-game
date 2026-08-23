@@ -9,7 +9,7 @@ export const enMessages = {
   locale: "en",
   filenames: {
     fallbackScreenshot: "screenshot.png",
-    worldGuesses: "world-guesses.png",
+    worldGuesses: "world-guesses.jpg",
   },
   mapLegend: {
     wrongGuesses: "Wrong guesses",

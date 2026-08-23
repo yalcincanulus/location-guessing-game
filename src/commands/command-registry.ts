@@ -235,15 +235,16 @@ export const handleCommand = async (message: Message<true>) => {
     const map = cached
       ? {
           buffer: cached,
-          filename: `${viewport}-guesses.png`,
+          filename: `${viewport}-guesses.jpg`,
         }
       : renderMap({ wrongCountries, viewport });
-    if (!cached) {
-      await setCachedMap(state.gameId, viewport, hash, map.buffer);
-    }
-    await message.channel.send({
+    const send = message.channel.send({
       files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
     });
+    await Promise.all([
+      send,
+      cached ? undefined : setCachedMap(state.gameId, viewport, hash, map.buffer),
+    ]);
     return true;
   }
 

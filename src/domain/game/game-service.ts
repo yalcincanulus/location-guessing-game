@@ -589,12 +589,8 @@ const announceGameWin = async (
         viewport: "world",
         marker,
       });
-  if (!cached) {
-    await setCachedMap(state.gameId, "world", hash, map.buffer);
-  }
   const attachment = new AttachmentBuilder(map.buffer, { name: map.filename });
-
-  await message.channel.send({
+  const send = message.channel.send({
     content: [
       messages.game.foundCountry(
         message.author.id,
@@ -624,6 +620,10 @@ const announceGameWin = async (
     files: [attachment],
     flags: MessageFlags.SuppressEmbeds,
   });
+  await Promise.all([
+    send,
+    cached ? undefined : setCachedMap(state.gameId, "world", hash, map.buffer),
+  ]);
 
   if (!state.isTest) {
     const rules = await loadRules();

@@ -1,5 +1,5 @@
 import { createCanvas } from "@napi-rs/canvas";
-import { geoMercator, geoPath } from "d3-geo";
+import { geoBounds, geoMercator, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
@@ -32,6 +32,17 @@ const countryFeatures = (
     features: Feature[];
   }
 ).features;
+
+/** JPEG quality 0–100. Flat choropleth fills compress well; 90 stays sharp in Discord. */
+const MAP_JPEG_QUALITY = 90;
+
+/** Countries whose geometry can appear on a ±360° Mercator tile at the world-view edges. */
+const wrapsAntimeridian = (country: Feature) => {
+  const [[west], [east]] = geoBounds(country as never);
+  return east < west || west < -140 || east > 140;
+};
+
+const wrapCountryFeatures = countryFeatures.filter(wrapsAntimeridian);
 
 export type MapCoordinates = {
   latitude: number;
@@ -148,12 +159,8 @@ export const renderMap = ({
   context.strokeStyle = theme.countryBorder;
   context.lineWidth = 0.45 * ui;
 
-  const [baseTx, baseTy] = projection.translate();
-  const wrapPeriod = mercatorWorldWidth(projection);
-  // Draw three horizontal tiles so geography continues past ±180° instead of hard-clipping.
-  for (const shift of [-wrapPeriod, 0, wrapPeriod]) {
-    projection.translate([baseTx + shift, baseTy]);
-    for (const country of countryFeatures) {
+  const drawCountries = (countries: Feature[]) => {
+    for (const country of countries) {
       const id = String(country.id).padStart(3, "0");
       context.beginPath();
       path(country as never);
@@ -166,6 +173,19 @@ export const renderMap = ({
       context.fill();
       context.stroke();
     }
+  };
+
+  const [baseTx, baseTy] = projection.translate();
+  const wrapPeriod = mercatorWorldWidth(projection);
+  // Draw three horizontal tiles so geography continues past ±180° instead of hard-clipping.
+  // Side tiles only need countries that can appear there (Alaska, Chukotka, Fiji, …).
+  for (const [shift, countries] of [
+    [-wrapPeriod, wrapCountryFeatures],
+    [0, countryFeatures],
+    [wrapPeriod, wrapCountryFeatures],
+  ] as const) {
+    projection.translate([baseTx + shift, baseTy]);
+    drawCountries(countries);
   }
   projection.translate([baseTx, baseTy]);
 
@@ -234,8 +254,8 @@ export const renderMap = ({
   });
 
   return {
-    buffer: canvas.toBuffer("image/png"),
-    filename: `${preset.name}-guesses.png`,
-    contentType: "image/png",
+    buffer: canvas.toBuffer("image/jpeg", MAP_JPEG_QUALITY),
+    filename: `${preset.name}-guesses.jpg`,
+    contentType: "image/jpeg",
   };
 };
