@@ -62,7 +62,7 @@ export const tryClaimGameWin = async (gameId: string, messageId: string): Promis
     keys.winClaim(gameId),
     messageId,
     "EX",
-    WIN_CLAIM_TTL_SECONDS,
+    String(WIN_CLAIM_TTL_SECONDS),
     "NX",
   );
   return result === "OK";
@@ -74,17 +74,14 @@ export const releaseGameWinClaim = async (gameId: string) => {
 
 export const clearGameKeys = async (guildId: string, channelId: string, gameId: string) => {
   const cacheKeys = await redis.keys(`game:${gameId}:map-cache:*`);
-  const multi = redis
-    .multi()
-    .del(keys.activeGame(guildId, channelId))
-    .del(keys.gameState(gameId))
-    .del(keys.wrongCountries(gameId))
-    .del(keys.guessStreaks(gameId))
-    .del(keys.winClaim(gameId));
-  if (cacheKeys.length > 0) {
-    multi.del(...cacheKeys);
-  }
-  await multi.exec();
+  await redis.del(
+    keys.activeGame(guildId, channelId),
+    keys.gameState(gameId),
+    keys.wrongCountries(gameId),
+    keys.guessStreaks(gameId),
+    keys.winClaim(gameId),
+    ...cacheKeys,
+  );
 };
 
 export const clearActiveGame = async (state: ActiveGameState) => {
@@ -98,7 +95,7 @@ export const addWrongCountry = async (gameId: string, countryCode: string) =>
   redis.sadd(keys.wrongCountries(gameId), countryCode);
 
 export const hasWrongCountry = async (gameId: string, countryCode: string) =>
-  (await redis.sismember(keys.wrongCountries(gameId), countryCode)) === 1;
+  redis.sismember(keys.wrongCountries(gameId), countryCode);
 
 export const getCachedMap = async (
   gameId: string,
@@ -106,7 +103,7 @@ export const getCachedMap = async (
   hash: string,
 ): Promise<Buffer | undefined> => {
   const raw = await redis.getBuffer(keys.mapCache(gameId, viewport, hash));
-  return raw ?? undefined;
+  return raw ? Buffer.from(raw) : undefined;
 };
 
 export const setCachedMap = async (

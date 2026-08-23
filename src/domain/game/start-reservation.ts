@@ -25,7 +25,7 @@ export const tryClaimStartReservation = async (
 ): Promise<"claimed" | "owned" | "blocked"> => {
   const key = keys.startReservation(guildId, channelId);
   const payload = JSON.stringify(reservation);
-  const result = await redis.set(key, payload, "EX", ttlSeconds, "NX");
+  const result = await redis.set(key, payload, "EX", String(ttlSeconds), "NX");
   if (result === "OK") {
     return "claimed";
   }

@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq";
+import { Queue, Worker, createBunRedisClient } from "bullmq";
 import type { Client } from "discord.js";
 import {
   getActiveGameState,
@@ -27,7 +27,11 @@ import {
   istanbulDayKey,
 } from "./schedule.ts";
 
-const bullmqConnection = createRedisConnection("bullmq");
+const bullmqConnection = createBunRedisClient(createRedisConnection("bullmq"));
+bullmqConnection.on("error", (error: Error) => {
+  logger.error("BullMQ Redis connection error", { error: error.message });
+});
+
 const schedulerJobOpts = {
   removeOnComplete: 20,
   removeOnFail: 50,
@@ -390,7 +394,7 @@ export const runChannelIdleReminder = async (client: Client): Promise<IdleRemind
 };
 
 const claimOnce = async (key: string, ttlSeconds = ONCE_TTL_SECONDS): Promise<boolean> => {
-  const result = await redis.set(key, "1", "EX", ttlSeconds, "NX");
+  const result = await redis.set(key, "1", "EX", String(ttlSeconds), "NX");
   return result === "OK";
 };
 

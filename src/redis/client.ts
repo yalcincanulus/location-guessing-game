@@ -1,4 +1,4 @@
-import Redis from "ioredis";
+import { RedisClient } from "bun";
 import { env } from "../config/env.ts";
 import { logger } from "../util/logger.ts";
 
@@ -16,28 +16,34 @@ export const createRedisConnection = (connectionName: string) => {
     );
   }
 
-  const client = new Redis(env.redisUrl, {
-    maxRetriesPerRequest: null,
-    connectionName,
-    keepAlive: 10_000,
-    retryStrategy: (times) => Math.min(times * 200, 5_000),
+  const client = new RedisClient(env.redisUrl, {
+    autoReconnect: true,
+    enableOfflineQueue: true,
   });
-  client.on("error", (error) => {
-    logger.error("Redis connection error", { connectionName, error: error.message });
-  });
+
+  const applyConnectionName = () => {
+    void client.send("CLIENT", ["SETNAME", connectionName]).catch(() => undefined);
+  };
+
+  client.onconnect = applyConnectionName;
+  client.onclose = (error) => {
+    logger.error("Redis connection closed", {
+      connectionName,
+      error: error?.message,
+    });
+  };
+
   return client;
 };
 
 export const redis = createRedisConnection("app");
 
-const quitOrDisconnect = async (client: Redis) => {
-  try {
-    await client.quit();
-  } catch {
-    client.disconnect();
-  }
-};
-
 export const closeRedis = async () => {
-  await quitOrDisconnect(redis);
+  // Bun 1.4 throws if onclose is null/undefined when close() runs.
+  redis.onclose = () => {};
+  try {
+    redis.close();
+  } catch {
+    // already closed
+  }
 };

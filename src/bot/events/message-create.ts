@@ -104,7 +104,7 @@ const storePendingScreenshot = async (
 
 const loadPendingScreenshot = async (pendingKey: string) => {
   const buffer = await redis.getBuffer(keys.pendingScreenshot(pendingKey));
-  return buffer ?? undefined;
+  return buffer ? Buffer.from(buffer) : undefined;
 };
 
 const dmUser = async (user: User, content: string) => {
