@@ -34,6 +34,7 @@ import {
   isKnownCountryCode,
 } from "../countries/normalize-country-guess.ts";
 import { isRateLimited, nextStreaks, type GuessStreakState } from "./rate-limit.ts";
+import { pickWrongGuessReaction } from "./wrong-guess-reaction.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import { renderMap } from "../maps/map-renderer.ts";
@@ -291,7 +292,7 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
   }
 
   try {
-    const reaction = isCorrect ? "✅" : isRepeat ? "🔄" : "❌";
+    const reaction = isCorrect ? "✅" : isRepeat ? "🔄" : pickWrongGuessReaction();
     const guessId = await persistGuess(
       message,
       state,
