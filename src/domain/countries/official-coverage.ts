@@ -1,7 +1,7 @@
 /**
  * Countries/territories with official Google Street View coverage,
  * based on PlonkIt guides (plonkit.net), plus recent additions noted by the community:
- * Georgia (GE), Bosnia and Herzegovina (BA), Paraguay (PY).
+ * Georgia (GE), Bosnia and Herzegovina (BA), Paraguay (PY), Kosovo (XK).
  *
  * "In the game" for GeoGuessr communities means the location's country code
  * appears in this set. That is separate from whether a specific linked panorama
@@ -90,6 +90,7 @@ const officialCoverageCodes = [
   "IM",
   "IT",
   "JE",
+  "XK",
   "LV",
   "LI",
   "LT",

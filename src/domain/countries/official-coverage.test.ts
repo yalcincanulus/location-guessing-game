@@ -13,6 +13,7 @@ describe("isOfficiallyCovered", () => {
     expect(isOfficiallyCovered("GE")).toBe(true);
     expect(isOfficiallyCovered("BA")).toBe(true);
     expect(isOfficiallyCovered("PY")).toBe(true);
+    expect(isOfficiallyCovered("XK")).toBe(true);
   });
 
   test("marks countries without official coverage as not in the game", () => {
