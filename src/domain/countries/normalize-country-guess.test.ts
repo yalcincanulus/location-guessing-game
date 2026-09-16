@@ -58,4 +58,10 @@ describe("normalizeCountryGuess overseas territories", () => {
       expect(normalizeCountryGuess(guess)?.countryCode).toBe("IT");
     }
   });
+
+  test("accepts the Turkish spelling of Liechtenstein", () => {
+    for (const guess of ["Lihtenştayn", "lihtenştayn", "LIHTENŞTAYN", "Liechtenstein"]) {
+      expect(normalizeCountryGuess(guess)?.countryCode).toBe("LI");
+    }
+  });
 });

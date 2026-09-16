@@ -278,7 +278,7 @@ export const countries: CountryRecord[] = [
   { alpha2: "LA", alpha3: "LAO", numeric: "418" },
   { alpha2: "LB", alpha3: "LBN", numeric: "422", aliases: ["lebanon", "lubnan"] },
   { alpha2: "LC", alpha3: "LCA", numeric: "662", aliases: ["saint lucia", "st lucia"] },
-  { alpha2: "LI", alpha3: "LIE", numeric: "438" },
+  { alpha2: "LI", alpha3: "LIE", numeric: "438", aliases: ["liechtenstein", "lihtenştayn"] },
   { alpha2: "LK", alpha3: "LKA", numeric: "144", aliases: ["sri lanka"] },
   { alpha2: "LR", alpha3: "LBR", numeric: "430" },
   { alpha2: "LS", alpha3: "LSO", numeric: "426" },
