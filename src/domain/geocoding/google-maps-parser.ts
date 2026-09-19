@@ -88,14 +88,130 @@ const extractFromUrl = (value: string, originalUrl = value): ParsedGoogleMapsUrl
   return undefined;
 };
 
-const resolveUrl = async (url: string) => {
-  const response = await fetch(url, {
+type PanoImageType = 2 | 10;
+
+const extractPanoRef = (value: string): { id: string; imageType: PanoImageType } | undefined => {
+  const decoded = decodeURIComponent(value);
+  const typed = decoded.match(/!1s([A-Za-z0-9_-]{10,})!2e(0|10)(?![0-9])/);
+  if (typed?.[1] && typed[2]) {
+    return { id: typed[1], imageType: typed[2] === "10" ? 10 : 2 };
+  }
+
+  const query = decoded.match(/[?&](?:pano|panoid)=([A-Za-z0-9_-]{10,})/i);
+  if (!query?.[1]) {
+    return undefined;
+  }
+
+  return {
+    id: query[1],
+    imageType: detectPanoramaCoverageSource(decoded) === "third-party" ? 10 : 2,
+  };
+};
+
+const asLatLng = (value: unknown): { latitude: number; longitude: number } | undefined => {
+  if (!Array.isArray(value) || value.length < 4) {
+    return undefined;
+  }
+  if (value[0] !== null || value[1] !== null) {
+    return undefined;
+  }
+  const latitude = value[2];
+  const longitude = value[3];
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return undefined;
+  }
+  if (!validateCoordinate(latitude, longitude)) {
+    return undefined;
+  }
+  return { latitude, longitude };
+};
+
+const findLatLng = (value: unknown): { latitude: number; longitude: number } | undefined => {
+  const direct = asLatLng(value);
+  if (direct) {
+    return direct;
+  }
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  for (const child of value) {
+    const found = findLatLng(child);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+};
+
+const parsePanoMetadataCoordinates = (text: string) => {
+  const start = text.indexOf("(");
+  const end = text.lastIndexOf(")");
+  if (start < 0 || end <= start) {
+    return undefined;
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(text.slice(start + 1, end));
+  } catch {
+    return undefined;
+  }
+
+  if (!Array.isArray(data) || !Array.isArray(data[0]) || data[0][0] !== 0) {
+    return undefined;
+  }
+
+  return findLatLng(data);
+};
+
+const panoMetadataUrl = (panoId: string, imageType: PanoImageType) =>
+  `https://maps.googleapis.com/maps/api/js/GeoPhotoService.GetMetadata?pb=!1m5!1sapiv3!5sUS!11m2!1m1!1b0!2m2!1sen!2sUS!3m3!1m2!1e${imageType}!2s${panoId}!4m6!1e1!1e2!1e3!1e4!1e8!1e6&callback=_xdc_._m`;
+
+const resolveFromPanoId = async (
+  value: string,
+  originalUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<ParsedGoogleMapsUrl | undefined> => {
+  const pano = extractPanoRef(value);
+  if (!pano) {
+    return undefined;
+  }
+
+  const response = await fetchImpl(panoMetadataUrl(pano.id, pano.imageType), {
+    signal: AbortSignal.timeout(7000),
+  }).catch(() => undefined);
+  if (!response?.ok) {
+    return undefined;
+  }
+
+  const text = await response.text().catch(() => undefined);
+  if (!text) {
+    return undefined;
+  }
+
+  const coords = parsePanoMetadataCoordinates(text);
+  if (!coords) {
+    return undefined;
+  }
+
+  return {
+    originalUrl,
+    resolvedUrl: value,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    source: "google-pano-metadata",
+    coverageSource: detectPanoramaCoverageSource(originalUrl, value),
+  };
+};
+
+const resolveUrl = async (url: string, fetchImpl: typeof fetch) => {
+  const response = await fetchImpl(url, {
     method: "HEAD",
     redirect: "follow",
     signal: AbortSignal.timeout(7000),
   }).catch(() => undefined);
 
-  return response?.url ?? url;
+  return response?.url || url;
 };
 
 export const findGoogleMapsUrl = (message: string) => {
@@ -105,12 +221,30 @@ export const findGoogleMapsUrl = (message: string) => {
   );
 };
 
-export const parseGoogleMapsUrl = async (url: string): Promise<ParsedGoogleMapsUrl | undefined> => {
+export const parseGoogleMapsUrl = async (
+  url: string,
+  options: { fetchImpl?: typeof fetch } = {},
+): Promise<ParsedGoogleMapsUrl | undefined> => {
+  const fetchImpl = options.fetchImpl ?? fetch;
   const direct = extractFromUrl(url);
   if (direct) {
     return direct;
   }
 
-  const resolvedUrl = await resolveUrl(url);
-  return extractFromUrl(resolvedUrl, url);
+  const fromOriginalPano = await resolveFromPanoId(url, url, fetchImpl);
+  if (fromOriginalPano) {
+    return fromOriginalPano;
+  }
+
+  const resolvedUrl = await resolveUrl(url, fetchImpl);
+  if (resolvedUrl === url) {
+    return undefined;
+  }
+
+  const fromResolved = extractFromUrl(resolvedUrl, url);
+  if (fromResolved) {
+    return fromResolved;
+  }
+
+  return resolveFromPanoId(resolvedUrl, url, fetchImpl);
 };
