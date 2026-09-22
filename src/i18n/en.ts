@@ -50,6 +50,8 @@ export const enMessages = {
         : `<@${userId}> failed to add a Google Maps link in time. A new game can be started.`,
     screenshotTooLarge: (userId, maxMb) =>
       `<@${userId}> that screenshot could not be compressed under Discord's **${maxMb} MB** upload limit. Please send a smaller image to start the game.`,
+    startsClosed: (userId) =>
+      `<@${userId}> new game starts are closed. A game already in progress keeps running.`,
   },
   commands: {
     noActiveGameInChannel: "No active game in this channel.",
@@ -211,6 +213,7 @@ export const enMessages = {
       "`!admin feedback clear <username>` — clear that player's feedback rate limit",
       "`!admin clear-guesses` — reset consecutive guess streaks so players can guess again",
       "`!admin max-guesses [n]` — show or set max consecutive guesses (1–100, immediate)",
+      "`!admin starts [on|off]` — open or close new game starts. A game already running keeps going",
       "`!admin suspects [minGames]` — review pairs and host-only accounts (default 5, DM)",
       "`!admin pair <player> <player>` — games between two players (DM)",
       "`!admin player <player>` — win rate, first-guess accuracy, hosts (DM)",
@@ -442,8 +445,13 @@ export const enMessages = {
             : flag === "repeat"
               ? "repeat pin"
               : "cleared",
+    startsUsage: "Usage: `!admin starts` shows the switch. `!admin starts on` or `off` changes it.",
+    startsState: (enabled) =>
+      enabled
+        ? "New game starts are **open**."
+        : "New game starts are **closed**. A game already in progress keeps running.",
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `suspects`, `pair`, `player`, `game`, `fast`, or `dismiss pair`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `game`, `fast`, or `dismiss pair`.",
   },
   feedback: {
     usage: "Usage: `!feedback <message>` — send feedback to the admin from a DM.",

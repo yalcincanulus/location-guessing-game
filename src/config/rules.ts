@@ -19,6 +19,7 @@ export type GameRules = {
   repeatGuessCountsForStats: boolean;
   repeatGuessCountsForGmDifficulty: boolean;
   queueGameStarts: boolean;
+  gameStartsEnabled: boolean;
   testModeEnabled: boolean;
   testChannelId?: string;
   testAdminUserIds: string[];
@@ -72,6 +73,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
       repeat_guess_counts_for_stats,
       repeat_guess_counts_for_gm_difficulty,
       queue_game_starts,
+      game_starts_enabled,
       test_mode_enabled,
       test_channel_id,
       test_admin_user_ids
@@ -103,6 +105,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
     repeatGuessCountsForStats: row.repeat_guess_counts_for_stats,
     repeatGuessCountsForGmDifficulty: row.repeat_guess_counts_for_gm_difficulty,
     queueGameStarts: row.queue_game_starts,
+    gameStartsEnabled: row.game_starts_enabled,
     testModeEnabled: row.test_mode_enabled,
     testChannelId: row.test_channel_id ?? undefined,
     testAdminUserIds: stringArrayValue(row.test_admin_user_ids, []),
@@ -110,6 +113,16 @@ export const loadRules = async (force = false): Promise<GameRules> => {
 
   cachedRules = { value, expiresAt: Date.now() + 30_000 };
   return value;
+};
+
+export const updateGameStartsEnabled = async (enabled: boolean) => {
+  await sqlClient`
+    UPDATE rule
+    SET
+      game_starts_enabled = ${enabled},
+      updated_at = now()
+  `;
+  return loadRules(true);
 };
 
 export const updateMaxConsecutiveGuesses = async (maxConsecutiveGuesses: number) => {

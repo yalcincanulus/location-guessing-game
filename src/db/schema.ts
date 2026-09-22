@@ -45,6 +45,8 @@ export const rule = snakeCase.table("rule", {
   repeatGuessCountsForStats: boolean().notNull().default(true),
   repeatGuessCountsForGmDifficulty: boolean().notNull().default(false),
   queueGameStarts: boolean().notNull().default(false),
+  /** When false, new games cannot be started. A game already in progress keeps running. */
+  gameStartsEnabled: boolean().notNull().default(true),
   testModeEnabled: boolean().notNull().default(false),
   testChannelId: text(),
   testAdminUserIds: jsonb()

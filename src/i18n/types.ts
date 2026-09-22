@@ -85,6 +85,7 @@ export type BotMessages = {
     startingWaitingForLink: (userId: string) => string;
     startReservationExpired: (userId: string, missing: "screenshot" | "link") => string;
     screenshotTooLarge: (userId: string, maxMb: number) => string;
+    startsClosed: (userId: string) => string;
   };
   commands: {
     noActiveGameInChannel: string;
@@ -279,6 +280,8 @@ export type BotMessages = {
     reviewPlayerAmbiguous: (name: string, matches: string[]) => string;
     reviewStartSource: (source: string | null) => string;
     reviewFlag: (flag: "silent" | "fast" | "multiplier" | "repeat" | "cleared") => string;
+    startsUsage: string;
+    startsState: (enabled: boolean) => string;
     unknownCommand: string;
   };
   feedback: {

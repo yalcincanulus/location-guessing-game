@@ -5,7 +5,12 @@ import {
   MIN_MAX_CONSECUTIVE_GUESSES,
   parseMaxConsecutiveGuesses,
 } from "../config/max-consecutive-guesses.ts";
-import { loadRules, updateMaxConsecutiveGuesses } from "../config/rules.ts";
+import { parseGameStartsEnabled } from "../config/game-starts.ts";
+import {
+  loadRules,
+  updateGameStartsEnabled,
+  updateMaxConsecutiveGuesses,
+} from "../config/rules.ts";
 import {
   cancelOrFailActiveGame,
   clearChannelStartState,
@@ -348,6 +353,29 @@ const reloadCommand = async (message: Message) => {
   return true;
 };
 
+const startsCommand = async (message: Message, args: string[]) => {
+  if (args.length > 1) {
+    await message.reply(messages.admin.startsUsage);
+    return true;
+  }
+
+  if (args.length === 0) {
+    const rules = await loadRules(true);
+    await message.reply(messages.admin.startsState(rules.gameStartsEnabled));
+    return true;
+  }
+
+  const enabled = parseGameStartsEnabled(args[0] ?? "");
+  if (enabled === undefined) {
+    await message.reply(messages.admin.startsUsage);
+    return true;
+  }
+
+  const rules = await updateGameStartsEnabled(enabled);
+  await message.reply(messages.admin.startsState(rules.gameStartsEnabled));
+  return true;
+};
+
 const maxGuessesCommand = async (message: Message, args: string[]) => {
   const rules = await loadRules();
   if (args.length === 0) {
@@ -506,6 +534,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["maxguesses", "maxtahmin", "maxconsecutive"].includes(subcommand)) {
     return maxGuessesCommand(message, args.slice(1));
+  }
+
+  if (["starts", "start", "baslat"].includes(subcommand)) {
+    return startsCommand(message, args.slice(1));
   }
 
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {

@@ -50,6 +50,7 @@ export const trMessages = {
         : `<@${userId}> zamanında Google Haritalar bağlantısı eklemedi. Yeni bir oyun başlatılabilir.`,
     screenshotTooLarge: (userId, maxMb) =>
       `<@${userId}> ekran görüntüsü Discord'un **${maxMb} MB** yükleme sınırının altına sıkıştırılamadı. Oyunu başlatmak için daha küçük bir görsel gönder.`,
+    startsClosed: (userId) => `<@${userId}> yeni oyun başlatma kapalı.`,
   },
   commands: {
     noActiveGameInChannel: "Bu kanalda aktif oyun yok.",
@@ -211,6 +212,7 @@ export const trMessages = {
       "`!admin feedback clear <username>` — oyuncunun geri bildirim sınırını temizle",
       "`!admin clear-guesses` — ardışık tahmin sınırını sıfırla; oyuncular tekrar tahmin edebilir",
       "`!admin max-guesses [n]` — ardışık tahmin üst sınırını göster veya ayarla (1–100, hemen geçerli)",
+      "`!admin starts [on|off]` — yeni oyun başlatmayı aç veya kapat. Süren oyun devam eder",
       "`!admin suspects [minGames]` — şüpheli çiftler ve yalnızca kuran hesaplar (varsayılan 5, DM)",
       "`!admin pair <oyuncu> <oyuncu>` — iki oyuncunun ortak elleri (DM)",
       "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular (DM)",
@@ -443,8 +445,12 @@ export const trMessages = {
             : flag === "repeat"
               ? "tekrar pin"
               : "temiz",
+    startsUsage:
+      "Kullanım: `!admin starts` anahtarı gösterir. `!admin starts on` veya `off` değiştirir. Türkçe: `aç`, `kapat`.",
+    startsState: (enabled) =>
+      enabled ? "Yeni oyun başlatma **açık**." : "Yeni oyun başlatma **kapalı**.",
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `suspects`, `pair`, `player`, `game`, `fast` veya `dismiss pair` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `game`, `fast` veya `dismiss pair` kullan.",
   },
   feedback: {
     usage: "Kullanım: `!feedback <mesaj>` -> DM'den admine geri bildirim gönder.",

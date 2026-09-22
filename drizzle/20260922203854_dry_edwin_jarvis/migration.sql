@@ -1,0 +1,1 @@
+ALTER TABLE "rule" ADD COLUMN "game_starts_enabled" boolean DEFAULT true NOT NULL;

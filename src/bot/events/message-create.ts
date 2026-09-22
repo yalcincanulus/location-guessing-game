@@ -16,6 +16,7 @@ import { getActiveGameState, updateGameState } from "../../domain/game/active-ga
 import {
   clearPendingStart,
   clearStartReservation,
+  getStartReservation,
   tryClaimStartReservation,
   updateStartReservation,
   type StartReservationMissing,
@@ -301,6 +302,25 @@ const processStartAttempt = async ({
   const channelId = gameChannel.id;
   const pendingKey = keys.pendingStart(guildId, author.id);
   const hasBothParts = Boolean(googleMapsUrl && attachment);
+
+  if (!rules.gameStartsEnabled) {
+    if (deleteMessage) {
+      await deleteMessage.delete().catch(() => undefined);
+    }
+    await clearPendingStart(pendingKey);
+    const reservation = await getStartReservation(guildId, channelId);
+    if (reservation?.userId === author.id) {
+      await clearStartReservation(guildId, channelId);
+      await cancelStartReservationExpiry(guildId, channelId);
+    }
+    const notice = messages.start.startsClosed(author.id);
+    if (deleteMessage) {
+      await sendToGameChannel(gameChannel, notice);
+    } else {
+      await dmUser(author, notice);
+    }
+    return;
+  }
 
   const active = await getActiveGameState(guildId, channelId);
   if (active) {
