@@ -27,6 +27,7 @@ import {
   getPlayStreak,
   getPlayerStatSnapshot,
 } from "../domain/achievements/metrics.ts";
+import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
@@ -414,18 +415,85 @@ export const handleCommand = async (message: Message<true>) => {
 
   if (["stats", "istatistik"].includes(command)) {
     const rows = await sqlClient`
+      WITH completed AS (
+        SELECT *
+        FROM game
+        WHERE status = 'completed'
+      ),
+      country_counts AS (
+        SELECT
+          COALESCE(l.manual_country_code, l.country_code) AS country_code,
+          COUNT(*)::int AS games
+        FROM completed g
+        JOIN location l ON l.id = g.location_id
+        GROUP BY 1
+      )
       SELECT
-        COUNT(*) FILTER (WHERE status = 'completed') AS completed_games,
-        COUNT(*) AS total_games,
-        COALESCE(SUM(total_guess_count), 0) AS total_guesses
+        (SELECT COUNT(*)::int FROM completed) AS completed_games,
+        COALESCE(SUM(total_guess_count), 0)::int AS total_guesses,
+        (SELECT COUNT(*)::int FROM player) AS total_players,
+        (SELECT COUNT(*)::int FROM country_counts) AS distinct_countries,
+        (
+          SELECT country_code
+          FROM country_counts
+          ORDER BY games DESC, country_code ASC
+          LIMIT 1
+        ) AS top_country_code,
+        (
+          SELECT games
+          FROM country_counts
+          ORDER BY games DESC, country_code ASC
+          LIMIT 1
+        ) AS top_country_games,
+        (
+          SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY solve_seconds)
+          FROM (
+            SELECT EXTRACT(EPOCH FROM (
+              COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
+            )) AS solve_seconds
+            FROM completed g
+            JOIN guess wg ON wg.id = g.winning_guess_id
+          ) solves
+          WHERE solve_seconds >= 0
+        ) AS median_solve_seconds,
+        (
+          SELECT COUNT(*)::int
+          FROM completed
+          WHERE unique_wrong_country_count = 0
+        ) AS oneshot_games,
+        (
+          SELECT COUNT(DISTINCT game_master_player_id)::int
+          FROM completed
+        ) AS hosts,
+        (
+          SELECT COUNT(*)::int
+          FROM (
+            SELECT g.id, gs.player_id
+            FROM completed g
+            JOIN guess gs ON gs.game_id = g.id
+            WHERE gs.is_rate_limited = false
+            GROUP BY g.id, gs.player_id
+          ) participants
+        ) AS participations
       FROM game
     `;
     const row = rows[0];
+    const medianRaw = row?.median_solve_seconds;
+    const medianSolveSeconds = medianRaw == null ? null : Number(medianRaw);
+    const topCountryCode = row?.top_country_code == null ? null : String(row.top_country_code);
     await message.reply(
       messages.commands.stats({
         completedGames: row?.completed_games ?? 0,
-        totalGames: row?.total_games ?? 0,
         totalGuesses: row?.total_guesses ?? 0,
+        totalPlayers: row?.total_players ?? 0,
+        distinctCountries: row?.distinct_countries ?? 0,
+        topCountryName:
+          topCountryCode == null ? null : getCountryDisplayName(topCountryCode, messages.locale),
+        topCountryGames: row?.top_country_games ?? 0,
+        medianSolveSeconds: Number.isFinite(medianSolveSeconds) ? medianSolveSeconds : null,
+        oneshotGames: row?.oneshot_games ?? 0,
+        hosts: row?.hosts ?? 0,
+        participations: row?.participations ?? 0,
       }),
     );
     return true;

@@ -4,6 +4,7 @@ import {
   achievementNamesTr,
   formatAchievementTier,
 } from "./achievement-copy.ts";
+import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
 export const trMessages = {
   locale: "tr",
@@ -83,11 +84,35 @@ export const trMessages = {
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "Henüz liderlik verisi yok.",
-    stats: ({ completedGames, totalGames, totalGuesses }) =>
-      [
-        `Oyunlar: **${completedGames}** tamamlandı / **${totalGames}** toplam`,
+    stats: ({
+      completedGames,
+      totalGuesses,
+      totalPlayers,
+      distinctCountries,
+      topCountryName,
+      topCountryGames,
+      medianSolveSeconds,
+      oneshotGames,
+      hosts,
+      participations,
+    }) => {
+      const topCountry =
+        topCountryName == null
+          ? "En çok çıkan ülke: **—**"
+          : `En çok çıkan ülke: **${topCountryName}** (${topCountryGames})`;
+      return [
+        `Tamamlanan oyun: **${completedGames}**`,
         `Toplam tahmin: **${totalGuesses}**`,
-      ].join("\n"),
+        `Toplam oyuncu: **${totalPlayers}**`,
+        `Oyun başına tahmin: **${formatPerGame(totalGuesses, completedGames, "tr")}**`,
+        `Farklı ülke: **${distinctCountries}**`,
+        topCountry,
+        `Ortanca süre: **${formatMedianDuration(medianSolveSeconds, "tr")}**`,
+        `Tek tahminde biten: **${oneshotGames}**`,
+        `Oyun kurucu: **${hosts}**`,
+        `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
+      ].join("\n");
+    },
     helpCommands:
       "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM).",
     helpTestCommands:

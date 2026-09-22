@@ -18,8 +18,15 @@ export type ProfileMessageInput = {
 
 export type GameStatsMessageInput = {
   completedGames: number | string;
-  totalGames: number | string;
   totalGuesses: number | string;
+  totalPlayers: number | string;
+  distinctCountries: number | string;
+  topCountryName: string | null;
+  topCountryGames: number | string;
+  medianSolveSeconds: number | null;
+  oneshotGames: number | string;
+  hosts: number | string;
+  participations: number | string;
 };
 
 export type AwardPeriodType = "daily" | "weekly" | "monthly" | "seasonal" | "yearly";

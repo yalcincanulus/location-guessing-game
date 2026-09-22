@@ -4,6 +4,7 @@ import {
   achievementNamesEn,
   formatAchievementTier,
 } from "./achievement-copy.ts";
+import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
 export const enMessages = {
   locale: "en",
@@ -84,11 +85,35 @@ export const enMessages = {
       ].join("\n"),
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "No leaderboard data yet.",
-    stats: ({ completedGames, totalGames, totalGuesses }) =>
-      [
-        `Games: **${completedGames}** completed / **${totalGames}** total`,
+    stats: ({
+      completedGames,
+      totalGuesses,
+      totalPlayers,
+      distinctCountries,
+      topCountryName,
+      topCountryGames,
+      medianSolveSeconds,
+      oneshotGames,
+      hosts,
+      participations,
+    }) => {
+      const topCountry =
+        topCountryName == null
+          ? "Most common country: **—**"
+          : `Most common country: **${topCountryName}** (${topCountryGames})`;
+      return [
+        `Completed games: **${completedGames}**`,
         `Total guesses: **${totalGuesses}**`,
-      ].join("\n"),
+        `Total players: **${totalPlayers}**`,
+        `Guesses per game: **${formatPerGame(totalGuesses, completedGames, "en")}**`,
+        `Distinct countries: **${distinctCountries}**`,
+        topCountry,
+        `Median time: **${formatMedianDuration(medianSolveSeconds, "en")}**`,
+        `Solved on the first guess: **${oneshotGames}**`,
+        `Hosts: **${hosts}**`,
+        `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
+      ].join("\n");
+    },
     helpCommands:
       "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM), `!feedback <message>` (DM only).",
     helpTestCommands:
