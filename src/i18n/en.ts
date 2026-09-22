@@ -211,6 +211,12 @@ export const enMessages = {
       "`!admin feedback clear <username>` — clear that player's feedback rate limit",
       "`!admin clear-guesses` — reset consecutive guess streaks so players can guess again",
       "`!admin max-guesses [n]` — show or set max consecutive guesses (1–100, immediate)",
+      "`!admin suspects [minGames]` — review pairs and host-only accounts (default 5, DM)",
+      "`!admin pair <player> <player>` — games between two players (DM)",
+      "`!admin player <player>` — win rate, first-guess accuracy, hosts (DM)",
+      "`!admin game <id>` — guess timeline for one game (DM)",
+      "`!admin fast <seconds>` — wins at or under this solve time (DM)",
+      "`!admin dismiss pair <player> <player>` — hide that pair from the review list (DM)",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -271,8 +277,173 @@ export const enMessages = {
       "Unknown period. Use `daily`, `weekly`, `monthly`, `seasonal`, or `yearly` (default: `daily`).",
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Achievements backfill complete: **${players}** players, **${unlocks}** unlocks inserted, **${errors}** errors.`,
+    reviewSentToDm: "Review sent to your DMs.",
+    reviewDmFailed: "I couldn't open a DM. Send the command in a DM with the bot.",
+    reviewEmpty: "Nothing to report.",
+    suspectsUsage:
+      "Usage: `!admin suspects [minGames]` — integer from **1** to **100**. Default: **5**.",
+    suspectsHeader: (minGames, shownPairs, pairCount, shownHosts, hostCount) =>
+      [
+        `Review list. Minimum shared games: **${minGames}**.`,
+        `Pairs: **${shownPairs}** of **${pairCount}**. Host-only accounts: **${shownHosts}** of **${hostCount}**.`,
+        "A cleared pair stays off this list.",
+      ].join("\n"),
+    suspectsNoPairs: "No pair is above the threshold.",
+    suspectsHostHeader: "Host-only accounts",
+    suspectsNoHosts: "No host-only account is above the threshold.",
+    suspectPairLine: ({
+      gmName,
+      gmDiscordUserId,
+      playerName,
+      playerDiscordUserId,
+      winsWith,
+      playedWith,
+      elsewhere,
+      silentWins,
+      fastWins,
+      medianSolve,
+    }) =>
+      `**${gmName}** (\`${gmDiscordUserId}\`) → **${playerName}** (\`${playerDiscordUserId}\`) — ${winsWith}/${playedWith} with this host, ${elsewhere}. Silent ${silentWins}/${winsWith}. Fast ${fastWins}/${winsWith}. Median solve ${medianSolve}.`,
+    suspectHostLine: ({
+      name,
+      discordUserId,
+      started,
+      participated,
+      won,
+      created,
+      winnerName,
+      winnerDiscordUserId,
+      topWins,
+      completed,
+    }) =>
+      `**${name}** (\`${discordUserId}\`) started **${started}**, played **${participated}**, won **${won}**. Account created ${created}. Top winner **${winnerName}** (\`${winnerDiscordUserId}\`) ${topWins}/${completed}.`,
+    reviewElsewhereNone: "no games with other hosts",
+    reviewElsewhereZero: (played) => `0/${played} with other hosts`,
+    reviewElsewhere: (wins, played, lift) => `${wins}/${played} with other hosts (${lift})`,
+    pairUsage:
+      "Usage: `!admin pair <player> <player>` — mention, Discord id, or a single-word display name.",
+    pairSamePlayer: "Pick two different players.",
+    pairHeader: (left, right) =>
+      `Games where **${left}** and **${right}** shared a round (newest 30).`,
+    pairNone: "No completed game where one hosted and the other guessed.",
+    pairGameLine: ({
+      gameId,
+      when,
+      gmName,
+      winnerName,
+      countryCode,
+      solve,
+      median,
+      flags,
+      source,
+    }) =>
+      `\`${gameId}\` ${when} — host **${gmName}**, winner **${winnerName}**, ${countryCode}, solve ${solve} (country median ${median}), ${flags}, start ${source}.`,
+    playerUsage: "Usage: `!admin player <player>` — mention, Discord id, or display name.",
+    playerSummary: ({
+      name,
+      discordUserId,
+      wins,
+      played,
+      rawRate,
+      shrunk,
+      prior,
+      firstCorrect,
+      firstGames,
+      firstRate,
+      concentration,
+      created,
+    }) =>
+      [
+        `**${name}** (\`${discordUserId}\`)`,
+        `Wins **${wins}** / played **${played}** (${rawRate}). Shrunk rate **${shrunk}** toward the community rate **${prior}**.`,
+        `First guess correct: **${firstCorrect}** / **${firstGames}** (${firstRate}).`,
+        `Win concentration across hosts: **${concentration}** (1.00 means every win came from one host).`,
+        `Discord account created: ${created}.`,
+      ].join("\n"),
+    playerNoWins: "No completed wins to group by host.",
+    playerHostLine: (name, discordUserId, wins, totalWins) =>
+      `**${name}** (\`${discordUserId}\`) — ${wins}/${totalWins} wins`,
+    gameUsage: "Usage: `!admin game <id>`.",
+    gameMissing: "No game with that id.",
+    gameHeader: ({
+      id,
+      status,
+      source,
+      gmName,
+      gmDiscordUserId,
+      winner,
+      country,
+      solve,
+      median,
+      winnerWrong,
+      clockNote,
+    }) =>
+      [
+        `Game \`${id}\` (${status}, start ${source})`,
+        `Host **${gmName}** (\`${gmDiscordUserId}\`)`,
+        `Winner: ${winner}`,
+        `Country: **${country}**`,
+        `Solve ${solve} (country median ${median}). Winner's unique wrong guesses: **${winnerWrong}**.`,
+        clockNote,
+      ].join("\n"),
+    gameClockAnnouncement: "Times are measured from the announcement.",
+    gameClockStart: "This game has no announcement time. The clock starts at game start.",
+    gameGuessLine: ({ seconds, name, raw, country, kind }) =>
+      `${seconds} **${name}** \`${raw}\` → ${country} ${kind}`,
+    gameGuessKind: (kind) =>
+      kind === "correct"
+        ? "correct"
+        : kind === "repeat"
+          ? "repeat"
+          : kind === "limited"
+            ? "limited"
+            : "wrong",
+    gameNoGuesses: "No guesses recorded.",
+    gameTruncated: "Showing the first 60 guesses.",
+    fastUsage: "Usage: `!admin fast <seconds>` — integer from **1** to **86400**.",
+    fastNone: (seconds) => `No completed win solved in **${seconds}s** or less.`,
+    fastHeader: (seconds, count) =>
+      `Wins solved in **${seconds}s** or less (showing **${count}**, fastest first).`,
+    fastLine: ({
+      solve,
+      winnerName,
+      winnerDiscordUserId,
+      gmName,
+      gmDiscordUserId,
+      countryCode,
+      median,
+      flags,
+      gameId,
+    }) =>
+      `${solve} **${winnerName}** (\`${winnerDiscordUserId}\`) beat **${gmName}** (\`${gmDiscordUserId}\`) in ${countryCode} (median ${median}) ${flags} \`${gameId}\``,
+    dismissUsage:
+      "Usage: `!admin dismiss pair <player> <player>` — mention, Discord id, or a single-word display name.",
+    dismissDone: (left, right) =>
+      `Cleared **${left}** and **${right}** from the review list, in both directions.`,
+    dismissAlready: (left, right) => `**${left}** and **${right}** were already cleared.`,
+    reviewPlayerNotFound: (name) => `No player found for **${name}**.`,
+    reviewPlayerAmbiguous: (name, matches) =>
+      `Several players match **${name}**: ${matches.join(", ")}. Use a Discord id or mention.`,
+    reviewStartSource: (source) =>
+      source === "dm"
+        ? "DM"
+        : source === "channel"
+          ? "channel"
+          : source === "hybrid"
+            ? "hybrid"
+            : "unknown",
+    reviewFlag: (flag) =>
+      flag === "silent"
+        ? "silent"
+        : flag === "fast"
+          ? "fast"
+          : flag === "multiplier"
+            ? "multiplier"
+            : flag === "repeat"
+              ? "repeat pin"
+              : "cleared",
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, or `max-guesses`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `suspects`, `pair`, `player`, `game`, `fast`, or `dismiss pair`.",
   },
   feedback: {
     usage: "Usage: `!feedback <message>` — send feedback to the admin from a DM.",

@@ -1,5 +1,6 @@
 import type { Guild, GuildBasedChannel, User } from "discord.js";
 import { sqlClient } from "../db/client.ts";
+import { discordSnowflakeToDate } from "../util/discord-snowflake.ts";
 
 export type DbPlayer = {
   id: string;
@@ -8,11 +9,16 @@ export type DbPlayer = {
 };
 
 export const upsertPlayer = async (user: User, displayName?: string): Promise<DbPlayer> => {
+  const discordCreatedAt = discordSnowflakeToDate(user.id) ?? null;
   const rows = await sqlClient`
-    INSERT INTO player (discord_user_id, display_name, last_seen_at, updated_at)
-    VALUES (${user.id}, ${displayName ?? user.displayName ?? user.username}, now(), now())
+    INSERT INTO player (discord_user_id, display_name, discord_created_at, last_seen_at, updated_at)
+    VALUES (${user.id}, ${displayName ?? user.displayName ?? user.username}, ${discordCreatedAt}, now(), now())
     ON CONFLICT (discord_user_id)
-    DO UPDATE SET display_name = EXCLUDED.display_name, last_seen_at = now(), updated_at = now()
+    DO UPDATE SET
+      display_name = EXCLUDED.display_name,
+      discord_created_at = COALESCE(player.discord_created_at, EXCLUDED.discord_created_at),
+      last_seen_at = now(),
+      updated_at = now()
     RETURNING id, discord_user_id, display_name
   `;
 

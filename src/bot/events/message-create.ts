@@ -40,11 +40,14 @@ import { fitScreenshotForDiscord, MAX_SCREENSHOT_MB } from "../../util/fit-scree
 import { sqlClient } from "../../db/client.ts";
 import { messages } from "../../i18n/messages.ts";
 import { handleFeedbackCommand } from "../../commands/feedback-command.ts";
+import { resolveStartSource, type StartPartSource } from "../../domain/review/start-source.ts";
 
 type PendingStart = {
   googleMapsUrl?: string;
   screenshotUrl?: string;
   screenshotName?: string;
+  linkSource?: StartPartSource;
+  screenshotSource?: StartPartSource;
   guildId?: string;
   channelId?: string;
 };
@@ -210,6 +213,7 @@ const completeStartIfReady = async ({
       gameMaster: author,
       location: parsedLocation,
       screenshotUrl: pending.screenshotUrl,
+      startSource: resolveStartSource(pending.linkSource, pending.screenshotSource),
     });
   } catch (error) {
     if (error instanceof UntrustedReverseGeocodeCountryError) {
@@ -249,16 +253,17 @@ const completeStartIfReady = async ({
       started.state.screenshotUrl = durableScreenshotUrl;
       started.state.screenshotMessageId = announcement.id;
       await updateGameState(started.state);
-      await sqlClient`
-        UPDATE game
-        SET
-          screenshot_url = ${durableScreenshotUrl},
-          screenshot_message_id = ${announcement.id},
-          announcement_message_id = ${announcement.id},
-          updated_at = now()
-        WHERE id = ${started.state.gameId}
-      `;
     }
+    await sqlClient`
+      UPDATE game
+      SET
+        screenshot_url = COALESCE(${durableScreenshotUrl ?? null}, screenshot_url),
+        screenshot_message_id = ${announcement.id},
+        announcement_message_id = ${announcement.id},
+        announced_at = ${announcement.createdAt},
+        updated_at = now()
+      WHERE id = ${started.state.gameId}
+    `;
   }
 
   await scheduleIdleMultiplier(started.state.gameId, rules.idleMultiplierIntervalSeconds * 1000);
@@ -281,12 +286,14 @@ const processStartAttempt = async ({
   googleMapsUrl,
   attachment,
   deleteMessage,
+  source,
 }: {
   author: User;
   gameChannel: GuildBasedChannel;
   googleMapsUrl?: string;
   attachment?: Attachment;
   deleteMessage?: Message;
+  source: StartPartSource;
 }) => {
   const rules = await loadRules();
   const ttlSeconds = rules.startReservationSeconds;
@@ -310,6 +317,7 @@ const processStartAttempt = async ({
   const nextPending: PendingStart = {
     ...pending,
     googleMapsUrl: googleMapsUrl ?? pending.googleMapsUrl,
+    linkSource: googleMapsUrl ? source : pending.linkSource,
     guildId,
     channelId,
   };
@@ -328,12 +336,17 @@ const processStartAttempt = async ({
 
     // Keep any Maps link so the player can retry with a smaller screenshot.
     if (googleMapsUrl) {
-      await setPending(pendingKey, { googleMapsUrl, guildId, channelId }, ttlSeconds);
+      await setPending(
+        pendingKey,
+        { googleMapsUrl, linkSource: source, guildId, channelId },
+        ttlSeconds,
+      );
       await redis.del(keys.pendingScreenshot(pendingKey));
       await processStartAttempt({
         author,
         gameChannel,
         googleMapsUrl,
+        source,
       });
     }
   };
@@ -348,6 +361,7 @@ const processStartAttempt = async ({
 
     nextPending.screenshotUrl = screenshot.url;
     nextPending.screenshotName = screenshot.name;
+    nextPending.screenshotSource = source;
   }
 
   if (deleteMessage) {
@@ -442,6 +456,7 @@ const handleDmStart = async (client: Client, message: Message) => {
     gameChannel: channel,
     googleMapsUrl: googleMapsUrl ?? undefined,
     attachment,
+    source: "dm",
   });
 };
 
@@ -473,6 +488,7 @@ const handleChannelStart = async (_client: Client, message: Message<true>) => {
     googleMapsUrl: googleMapsUrl ?? undefined,
     attachment,
     deleteMessage: message,
+    source: "channel",
   });
   return true;
 };

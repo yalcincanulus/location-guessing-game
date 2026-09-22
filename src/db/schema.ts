@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   doublePrecision,
   integer,
   jsonb,
@@ -80,6 +81,7 @@ export const player = snakeCase.table("player", {
     .default(sql`uuidv7()`),
   discordUserId: text().notNull().unique(),
   displayName: text().notNull(),
+  discordCreatedAt: timestamp(),
   firstSeenAt: timestamp().notNull().defaultNow(),
   lastSeenAt: timestamp().notNull().defaultNow(),
   ...timestamps,
@@ -120,39 +122,51 @@ export const location = snakeCase.table("location", {
   ...timestamps,
 });
 
-export const game = snakeCase.table("game", {
-  id: uuid()
-    .primaryKey()
-    .default(sql`uuidv7()`),
-  guildId: uuid().references(() => guild.id),
-  channelId: uuid().references(() => channel.id),
-  gameMasterPlayerId: uuid()
-    .notNull()
-    .references(() => player.id),
-  locationId: uuid()
-    .notNull()
-    .references(() => location.id),
-  status: varchar({ length: 32 }).notNull().default("active"),
-  screenshotUrl: text().notNull(),
-  screenshotMessageId: text(),
-  announcementMessageId: text(),
-  startedAt: timestamp().notNull().defaultNow(),
-  endedAt: timestamp(),
-  winnerPlayerId: uuid().references(() => player.id),
-  winningGuessId: uuid(),
-  wrongGuessCount: integer().notNull().default(0),
-  uniqueWrongCountryCount: integer().notNull().default(0),
-  totalGuessCount: integer().notNull().default(0),
-  repeatGuessCount: integer().notNull().default(0),
-  basePoints: integer().notNull().default(100),
-  currentMultiplierFinal: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
-  gmMultiplierAtStart: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
-  pointsAwarded: integer().notNull().default(0),
-  isTest: boolean().notNull().default(false),
-  cancelReason: text(),
-  cancelledByPlayerId: uuid().references(() => player.id),
-  ...timestamps,
-});
+export const game = snakeCase.table(
+  "game",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    guildId: uuid().references(() => guild.id),
+    channelId: uuid().references(() => channel.id),
+    gameMasterPlayerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    locationId: uuid()
+      .notNull()
+      .references(() => location.id),
+    status: varchar({ length: 32 }).notNull().default("active"),
+    screenshotUrl: text().notNull(),
+    screenshotMessageId: text(),
+    announcementMessageId: text(),
+    startedAt: timestamp().notNull().defaultNow(),
+    endedAt: timestamp(),
+    winnerPlayerId: uuid().references(() => player.id),
+    winningGuessId: uuid(),
+    wrongGuessCount: integer().notNull().default(0),
+    uniqueWrongCountryCount: integer().notNull().default(0),
+    totalGuessCount: integer().notNull().default(0),
+    repeatGuessCount: integer().notNull().default(0),
+    basePoints: integer().notNull().default(100),
+    currentMultiplierFinal: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
+    gmMultiplierAtStart: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
+    pointsAwarded: integer().notNull().default(0),
+    isTest: boolean().notNull().default(false),
+    /** `dm`, `channel`, or `hybrid`. Null on games started before this column existed. */
+    startSource: varchar({ length: 16 }),
+    announcedAt: timestamp(),
+    cancelReason: text(),
+    cancelledByPlayerId: uuid().references(() => player.id),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      "game_start_source_known",
+      sql`${table.startSource} IS NULL OR ${table.startSource} IN ('dm', 'channel', 'hybrid')`,
+    ),
+  ],
+);
 
 export const guess = snakeCase.table("guess", {
   id: uuid()
@@ -173,6 +187,8 @@ export const guess = snakeCase.table("guess", {
   isRepeat: boolean().notNull().default(false),
   isRateLimited: boolean().notNull().default(false),
   reaction: text(),
+  /** Discord message time, decoded from the snowflake. */
+  sentAt: timestamp(),
   createdAt: timestamp().notNull().defaultNow(),
 });
 
@@ -313,6 +329,28 @@ export const startAttempt = snakeCase.table("start_attempt", {
   createdAt: timestamp().notNull().defaultNow(),
 });
 
+/** Admin-only. An unordered pair the admin has cleared from the review list. */
+export const suspicionDismissal = snakeCase.table(
+  "suspicion_dismissal",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    otherPlayerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    dismissedByDiscordUserId: text(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("suspicion_dismissal_pair_unique").on(table.playerId, table.otherPlayerId),
+    check("suspicion_dismissal_ordered", sql`${table.playerId} < ${table.otherPlayerId}`),
+  ],
+);
+
 export const awardPeriod = snakeCase.table(
   "award_period",
   {
@@ -399,6 +437,7 @@ export const schema = {
   multiplierEvent,
   commandLog,
   startAttempt,
+  suspicionDismissal,
   awardPeriod,
   periodAward,
   playerAchievement,

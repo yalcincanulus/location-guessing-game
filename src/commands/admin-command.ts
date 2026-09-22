@@ -22,6 +22,7 @@ import { truncateFeedback } from "../domain/feedback.ts";
 import { getFeedbackById, listFeedback } from "../repositories/feedback-repository.ts";
 import { clearFeedbackRateLimit } from "../repositories/feedback-rate-limit-repository.ts";
 import { findPlayersByDisplayName } from "../repositories/core-repository.ts";
+import { handleAdminReviewCommand } from "./admin-review-command.ts";
 
 const normalize = (value: string) =>
   value
@@ -526,6 +527,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["feedback", "geribildirim", "geribildirimler"].includes(subcommand)) {
     return feedbackCommand(message, args.slice(1));
+  }
+
+  if (await handleAdminReviewCommand(message, subcommand, args.slice(1))) {
+    return true;
   }
 
   const resolved = await resolveGameChannelContext(message);

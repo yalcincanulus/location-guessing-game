@@ -42,12 +42,14 @@ import { removeMultiplierJobsForGame } from "../../jobs/queues.ts";
 import { canBypassGameMasterBlock } from "./test-mode.ts";
 import { messages } from "../../i18n/messages.ts";
 import { logger } from "../../util/logger.ts";
+import type { StartSource } from "../review/start-source.ts";
 
 export type StartGameInput = {
   guildChannel: GuildBasedChannel;
   gameMaster: User;
   location: ParsedGoogleMapsUrl;
   screenshotUrl: string;
+  startSource?: StartSource;
 };
 
 export class UntrustedReverseGeocodeCountryError extends Error {
@@ -73,6 +75,7 @@ export const startGame = async ({
   gameMaster,
   location,
   screenshotUrl,
+  startSource,
 }: StartGameInput) => {
   if (!guildChannel.guild) {
     throw new Error("Games can only start in guild channels");
@@ -143,7 +146,8 @@ export const startGame = async ({
         base_points,
         gm_multiplier_at_start,
         current_multiplier_final,
-        is_test
+        is_test,
+        start_source
       )
       VALUES (
         ${guildId ?? null},
@@ -155,7 +159,8 @@ export const startGame = async ({
         ${rules.baseWinPoints},
         ${gmMultiplier},
         1.00,
-        ${isTestGame}
+        ${isTestGame},
+        ${startSource ?? null}
       )
       RETURNING id
     `;
@@ -351,7 +356,8 @@ const persistGuess = async (
         is_correct,
         is_repeat,
         is_rate_limited,
-        reaction
+        reaction,
+        sent_at
       )
       VALUES (
         ${state.gameId},
@@ -364,7 +370,8 @@ const persistGuess = async (
         ${isCorrect},
         ${isRepeat},
         ${isRateLimitedValue},
-        ${reaction}
+        ${reaction},
+        ${message.createdAt}
       )
       RETURNING id
     `;

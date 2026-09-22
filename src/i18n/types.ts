@@ -153,6 +153,132 @@ export type BotMessages = {
     awardsAnnounceFailed: (periodType: string, periodKey: string) => string;
     awardsInvalidPeriod: string;
     achievementsBackfillDone: (players: number, unlocks: number, errors: number) => string;
+    reviewSentToDm: string;
+    reviewDmFailed: string;
+    reviewEmpty: string;
+    suspectsUsage: string;
+    suspectsHeader: (
+      minGames: number,
+      shownPairs: number,
+      pairCount: number,
+      shownHosts: number,
+      hostCount: number,
+    ) => string;
+    suspectsNoPairs: string;
+    suspectsHostHeader: string;
+    suspectsNoHosts: string;
+    suspectPairLine: (input: {
+      gmName: string;
+      gmDiscordUserId: string;
+      playerName: string;
+      playerDiscordUserId: string;
+      winsWith: number;
+      playedWith: number;
+      elsewhere: string;
+      silentWins: number;
+      fastWins: number;
+      medianSolve: string;
+    }) => string;
+    suspectHostLine: (input: {
+      name: string;
+      discordUserId: string;
+      started: number;
+      participated: number;
+      won: number;
+      created: string;
+      winnerName: string;
+      winnerDiscordUserId: string;
+      topWins: number;
+      completed: number;
+    }) => string;
+    reviewElsewhereNone: string;
+    reviewElsewhereZero: (played: number) => string;
+    reviewElsewhere: (wins: number, played: number, lift: string) => string;
+    pairUsage: string;
+    pairSamePlayer: string;
+    pairHeader: (left: string, right: string) => string;
+    pairNone: string;
+    pairGameLine: (input: {
+      gameId: string;
+      when: string;
+      gmName: string;
+      winnerName: string;
+      countryCode: string;
+      solve: string;
+      median: string;
+      flags: string;
+      source: string;
+    }) => string;
+    playerUsage: string;
+    playerSummary: (input: {
+      name: string;
+      discordUserId: string;
+      wins: number;
+      played: number;
+      rawRate: string;
+      shrunk: string;
+      prior: string;
+      firstCorrect: number;
+      firstGames: number;
+      firstRate: string;
+      concentration: string;
+      created: string;
+    }) => string;
+    playerNoWins: string;
+    playerHostLine: (
+      name: string,
+      discordUserId: string,
+      wins: number,
+      totalWins: number,
+    ) => string;
+    gameUsage: string;
+    gameMissing: string;
+    gameHeader: (input: {
+      id: string;
+      status: string;
+      source: string;
+      gmName: string;
+      gmDiscordUserId: string;
+      winner: string;
+      country: string;
+      solve: string;
+      median: string;
+      winnerWrong: string;
+      clockNote: string;
+    }) => string;
+    gameClockAnnouncement: string;
+    gameClockStart: string;
+    gameGuessLine: (input: {
+      seconds: string;
+      name: string;
+      raw: string;
+      country: string;
+      kind: string;
+    }) => string;
+    gameGuessKind: (kind: "correct" | "wrong" | "repeat" | "limited") => string;
+    gameNoGuesses: string;
+    gameTruncated: string;
+    fastUsage: string;
+    fastNone: (seconds: number) => string;
+    fastHeader: (seconds: number, count: number) => string;
+    fastLine: (input: {
+      solve: string;
+      winnerName: string;
+      winnerDiscordUserId: string;
+      gmName: string;
+      gmDiscordUserId: string;
+      countryCode: string;
+      median: string;
+      flags: string;
+      gameId: string;
+    }) => string;
+    dismissUsage: string;
+    dismissDone: (left: string, right: string) => string;
+    dismissAlready: (left: string, right: string) => string;
+    reviewPlayerNotFound: (name: string) => string;
+    reviewPlayerAmbiguous: (name: string, matches: string[]) => string;
+    reviewStartSource: (source: string | null) => string;
+    reviewFlag: (flag: "silent" | "fast" | "multiplier" | "repeat" | "cleared") => string;
     unknownCommand: string;
   };
   feedback: {

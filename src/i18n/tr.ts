@@ -211,6 +211,12 @@ export const trMessages = {
       "`!admin feedback clear <username>` — oyuncunun geri bildirim sınırını temizle",
       "`!admin clear-guesses` — ardışık tahmin sınırını sıfırla; oyuncular tekrar tahmin edebilir",
       "`!admin max-guesses [n]` — ardışık tahmin üst sınırını göster veya ayarla (1–100, hemen geçerli)",
+      "`!admin suspects [minGames]` — şüpheli çiftler ve yalnızca kuran hesaplar (varsayılan 5, DM)",
+      "`!admin pair <oyuncu> <oyuncu>` — iki oyuncunun ortak elleri (DM)",
+      "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular (DM)",
+      "`!admin game <id>` — bir oyunun tahmin zaman çizelgesi (DM)",
+      "`!admin fast <saniye>` — bu sürede veya daha kısa biten galibiyetler (DM)",
+      "`!admin dismiss pair <oyuncu> <oyuncu>` — çifti inceleme listesinden çıkar (DM)",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -271,8 +277,174 @@ export const trMessages = {
       "Bilinmeyen dönem. `daily`, `weekly`, `monthly`, `seasonal` veya `yearly` kullan (varsayılan: `daily`).",
     achievementsBackfillDone: (players, unlocks, errors) =>
       `Başarım backfill tamam: **${players}** oyuncu, **${unlocks}** yeni unlock, **${errors}** hata.`,
+    reviewSentToDm: "İnceleme DM'ine gönderildi.",
+    reviewDmFailed: "DM açılamadı. Komutu botla özelden gönder.",
+    reviewEmpty: "Raporlanacak bir şey yok.",
+    suspectsUsage:
+      "Kullanım: `!admin suspects [minGames]` — **1** ile **100** arası tam sayı. Varsayılan: **5**.",
+    suspectsHeader: (minGames, shownPairs, pairCount, shownHosts, hostCount) =>
+      [
+        `İnceleme listesi. En az ortak oyun: **${minGames}**.`,
+        `Çift: **${shownPairs}** / **${pairCount}**. Yalnızca kuran hesap: **${shownHosts}** / **${hostCount}**.`,
+        "Temize çıkarılan çift bu listede durmaz.",
+      ].join("\n"),
+    suspectsNoPairs: "Eşiğin üstünde çift yok.",
+    suspectsHostHeader: "Yalnızca kuran hesaplar",
+    suspectsNoHosts: "Eşiğin üstünde yalnızca kuran hesap yok.",
+    suspectPairLine: ({
+      gmName,
+      gmDiscordUserId,
+      playerName,
+      playerDiscordUserId,
+      winsWith,
+      playedWith,
+      elsewhere,
+      silentWins,
+      fastWins,
+      medianSolve,
+    }) =>
+      `**${gmName}** (\`${gmDiscordUserId}\`) → **${playerName}** (\`${playerDiscordUserId}\`) — bu kurucuyla ${winsWith}/${playedWith}, ${elsewhere}. Sessiz ${silentWins}/${winsWith}. Hızlı ${fastWins}/${winsWith}. Ortanca çözüm ${medianSolve}.`,
+    suspectHostLine: ({
+      name,
+      discordUserId,
+      started,
+      participated,
+      won,
+      created,
+      winnerName,
+      winnerDiscordUserId,
+      topWins,
+      completed,
+    }) =>
+      `**${name}** (\`${discordUserId}\`) başlattı **${started}**, oynadı **${participated}**, kazandı **${won}**. Hesap açılışı ${created}. En sık kazanan **${winnerName}** (\`${winnerDiscordUserId}\`) ${topWins}/${completed}.`,
+    reviewElsewhereNone: "başka kurucuyla oyunu yok",
+    reviewElsewhereZero: (played) => `başka kurucularla 0/${played}`,
+    reviewElsewhere: (wins, played, lift) => `başka kurucularla ${wins}/${played} (${lift})`,
+    pairUsage:
+      "Kullanım: `!admin pair <oyuncu> <oyuncu>` — mention, Discord kimliği veya tek kelimelik görünen ad.",
+    pairSamePlayer: "İki farklı oyuncu seç.",
+    pairHeader: (left, right) =>
+      `**${left}** ve **${right}** aynı elde buluştuğu oyunlar (en yeni 30).`,
+    pairNone: "Birinin kurup diğerinin tahmin yazdığı tamamlanmış oyun yok.",
+    pairGameLine: ({
+      gameId,
+      when,
+      gmName,
+      winnerName,
+      countryCode,
+      solve,
+      median,
+      flags,
+      source,
+    }) =>
+      `\`${gameId}\` ${when} — kurucu **${gmName}**, kazanan **${winnerName}**, ${countryCode}, çözüm ${solve} (ülke ortancası ${median}), ${flags}, başlangıç ${source}.`,
+    playerUsage: "Kullanım: `!admin player <oyuncu>` — mention, Discord kimliği veya görünen ad.",
+    playerSummary: ({
+      name,
+      discordUserId,
+      wins,
+      played,
+      rawRate,
+      shrunk,
+      prior,
+      firstCorrect,
+      firstGames,
+      firstRate,
+      concentration,
+      created,
+    }) =>
+      [
+        `**${name}** (\`${discordUserId}\`)`,
+        `Galibiyet **${wins}** / katılım **${played}** (${rawRate}). Daraltılmış oran **${shrunk}**, community oranı **${prior}**.`,
+        `İlk tahmin doğru: **${firstCorrect}** / **${firstGames}** (${firstRate}).`,
+        `Galibiyetlerin kuruculara yoğunluğu: **${concentration}** (1.00 = hepsi tek kurucudan).`,
+        `Discord hesabının açılışı: ${created}.`,
+      ].join("\n"),
+    playerNoWins: "Kurucuya göre gruplanacak tamamlanmış galibiyet yok.",
+    playerHostLine: (name, discordUserId, wins, totalWins) =>
+      `**${name}** (\`${discordUserId}\`) — ${wins}/${totalWins} galibiyet`,
+    gameUsage: "Kullanım: `!admin game <id>`.",
+    gameMissing: "Bu kimlikte oyun yok.",
+    gameHeader: ({
+      id,
+      status,
+      source,
+      gmName,
+      gmDiscordUserId,
+      winner,
+      country,
+      solve,
+      median,
+      winnerWrong,
+      clockNote,
+    }) =>
+      [
+        `Oyun \`${id}\` (${status}, başlangıç ${source})`,
+        `Kurucu **${gmName}** (\`${gmDiscordUserId}\`)`,
+        `Kazanan: ${winner}`,
+        `Ülke: **${country}**`,
+        `Çözüm ${solve} (ülke ortancası ${median}). Kazananın benzersiz yanlış tahmini: **${winnerWrong}**.`,
+        clockNote,
+      ].join("\n"),
+    gameClockAnnouncement: "Süreler duyuru anından ölçülür.",
+    gameClockStart: "Bu oyunun duyuru zamanı yok. Saat oyun başlangıcından işler.",
+    gameGuessLine: ({ seconds, name, raw, country, kind }) =>
+      `${seconds} **${name}** \`${raw}\` → ${country} ${kind}`,
+    gameGuessKind: (kind) =>
+      kind === "correct"
+        ? "doğru"
+        : kind === "repeat"
+          ? "tekrar"
+          : kind === "limited"
+            ? "sınır"
+            : "yanlış",
+    gameNoGuesses: "Kayıtlı tahmin yok.",
+    gameTruncated: "İlk 60 tahmin gösteriliyor.",
+    fastUsage: "Kullanım: `!admin fast <saniye>` — **1** ile **86400** arası tam sayı.",
+    fastNone: (seconds) =>
+      `**${seconds} sn** veya daha kısa sürede biten tamamlanmış galibiyet yok.`,
+    fastHeader: (seconds, count) =>
+      `**${seconds} sn** veya daha kısa sürede biten galibiyetler (**${count}** tanesi, en hızlıdan).`,
+    fastLine: ({
+      solve,
+      winnerName,
+      winnerDiscordUserId,
+      gmName,
+      gmDiscordUserId,
+      countryCode,
+      median,
+      flags,
+      gameId,
+    }) =>
+      `${solve} **${winnerName}** (\`${winnerDiscordUserId}\`) **${gmName}** (\`${gmDiscordUserId}\`) oyununu ${countryCode} ülkesinde bitirdi (ortanca ${median}) ${flags} \`${gameId}\``,
+    dismissUsage:
+      "Kullanım: `!admin dismiss pair <oyuncu> <oyuncu>` — mention, Discord kimliği veya tek kelimelik görünen ad.",
+    dismissDone: (left, right) =>
+      `**${left}** ve **${right}** inceleme listesinden çıkarıldı. İki yön de gizlenir.`,
+    dismissAlready: (left, right) => `**${left}** ve **${right}** zaten listeden çıkarılmış.`,
+    reviewPlayerNotFound: (name) => `**${name}** için oyuncu bulunamadı.`,
+    reviewPlayerAmbiguous: (name, matches) =>
+      `**${name}** birden fazla oyuncuya uyuyor: ${matches.join(", ")}. Discord kimliği veya mention kullan.`,
+    reviewStartSource: (source) =>
+      source === "dm"
+        ? "DM"
+        : source === "channel"
+          ? "kanal"
+          : source === "hybrid"
+            ? "karma"
+            : "bilinmiyor",
+    reviewFlag: (flag) =>
+      flag === "silent"
+        ? "sessiz"
+        : flag === "fast"
+          ? "hızlı"
+          : flag === "multiplier"
+            ? "çarpan"
+            : flag === "repeat"
+              ? "tekrar pin"
+              : "temiz",
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses` veya `max-guesses` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `suspects`, `pair`, `player`, `game`, `fast` veya `dismiss pair` kullan.",
   },
   feedback: {
     usage: "Kullanım: `!feedback <mesaj>` -> DM'den admine geri bildirim gönder.",
