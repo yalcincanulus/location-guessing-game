@@ -288,6 +288,7 @@ export const trMessages = {
       [
         `İnceleme listesi. En az ortak oyun: **${minGames}**.`,
         `Çift: **${shownPairs}** / **${pairCount}**. Yalnızca kuran hesap: **${shownHosts}** / **${hostCount}**.`,
+        "Her satır tek yön. Soldaki kurucu, sağdaki o kurucunun oyunlarını kazanan. Ters yön eşiği geçerse ayrı satırda çıkar.",
         "Temize çıkarılan çift bu listede durmaz.",
       ].join("\n"),
     suspectsNoPairs: "Eşiğin üstünde çift yok.",
@@ -305,7 +306,7 @@ export const trMessages = {
       fastWins,
       medianSolve,
     }) =>
-      `**${gmName}** (\`${gmDiscordUserId}\`) → **${playerName}** (\`${playerDiscordUserId}\`) — bu kurucuyla ${winsWith}/${playedWith}, ${elsewhere}. Sessiz ${silentWins}/${winsWith}. Hızlı ${fastWins}/${winsWith}. Ortanca çözüm ${medianSolve}.`,
+      `Kurucu **${gmName}** (\`${gmDiscordUserId}\`) → kazanan **${playerName}** (\`${playerDiscordUserId}\`). Kazanan bu kurucunun oyunlarında **${winsWith}/${playedWith}**, ${elsewhere}. Sessiz **${silentWins}/${winsWith}**, hızlı **${fastWins}/${winsWith}**. Ortanca çözüm **${medianSolve}**.`,
     suspectHostLine: ({
       name,
       discordUserId,
@@ -319,9 +320,9 @@ export const trMessages = {
       completed,
     }) =>
       `**${name}** (\`${discordUserId}\`) başlattı **${started}**, oynadı **${participated}**, kazandı **${won}**. Hesap açılışı ${created}. En sık kazanan **${winnerName}** (\`${winnerDiscordUserId}\`) ${topWins}/${completed}.`,
-    reviewElsewhereNone: "başka kurucuyla oyunu yok",
-    reviewElsewhereZero: (played) => `başka kurucularla 0/${played}`,
-    reviewElsewhere: (wins, played, lift) => `başka kurucularla ${wins}/${played} (${lift})`,
+    reviewElsewhereNone: "başka kurucuda oyunu yok",
+    reviewElsewhereZero: (played) => `başka kurucularda 0/${played}`,
+    reviewElsewhere: (wins, played, lift) => `başka kurucularda ${wins}/${played} (${lift})`,
     pairUsage:
       "Kullanım: `!admin pair <oyuncu> <oyuncu>` — mention, Discord kimliği veya tek kelimelik görünen ad.",
     pairSamePlayer: "İki farklı oyuncu seç.",

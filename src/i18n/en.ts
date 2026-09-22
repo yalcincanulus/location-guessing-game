@@ -289,6 +289,7 @@ export const enMessages = {
       [
         `Review list. Minimum shared games: **${minGames}**.`,
         `Pairs: **${shownPairs}** of **${pairCount}**. Host-only accounts: **${shownHosts}** of **${hostCount}**.`,
+        "Each line is one direction. The left name is the host, the right name won that host's games. The reverse appears on its own line when it also passes.",
         "A cleared pair stays off this list.",
       ].join("\n"),
     suspectsNoPairs: "No pair is above the threshold.",
@@ -306,7 +307,7 @@ export const enMessages = {
       fastWins,
       medianSolve,
     }) =>
-      `**${gmName}** (\`${gmDiscordUserId}\`) → **${playerName}** (\`${playerDiscordUserId}\`) — ${winsWith}/${playedWith} with this host, ${elsewhere}. Silent ${silentWins}/${winsWith}. Fast ${fastWins}/${winsWith}. Median solve ${medianSolve}.`,
+      `Host **${gmName}** (\`${gmDiscordUserId}\`) → winner **${playerName}** (\`${playerDiscordUserId}\`). Winner took **${winsWith}/${playedWith}** of this host's games, ${elsewhere}. Silent **${silentWins}/${winsWith}**, fast **${fastWins}/${winsWith}**. Median solve **${medianSolve}**.`,
     suspectHostLine: ({
       name,
       discordUserId,
