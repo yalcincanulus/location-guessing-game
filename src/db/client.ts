@@ -12,6 +12,15 @@ export const sqlClient = postgres(env.databaseUrl, {
 
 export const db = drizzle({ client: sqlClient });
 
+// Drizzle replaces postgres.js date serializers with `(value) => value` so its
+// own queries can pass preformatted strings. A Date then reaches Buffer.byteLength
+// and game starts throw. Keep strings untouched and encode Date values here.
+const dateTypeOids = [1082, 1083, 1114, 1182, 1184];
+for (const oid of dateTypeOids) {
+  sqlClient.options.serializers[oid] = (value: unknown) =>
+    value instanceof Date ? value.toISOString() : value;
+}
+
 export const closeDatabase = async () => {
   await sqlClient.end({ timeout: 5 });
 };
