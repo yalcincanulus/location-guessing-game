@@ -17,6 +17,7 @@ import {
   type CategoryStandings,
 } from "../../repositories/awards-repository.ts";
 import { onPeriodAwardsFinalized } from "../achievements/hooks.ts";
+import { gameChannelIdFor, type GameMode } from "../game/game-mode.ts";
 
 const medalByPlayer = (standings: CategoryStandings): Map<string, Medal> => {
   const map = new Map<string, Medal>();
@@ -50,22 +51,26 @@ export const formatPeriodStandingsMessage = (
   window: PeriodWindow,
   standings: CategoryStandings[],
   kind: "live" | "results",
+  mode: GameMode = "country",
 ): string => {
   const header =
     kind === "results"
       ? messages.awards.resultsHeader(window.periodType, window.periodKey)
       : messages.awards.liveHeader(window.periodType, window.periodKey);
 
-  return [header, ...standings.map(formatCategoryStandings)].join("\n\n");
+  const title = mode === "province" ? `${messages.province.label}\n${header}` : header;
+  return [title, ...standings.map(formatCategoryStandings)].join("\n\n");
 };
 
 export const announcePeriodResults = async (
   client: Client,
   window: PeriodWindow,
   standings: CategoryStandings[],
+  mode: GameMode = "country",
 ): Promise<boolean> => {
   const rules = await loadRules();
-  if (!rules.gameChannelId) {
+  const channelId = gameChannelIdFor(rules, mode);
+  if (!channelId) {
     logger.warn("Period awards: game channel not configured", {
       periodType: window.periodType,
       periodKey: window.periodKey,
@@ -73,17 +78,18 @@ export const announcePeriodResults = async (
     return false;
   }
 
-  const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
+  const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel?.isSendable()) {
     logger.warn("Period awards: game channel unavailable", {
       periodType: window.periodType,
       periodKey: window.periodKey,
-      channelId: rules.gameChannelId,
+      channelId,
+      mode,
     });
     return false;
   }
 
-  await channel.send(formatPeriodStandingsMessage(window, standings, "results"));
+  await channel.send(formatPeriodStandingsMessage(window, standings, "results", mode));
   return true;
 };
 
@@ -112,9 +118,10 @@ export const runPeriodAwardsForType = async (
   client: Client,
   periodType: PeriodType,
   now: Date = new Date(),
+  mode: GameMode = "country",
 ): Promise<PeriodAwardsForTypeResult> => {
   const window = getPreviousPeriodWindow(periodType, now);
-  const finalized = await finalizePeriodAwards(window);
+  const finalized = await finalizePeriodAwards(window, mode);
 
   if (finalized.status === "skipped") {
     return { status: "skipped", reason: "already-announced", window };
@@ -130,12 +137,12 @@ export const runPeriodAwardsForType = async (
     ),
   ];
   if (goldPlayerIds.length > 0) {
-    await onPeriodAwardsFinalized(client, periodType, goldPlayerIds);
+    await onPeriodAwardsFinalized(client, periodType, goldPlayerIds, mode);
   }
 
-  const announced = await announcePeriodResults(client, window, finalized.standings);
+  const announced = await announcePeriodResults(client, window, finalized.standings, mode);
   if (announced) {
-    const marked = await markPeriodAnnounced(finalized.awardPeriodId);
+    const marked = await markPeriodAnnounced(finalized.awardPeriodId, mode);
     if (!marked) {
       logger.warn("Period awards announced but mark did not update", {
         periodType: window.periodType,
@@ -175,6 +182,7 @@ export type PeriodAwardsCheckResult = {
 export const runPeriodAwardsCheck = async (
   client: Client,
   now: Date = new Date(),
+  mode: GameMode = "country",
 ): Promise<PeriodAwardsCheckResult> => {
   const result: PeriodAwardsCheckResult = {
     finalized: [],
@@ -183,7 +191,7 @@ export const runPeriodAwardsCheck = async (
   };
 
   for (const periodType of periodsToFinalize(now)) {
-    const outcome = await runPeriodAwardsForType(client, periodType, now);
+    const outcome = await runPeriodAwardsForType(client, periodType, now, mode);
 
     if (outcome.status === "skipped") {
       result.skipped.push(periodType);

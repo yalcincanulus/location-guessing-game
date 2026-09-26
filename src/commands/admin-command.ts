@@ -28,6 +28,9 @@ import { getFeedbackById, listFeedback } from "../repositories/feedback-reposito
 import { clearFeedbackRateLimit } from "../repositories/feedback-rate-limit-repository.ts";
 import { findPlayersByDisplayName } from "../repositories/core-repository.ts";
 import { handleAdminReviewCommand } from "./admin-review-command.ts";
+import { gameChannelIdFor, parseModeToken, type GameMode } from "../domain/game/game-mode.ts";
+import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
+import type { ActiveDbGame } from "../domain/game/admin-game-ops.ts";
 
 const normalize = (value: string) =>
   value
@@ -38,6 +41,7 @@ const normalize = (value: string) =>
     .replace(/[^\p{Letter}\p{Number}]/gu, "");
 
 type GameChannelContext = {
+  mode: GameMode;
   guildId: string;
   channelId: string;
   channel: GuildTextBasedChannel;
@@ -45,28 +49,48 @@ type GameChannelContext = {
 
 const resolveGameChannelContext = async (
   message: Message,
+  mode: GameMode,
 ): Promise<{ ok: true; ctx: GameChannelContext } | { ok: false }> => {
   const rules = await loadRules();
-  if (!rules.gameChannelId) {
-    await message.reply(messages.admin.gameChannelNotConfigured);
+  const gameChannelId = gameChannelIdFor(rules, mode);
+  if (!gameChannelId) {
+    await message.reply(
+      mode === "province"
+        ? messages.province.channelNotConfigured
+        : messages.admin.gameChannelNotConfigured,
+    );
     return { ok: false };
   }
 
-  const channel = await message.client.channels.fetch(rules.gameChannelId).catch(() => null);
+  const channel = await message.client.channels.fetch(gameChannelId).catch(() => null);
   if (!channel?.isTextBased() || !("guild" in channel) || !channel.guild) {
-    await message.reply(messages.admin.gameChannelUnavailable);
+    await message.reply(
+      mode === "province"
+        ? messages.province.channelUnavailable
+        : messages.admin.gameChannelUnavailable,
+    );
     return { ok: false };
   }
 
   return {
     ok: true,
     ctx: {
+      mode,
       guildId: channel.guild.id,
       channelId: channel.id,
       channel: channel as GuildTextBasedChannel,
     },
   };
 };
+
+/** Province output starts with the province label so admins can tell the modes apart. */
+const withModeLabel = (mode: GameMode, text: string) =>
+  mode === "province" ? `${messages.province.label}\n${text}` : text;
+
+const dbGameTarget = (dbGame: ActiveDbGame) =>
+  dbGame.provinceCode
+    ? `${dbGame.provinceCode} - ${getProvinceName(dbGame.provinceCode)}`
+    : `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`;
 
 const helpCommand = async (message: Message) => {
   await message.reply(messages.admin.help);
@@ -264,29 +288,31 @@ const statusCommand = async (message: Message, ctx: GameChannelContext) => {
   const { state, dbGame, redisMissingButDbActive } = await getActiveGameContext(
     ctx.guildId,
     ctx.channelId,
+    ctx.mode,
   );
   const wrongCountries = state ? await getWrongCountries(state.gameId) : [];
-  const target = dbGame
-    ? `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`
-    : undefined;
+  const target = dbGame ? dbGameTarget(dbGame) : undefined;
 
   await message.reply(
-    messages.admin.status({
-      game:
-        dbGame && target
-          ? {
-              id: dbGame.gameId,
-              status: dbGame.status,
-              gameMasterDiscordUserId: dbGame.gameMasterDiscordUserId,
-              target,
-              regionName: dbGame.regionName,
-            }
-          : undefined,
-      wrongCountryCount: wrongCountries.length,
-      currentMultiplier: state?.currentMultiplier ?? dbGame?.currentMultiplier ?? 1,
-      isTestGame: state?.isTest ?? dbGame?.isTest ?? false,
-      redisMissingButDbActive,
-    }),
+    withModeLabel(
+      ctx.mode,
+      messages.admin.status({
+        game:
+          dbGame && target
+            ? {
+                id: dbGame.gameId,
+                status: dbGame.status,
+                gameMasterDiscordUserId: dbGame.gameMasterDiscordUserId,
+                target,
+                regionName: dbGame.regionName,
+              }
+            : undefined,
+        wrongCountryCount: wrongCountries.length,
+        currentMultiplier: state?.currentMultiplier ?? dbGame?.currentMultiplier ?? 1,
+        isTestGame: state?.isTest ?? dbGame?.isTest ?? false,
+        redisMissingButDbActive,
+      }),
+    ),
   );
   return true;
 };
@@ -298,6 +324,7 @@ const cancelCommand = async (message: Message, ctx: GameChannelContext, reason: 
     status: "cancelled",
     reason,
     cancelledBy: message.author,
+    mode: ctx.mode,
   });
 
   if (!result.ok) {
@@ -316,6 +343,7 @@ const revealCommand = async (message: Message, ctx: GameChannelContext) => {
   const { dbGame, redisMissingButDbActive } = await getActiveGameContext(
     ctx.guildId,
     ctx.channelId,
+    ctx.mode,
   );
   if (!dbGame) {
     await message.reply(messages.admin.noActiveGame);
@@ -323,15 +351,16 @@ const revealCommand = async (message: Message, ctx: GameChannelContext) => {
   }
 
   await message.reply(
-    messages.admin.reveal({
-      redisMissingButDbActive,
-      answer: `${dbGame.countryCode} - ${
-        dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)
-      }`,
-      regionName: dbGame.regionName,
-      latitude: dbGame.latitude,
-      longitude: dbGame.longitude,
-    }),
+    withModeLabel(
+      ctx.mode,
+      messages.admin.reveal({
+        redisMissingButDbActive,
+        answer: dbGameTarget(dbGame),
+        regionName: dbGame.regionName,
+        latitude: dbGame.latitude,
+        longitude: dbGame.longitude,
+      }),
+    ),
   );
   return true;
 };
@@ -353,15 +382,19 @@ const reloadCommand = async (message: Message) => {
   return true;
 };
 
-const startsCommand = async (message: Message, args: string[]) => {
+const startsCommand = async (message: Message, args: string[], mode: GameMode) => {
+  const startsState = (rules: Awaited<ReturnType<typeof loadRules>>) =>
+    mode === "province"
+      ? messages.province.startsState(rules.provinceGameStartsEnabled)
+      : messages.admin.startsState(rules.gameStartsEnabled);
+
   if (args.length > 1) {
     await message.reply(messages.admin.startsUsage);
     return true;
   }
 
   if (args.length === 0) {
-    const rules = await loadRules(true);
-    await message.reply(messages.admin.startsState(rules.gameStartsEnabled));
+    await message.reply(startsState(await loadRules(true)));
     return true;
   }
 
@@ -371,8 +404,7 @@ const startsCommand = async (message: Message, args: string[]) => {
     return true;
   }
 
-  const rules = await updateGameStartsEnabled(enabled);
-  await message.reply(messages.admin.startsState(rules.gameStartsEnabled));
+  await message.reply(startsState(await updateGameStartsEnabled(enabled, mode)));
   return true;
 };
 
@@ -413,7 +445,7 @@ const maxGuessesCommand = async (message: Message, args: string[]) => {
 };
 
 const clearGuessesCommand = async (message: Message, ctx: GameChannelContext) => {
-  const { state } = await getActiveGameContext(ctx.guildId, ctx.channelId);
+  const { state } = await getActiveGameContext(ctx.guildId, ctx.channelId, ctx.mode);
   if (!state) {
     await message.reply(messages.admin.noActiveGame);
     return true;
@@ -425,7 +457,7 @@ const clearGuessesCommand = async (message: Message, ctx: GameChannelContext) =>
 };
 
 const tickCommand = async (message: Message, ctx: GameChannelContext) => {
-  const { state, dbGame } = await getActiveGameContext(ctx.guildId, ctx.channelId);
+  const { state, dbGame } = await getActiveGameContext(ctx.guildId, ctx.channelId, ctx.mode);
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
     await message.reply(messages.admin.noActiveGame);
@@ -470,7 +502,7 @@ const awardsPeriodAliases: Record<string, PeriodType> = {
   yillik: "yearly",
 };
 
-const awardsCommand = async (message: Message, args: string[]) => {
+const awardsCommand = async (message: Message, args: string[], mode: GameMode) => {
   const periodArg = normalize(args[0] ?? "daily");
   const periodType = awardsPeriodAliases[periodArg];
   if (!periodType) {
@@ -478,7 +510,12 @@ const awardsCommand = async (message: Message, args: string[]) => {
     return true;
   }
 
-  const result = await runPeriodAwardsForType(message.client, periodType);
+  if (mode === "province" && !gameChannelIdFor(await loadRules(), mode)) {
+    await message.reply(messages.province.channelNotConfigured);
+    return true;
+  }
+
+  const result = await runPeriodAwardsForType(message.client, periodType, new Date(), mode);
 
   if (result.status === "skipped") {
     await message.reply(
@@ -521,7 +558,10 @@ export const handleAdminCommand = async (message: Message) => {
     return false;
   }
 
-  const args = parts.slice(1);
+  // `!admin il <subcommand>` targets the province channel and province stats.
+  const explicitMode = parseModeToken(parts[1] ?? "");
+  const mode = explicitMode ?? "country";
+  const args = parts.slice(explicitMode ? 2 : 1);
   const subcommand = normalize(args[0] ?? "help");
 
   if (["help", "yardim", "yardım"].includes(subcommand)) {
@@ -537,11 +577,11 @@ export const handleAdminCommand = async (message: Message) => {
   }
 
   if (["starts", "start", "baslat"].includes(subcommand)) {
-    return startsCommand(message, args.slice(1));
+    return startsCommand(message, args.slice(1), mode);
   }
 
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {
-    return awardsCommand(message, args.slice(1));
+    return awardsCommand(message, args.slice(1), mode);
   }
 
   if (["achievements", "basarim", "basarimlar"].includes(subcommand)) {
@@ -550,9 +590,12 @@ export const handleAdminCommand = async (message: Message) => {
       await message.reply(messages.admin.unknownCommand);
       return true;
     }
-    const result = await runAchievementsBackfill();
+    const result = await runAchievementsBackfill(mode);
     await message.reply(
-      messages.admin.achievementsBackfillDone(result.players, result.unlocks, result.errors),
+      withModeLabel(
+        mode,
+        messages.admin.achievementsBackfillDone(result.players, result.unlocks, result.errors),
+      ),
     );
     return true;
   }
@@ -561,11 +604,11 @@ export const handleAdminCommand = async (message: Message) => {
     return feedbackCommand(message, args.slice(1));
   }
 
-  if (await handleAdminReviewCommand(message, subcommand, args.slice(1))) {
+  if (await handleAdminReviewCommand(message, subcommand, args.slice(1), mode)) {
     return true;
   }
 
-  const resolved = await resolveGameChannelContext(message);
+  const resolved = await resolveGameChannelContext(message, mode);
   if (!resolved.ok) {
     return true;
   }

@@ -8,14 +8,18 @@ import {
   clearStartReservation,
   getStartReservation,
 } from "./start-reservation.ts";
+import { tablesFor, type GameMode } from "./game-mode.ts";
 
 export type ActiveDbGame = {
+  mode: GameMode;
   gameId: string;
   status: string;
   isTest: boolean;
   gameMasterDiscordUserId: string;
   countryCode: string;
   countryName?: string;
+  /** Plate code of the answer in province games. */
+  provinceCode?: string;
   regionName?: string;
   latitude: number;
   longitude: number;
@@ -28,9 +32,13 @@ export type ActiveGameContext = {
   redisMissingButDbActive: boolean;
 };
 
-export const getActiveDbGame = async (channelId: string): Promise<ActiveDbGame | undefined> => {
+export const getActiveDbGame = async (
+  channelId: string,
+  mode: GameMode = "country",
+): Promise<ActiveDbGame | undefined> => {
   const rows = await sqlClient`
     SELECT
+      ${mode === "province" ? sqlClient`g.target_province_code` : sqlClient`NULL`} AS province_code,
       g.id AS game_id,
       g.status,
       g.is_test,
@@ -41,7 +49,7 @@ export const getActiveDbGame = async (channelId: string): Promise<ActiveDbGame |
       l.latitude,
       l.longitude,
       g.current_multiplier_final
-    FROM game g
+    FROM ${sqlClient(tablesFor(mode).game)} g
     JOIN channel c ON c.id = g.channel_id
     JOIN location l ON l.id = g.location_id
     JOIN player gm ON gm.id = g.game_master_player_id
@@ -57,12 +65,14 @@ export const getActiveDbGame = async (channelId: string): Promise<ActiveDbGame |
   }
 
   return {
+    mode,
     gameId: row.game_id,
     status: row.status,
     isTest: row.is_test,
     gameMasterDiscordUserId: row.game_master_discord_user_id,
     countryCode: row.country_code,
     countryName: row.country_name ?? undefined,
+    provinceCode: row.province_code ?? undefined,
     regionName: row.region_name ?? undefined,
     latitude: Number(row.latitude),
     longitude: Number(row.longitude),
@@ -73,9 +83,10 @@ export const getActiveDbGame = async (channelId: string): Promise<ActiveDbGame |
 export const getActiveGameContext = async (
   guildId: string,
   channelId: string,
+  mode: GameMode = "country",
 ): Promise<ActiveGameContext> => {
   const state = await getActiveGameState(guildId, channelId);
-  const dbGame = await getActiveDbGame(channelId);
+  const dbGame = await getActiveDbGame(channelId, state?.mode ?? mode);
   return {
     state,
     dbGame,
@@ -94,15 +105,17 @@ export const cancelOrFailActiveGame = async ({
   reason,
   cancelledBy,
   displayName,
+  mode = "country",
 }: {
   guildId: string;
   channelId: string;
+  mode?: GameMode;
   status: "cancelled" | "failed";
   reason: string;
   cancelledBy: User;
   displayName?: string;
 }): Promise<CancelOrFailResult> => {
-  const { state, dbGame } = await getActiveGameContext(guildId, channelId);
+  const { state, dbGame } = await getActiveGameContext(guildId, channelId, mode);
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
     return { ok: false, reason: "no-active-game" };
@@ -110,7 +123,7 @@ export const cancelOrFailActiveGame = async ({
 
   const player = await upsertPlayer(cancelledBy, displayName);
   await sqlClient`
-    UPDATE game
+    UPDATE ${sqlClient(tablesFor(state?.mode ?? dbGame?.mode ?? mode).game)}
     SET
       status = ${status},
       ended_at = now(),

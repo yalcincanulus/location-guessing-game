@@ -1,4 +1,5 @@
 import { sqlClient } from "../../db/client.ts";
+import { tablesFor, type GameMode } from "../game/game-mode.ts";
 import {
   evaluateHostOnly,
   evaluatePair,
@@ -35,6 +36,12 @@ const asDate = (value: unknown): Date | null => {
   }
   return null;
 };
+
+/** Target code: the location's country, or the plate code stored on province games. */
+const targetCode = (mode: GameMode, gameAlias: string, locationAlias: string) =>
+  mode === "province"
+    ? sqlClient(`${gameAlias}.target_province_code`)
+    : sqlClient(`${locationAlias}.country_code`);
 
 const asBool = (value: unknown) => value === true || value === "t" || value === "true";
 
@@ -76,7 +83,11 @@ export type SuspectReport = {
 const SUSPECT_PAIR_LIMIT = 15;
 const SUSPECT_HOST_LIMIT = 10;
 
-export const listSuspects = async (minShared: number): Promise<SuspectReport> => {
+export const listSuspects = async (
+  minShared: number,
+  mode: GameMode = "country",
+): Promise<SuspectReport> => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     WITH participation AS (
       SELECT
@@ -84,8 +95,8 @@ export const listSuspects = async (minShared: number): Promise<SuspectReport> =>
         pg.player_id,
         (g.winner_player_id = pg.player_id) AS won,
         g.id AS game_id
-      FROM game g
-      JOIN player_game pg
+      FROM ${sqlClient(t.game)} g
+      JOIN ${sqlClient(t.playerGame)} pg
         ON pg.game_id = g.id
        AND pg.role = 'player'
       WHERE g.status = 'completed'
@@ -111,21 +122,21 @@ export const listSuspects = async (minShared: number): Promise<SuspectReport> =>
     ),
     country_median AS (
       SELECT
-        l.country_code,
+        ${targetCode(mode, "g", "l")} AS country_code,
         percentile_cont(0.5) WITHIN GROUP (
           ORDER BY EXTRACT(EPOCH FROM (
             COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
           ))
         ) AS median_seconds
-      FROM game g
+      FROM ${sqlClient(t.game)} g
       JOIN location l ON l.id = g.location_id
-      JOIN guess wg ON wg.id = g.winning_guess_id
+      JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
       WHERE g.status = 'completed'
         AND g.is_test = false
         AND EXTRACT(EPOCH FROM (
           COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
         )) >= 0
-      GROUP BY l.country_code
+      GROUP BY ${targetCode(mode, "g", "l")}
     ),
     pair_shape AS (
       SELECT
@@ -150,14 +161,14 @@ export const listSuspects = async (minShared: number): Promise<SuspectReport> =>
             COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
           )) >= 0
         ) AS median_solve_seconds
-      FROM game g
-      JOIN guess wg ON wg.id = g.winning_guess_id
-      LEFT JOIN player_game pg
+      FROM ${sqlClient(t.game)} g
+      JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
+      LEFT JOIN ${sqlClient(t.playerGame)} pg
         ON pg.game_id = g.id
        AND pg.player_id = g.winner_player_id
        AND pg.role = 'player'
       LEFT JOIN location l ON l.id = g.location_id
-      LEFT JOIN country_median cm ON cm.country_code = l.country_code
+      LEFT JOIN country_median cm ON cm.country_code = ${targetCode(mode, "g", "l")}
       WHERE g.status = 'completed'
         AND g.is_test = false
         AND g.winner_player_id IS NOT NULL
@@ -225,7 +236,7 @@ export const listSuspects = async (minShared: number): Promise<SuspectReport> =>
         g.game_master_player_id AS gm_id,
         g.winner_player_id AS winner_id,
         COUNT(*)::int AS wins
-      FROM game g
+      FROM ${sqlClient(t.game)} g
       WHERE g.status = 'completed'
         AND g.is_test = false
         AND g.winner_player_id IS NOT NULL
@@ -252,7 +263,7 @@ export const listSuspects = async (minShared: number): Promise<SuspectReport> =>
       wp.discord_user_id AS winner_discord_id,
       tw.wins AS top_wins,
       hc.completed
-    FROM player_stat ps
+    FROM ${sqlClient(t.playerStat)} ps
     JOIN player p ON p.id = ps.player_id
     JOIN top_winner tw ON tw.gm_id = p.id
     JOIN player wp ON wp.id = tw.winner_id
@@ -321,25 +332,30 @@ export type PairGameRow = {
   startSource: string | null;
 };
 
-export const listPairGames = async (playerA: string, playerB: string): Promise<PairGameRow[]> => {
+export const listPairGames = async (
+  playerA: string,
+  playerB: string,
+  mode: GameMode = "country",
+): Promise<PairGameRow[]> => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     WITH country_median AS (
       SELECT
-        l.country_code,
+        ${targetCode(mode, "g", "l")} AS country_code,
         percentile_cont(0.5) WITHIN GROUP (
           ORDER BY EXTRACT(EPOCH FROM (
             COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
           ))
         ) AS median_seconds
-      FROM game g
+      FROM ${sqlClient(t.game)} g
       JOIN location l ON l.id = g.location_id
-      JOIN guess wg ON wg.id = g.winning_guess_id
+      JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
       WHERE g.status = 'completed'
         AND g.is_test = false
         AND EXTRACT(EPOCH FROM (
           COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
         )) >= 0
-      GROUP BY l.country_code
+      GROUP BY ${targetCode(mode, "g", "l")}
     )
     SELECT
       g.id,
@@ -348,7 +364,7 @@ export const listPairGames = async (playerA: string, playerB: string): Promise<P
       gm.discord_user_id AS gm_discord_id,
       winner.display_name AS winner_name,
       winner.discord_user_id AS winner_discord_id,
-      l.country_code,
+      ${targetCode(mode, "g", "l")} AS country_code,
       g.start_source,
       (g.winner_player_id IN (${playerA}::uuid, ${playerB}::uuid)) AS pair_won,
       EXTRACT(EPOCH FROM (
@@ -367,7 +383,7 @@ export const listPairGames = async (playerA: string, playerB: string): Promise<P
         AND g.winner_player_id IN (${playerA}::uuid, ${playerB}::uuid)
         AND EXISTS (
           SELECT 1
-          FROM multiplier_event me
+          FROM ${sqlClient(t.multiplierEvent)} me
           WHERE me.game_id = g.id
             AND COALESCE(wg.sent_at, wg.created_at) >= me.created_at
             AND COALESCE(wg.sent_at, wg.created_at)
@@ -376,7 +392,7 @@ export const listPairGames = async (playerA: string, playerB: string): Promise<P
       ) AS multiplier_snipe,
       EXISTS (
         SELECT 1
-        FROM game earlier
+        FROM ${sqlClient(t.game)} earlier
         JOIN location earlier_location ON earlier_location.id = earlier.location_id
         WHERE earlier.id <> g.id
           AND earlier.status = 'completed'
@@ -392,23 +408,23 @@ export const listPairGames = async (playerA: string, playerB: string): Promise<P
             ))
           ) < ${REPEAT_PIN_METERS}
       ) AS repeat_pin
-    FROM game g
+    FROM ${sqlClient(t.game)} g
     JOIN location l ON l.id = g.location_id
     JOIN player gm ON gm.id = g.game_master_player_id
     LEFT JOIN player winner ON winner.id = g.winner_player_id
-    LEFT JOIN guess wg ON wg.id = g.winning_guess_id
-    LEFT JOIN player_game pg
+    LEFT JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
+    LEFT JOIN ${sqlClient(t.playerGame)} pg
       ON pg.game_id = g.id
      AND pg.player_id = g.winner_player_id
      AND pg.role = 'player'
-    LEFT JOIN country_median cm ON cm.country_code = l.country_code
+    LEFT JOIN country_median cm ON cm.country_code = ${targetCode(mode, "g", "l")}
     WHERE g.status = 'completed'
       AND g.is_test = false
       AND (
         (
           g.game_master_player_id = ${playerA}::uuid
           AND EXISTS (
-            SELECT 1 FROM player_game participant
+            SELECT 1 FROM ${sqlClient(t.playerGame)} participant
             WHERE participant.game_id = g.id
               AND participant.player_id = ${playerB}::uuid
               AND participant.role = 'player'
@@ -417,7 +433,7 @@ export const listPairGames = async (playerA: string, playerB: string): Promise<P
         OR (
           g.game_master_player_id = ${playerB}::uuid
           AND EXISTS (
-            SELECT 1 FROM player_game participant
+            SELECT 1 FROM ${sqlClient(t.playerGame)} participant
             WHERE participant.game_id = g.id
               AND participant.player_id = ${playerA}::uuid
               AND participant.role = 'player'
@@ -472,7 +488,11 @@ export type PlayerReview = {
   hosts: PlayerGmWin[];
 };
 
-export const getPlayerReview = async (playerId: string): Promise<PlayerReview | undefined> => {
+export const getPlayerReview = async (
+  playerId: string,
+  mode: GameMode = "country",
+): Promise<PlayerReview | undefined> => {
+  const t = tablesFor(mode);
   const players = await sqlClient`
     SELECT
       p.display_name,
@@ -481,7 +501,7 @@ export const getPlayerReview = async (playerId: string): Promise<PlayerReview | 
       COALESCE(ps.games_won, 0)::int AS games_won,
       COALESCE(ps.games_participated, 0)::int AS games_participated
     FROM player p
-    LEFT JOIN player_stat ps ON ps.player_id = p.id
+    LEFT JOIN ${sqlClient(t.playerStat)} ps ON ps.player_id = p.id
     WHERE p.id = ${playerId}::uuid
   `;
   const player = players[0];
@@ -493,8 +513,8 @@ export const getPlayerReview = async (playerId: string): Promise<PlayerReview | 
     SELECT
       COUNT(*) FILTER (WHERE g.winner_player_id = pg.player_id)::int AS wins,
       COUNT(*)::int AS played
-    FROM player_game pg
-    JOIN game g ON g.id = pg.game_id
+    FROM ${sqlClient(t.playerGame)} pg
+    JOIN ${sqlClient(t.game)} g ON g.id = pg.game_id
     WHERE pg.role = 'player'
       AND g.status = 'completed'
       AND g.is_test = false
@@ -505,8 +525,8 @@ export const getPlayerReview = async (playerId: string): Promise<PlayerReview | 
   const firsts = await sqlClient`
     WITH firsts AS (
       SELECT DISTINCT ON (g.game_id) g.is_correct
-      FROM guess g
-      JOIN game ga ON ga.id = g.game_id
+      FROM ${sqlClient(t.guess)} g
+      JOIN ${sqlClient(t.game)} ga ON ga.id = g.game_id
       WHERE g.player_id = ${playerId}::uuid
         AND ga.is_test = false
         AND g.is_rate_limited = false
@@ -521,7 +541,7 @@ export const getPlayerReview = async (playerId: string): Promise<PlayerReview | 
 
   const hostRows = await sqlClient`
     SELECT gm.display_name, gm.discord_user_id, COUNT(*)::int AS wins
-    FROM game g
+    FROM ${sqlClient(t.game)} g
     JOIN player gm ON gm.id = g.game_master_player_id
     WHERE g.winner_player_id = ${playerId}::uuid
       AND g.status = 'completed'
@@ -584,7 +604,11 @@ export type GameReview = {
 
 const GAME_GUESS_LIMIT = 60;
 
-export const getGameReview = async (gameId: string): Promise<GameReview | undefined> => {
+export const getGameReview = async (
+  gameId: string,
+  mode: GameMode = "country",
+): Promise<GameReview | undefined> => {
+  const t = tablesFor(mode);
   const games = await sqlClient`
     SELECT
       g.id,
@@ -595,7 +619,7 @@ export const getGameReview = async (gameId: string): Promise<GameReview | undefi
       gm.discord_user_id AS gm_discord_id,
       winner.display_name AS winner_name,
       winner.discord_user_id AS winner_discord_id,
-      l.country_code,
+      ${targetCode(mode, "g", "l")} AS country_code,
       l.country_name,
       EXTRACT(EPOCH FROM (
         COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
@@ -608,23 +632,23 @@ export const getGameReview = async (gameId: string): Promise<GameReview | undefi
             - COALESCE(other_game.announced_at, other_game.started_at)
           ))
         )
-        FROM game other_game
+        FROM ${sqlClient(t.game)} other_game
         JOIN location other_location ON other_location.id = other_game.location_id
-        JOIN guess other_guess ON other_guess.id = other_game.winning_guess_id
+        JOIN ${sqlClient(t.guess)} other_guess ON other_guess.id = other_game.winning_guess_id
         WHERE other_game.status = 'completed'
           AND other_game.is_test = false
-          AND other_location.country_code = l.country_code
+          AND ${targetCode(mode, "other_game", "other_location")} = ${targetCode(mode, "g", "l")}
           AND EXTRACT(EPOCH FROM (
             COALESCE(other_guess.sent_at, other_guess.created_at)
             - COALESCE(other_game.announced_at, other_game.started_at)
           )) >= 0
       ) AS median_seconds
-    FROM game g
+    FROM ${sqlClient(t.game)} g
     JOIN location l ON l.id = g.location_id
     JOIN player gm ON gm.id = g.game_master_player_id
     LEFT JOIN player winner ON winner.id = g.winner_player_id
-    LEFT JOIN guess wg ON wg.id = g.winning_guess_id
-    LEFT JOIN player_game pg
+    LEFT JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
+    LEFT JOIN ${sqlClient(t.playerGame)} pg
       ON pg.game_id = g.id
      AND pg.player_id = g.winner_player_id
      AND pg.role = 'player'
@@ -640,7 +664,7 @@ export const getGameReview = async (gameId: string): Promise<GameReview | undefi
     SELECT
       p.display_name,
       p.discord_user_id,
-      g.parsed_country_code,
+      g.${sqlClient(t.parsedCodeColumn)} AS parsed_country_code,
       g.raw_message,
       g.is_correct,
       g.is_repeat,
@@ -648,8 +672,8 @@ export const getGameReview = async (gameId: string): Promise<GameReview | undefi
       EXTRACT(EPOCH FROM (
         COALESCE(g.sent_at, g.created_at) - COALESCE(ga.announced_at, ga.started_at)
       )) AS seconds
-    FROM guess g
-    JOIN game ga ON ga.id = g.game_id
+    FROM ${sqlClient(t.guess)} g
+    JOIN ${sqlClient(t.game)} ga ON ga.id = g.game_id
     JOIN player p ON p.id = g.player_id
     WHERE g.game_id = ${gameId}::uuid
     ORDER BY COALESCE(g.sent_at, g.created_at), g.created_at
@@ -698,7 +722,11 @@ export type FastWinRow = {
   dismissed: boolean;
 };
 
-export const listFastWins = async (maxSeconds: number): Promise<FastWinRow[]> => {
+export const listFastWins = async (
+  maxSeconds: number,
+  mode: GameMode = "country",
+): Promise<FastWinRow[]> => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     WITH solved AS (
       SELECT
@@ -706,15 +734,15 @@ export const listFastWins = async (maxSeconds: number): Promise<FastWinRow[]> =>
         g.started_at,
         g.game_master_player_id,
         g.winner_player_id,
-        l.country_code,
+        ${targetCode(mode, "g", "l")} AS country_code,
         EXTRACT(EPOCH FROM (
           COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
         )) AS solve_seconds,
         COALESCE(pg.unique_wrong_guess_count, -1) = 0 AS silent
-      FROM game g
+      FROM ${sqlClient(t.game)} g
       JOIN location l ON l.id = g.location_id
-      JOIN guess wg ON wg.id = g.winning_guess_id
-      LEFT JOIN player_game pg
+      JOIN ${sqlClient(t.guess)} wg ON wg.id = g.winning_guess_id
+      LEFT JOIN ${sqlClient(t.playerGame)} pg
         ON pg.game_id = g.id
        AND pg.player_id = g.winner_player_id
        AND pg.role = 'player'

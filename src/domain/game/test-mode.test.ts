@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { GameRules } from "../../config/rules.ts";
+import { isTestChannel, type GameRules } from "../../config/rules.ts";
 import { canBypassGameMasterBlock } from "./test-mode.ts";
 
 const baseRules: GameRules = {
@@ -19,8 +19,10 @@ const baseRules: GameRules = {
   repeatGuessCountsForGmDifficulty: false,
   queueGameStarts: false,
   gameStartsEnabled: true,
+  provinceGameStartsEnabled: true,
   testModeEnabled: true,
   testChannelId: "test-channel",
+  provinceTestChannelId: "province-test-channel",
   testAdminUserIds: ["tester"],
 };
 
@@ -55,6 +57,23 @@ describe("canBypassGameMasterBlock", () => {
   test("allows test admin in configured test channel for test games", () => {
     expect(canBypassGameMasterBlock({ isTest: true }, "test-channel", "tester", baseRules)).toBe(
       true,
+    );
+  });
+
+  test("allows test admin in the province test channel for test games", () => {
+    expect(
+      canBypassGameMasterBlock({ isTest: true }, "province-test-channel", "tester", baseRules),
+    ).toBe(true);
+  });
+});
+
+describe("isTestChannel", () => {
+  test("covers the country and province test channels while test mode is on", () => {
+    expect(isTestChannel("test-channel", baseRules)).toBe(true);
+    expect(isTestChannel("province-test-channel", baseRules)).toBe(true);
+    expect(isTestChannel("other-channel", baseRules)).toBe(false);
+    expect(isTestChannel("province-test-channel", { ...baseRules, testModeEnabled: false })).toBe(
+      false,
     );
   });
 });

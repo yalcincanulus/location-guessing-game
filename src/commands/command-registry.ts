@@ -1,7 +1,8 @@
 import type { Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
-import { loadRules } from "../config/rules.ts";
+import { isTestChannel, loadRules } from "../config/rules.ts";
 import {
+  gameModeOf,
   getActiveGameState,
   getCachedMap,
   getWrongCountries,
@@ -9,6 +10,9 @@ import {
   setCachedMap,
   updateGameState,
 } from "../domain/game/active-game-state.ts";
+import { modeForChannel, tablesFor, takeModeArg, type GameMode } from "../domain/game/game-mode.ts";
+import { renderProvinceMap, TURKEY_MAP_VIEWPORT } from "../domain/maps/province-map-renderer.ts";
+import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 import { loadGameScreenshot } from "../domain/game/load-screenshot.ts";
 import { logger } from "../util/logger.ts";
 import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
@@ -21,7 +25,7 @@ import {
   countPlayerUnlocksByDiscordId,
   getPlayerUnlocks,
 } from "../repositories/achievements-repository.ts";
-import { ACHIEVEMENT_CATALOG, ONESHOT_TIER } from "../domain/achievements/catalog.ts";
+import { catalogForMode, ONESHOT_TIER } from "../domain/achievements/catalog.ts";
 import {
   getHostStreak,
   getPlayStreak,
@@ -61,10 +65,29 @@ export const isCommandMessage = async (content: string) => {
   return rules.commandPrefixes.some((prefix) => content.startsWith(prefix));
 };
 
-const getGameScreenshotMessageId = async (gameId: string) => {
+/** Extra map commands for province games. Any country map command also shows Türkiye there. */
+const PROVINCE_MAP_COMMANDS = new Set(["turkiye", "turkey", "tr"]);
+
+/** Mode for stats commands: an explicit `il` / `ülke` word wins, then the channel. */
+const resolveCommandMode = async (message: Message, args: string[]) => {
+  const { mode, rest } = takeModeArg(args);
+  if (mode) {
+    return { mode, args: rest };
+  }
+  const channelMode = message.inGuild()
+    ? modeForChannel(await loadRules(), message.channel.id)
+    : undefined;
+  return { mode: channelMode ?? ("country" as GameMode), args: rest };
+};
+
+/** Province replies start with the province label. Country replies are unchanged. */
+const withModeLabel = (mode: GameMode, text: string) =>
+  mode === "province" ? `${messages.province.label}\n${text}` : text;
+
+const getGameScreenshotMessageId = async (gameId: string, mode: GameMode) => {
   const rows = await sqlClient`
     SELECT screenshot_message_id
-    FROM game
+    FROM ${sqlClient(tablesFor(mode).game)}
     WHERE id = ${gameId}
   `;
   const messageId = rows[0]?.screenshot_message_id;
@@ -101,16 +124,101 @@ const replyChunked = async (message: Message, lines: string[]) => {
   }
 };
 
+const getProvinceGameStats = async () => {
+  const rows = await sqlClient`
+    WITH completed AS (
+      SELECT *
+      FROM province_game
+      WHERE status = 'completed'
+    ),
+    province_counts AS (
+      SELECT target_province_code AS province_code, COUNT(*)::int AS games
+      FROM completed
+      GROUP BY 1
+    )
+    SELECT
+      (SELECT COUNT(*)::int FROM completed) AS completed_games,
+      COALESCE(SUM(total_guess_count), 0)::int AS total_guesses,
+      (
+        SELECT COUNT(*)::int
+        FROM province_player_stat
+        WHERE games_started > 0 OR total_guesses > 0
+      ) AS total_players,
+      (SELECT COUNT(*)::int FROM province_counts) AS distinct_provinces,
+      (
+        SELECT province_code
+        FROM province_counts
+        ORDER BY games DESC, province_code ASC
+        LIMIT 1
+      ) AS top_province_code,
+      (
+        SELECT games
+        FROM province_counts
+        ORDER BY games DESC, province_code ASC
+        LIMIT 1
+      ) AS top_province_games,
+      (
+        SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY solve_seconds)
+        FROM (
+          SELECT EXTRACT(EPOCH FROM (
+            COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
+          )) AS solve_seconds
+          FROM completed g
+          JOIN province_guess wg ON wg.id = g.winning_guess_id
+        ) solves
+        WHERE solve_seconds >= 0
+      ) AS median_solve_seconds,
+      (
+        SELECT COUNT(*)::int
+        FROM completed
+        WHERE unique_wrong_province_count = 0
+      ) AS oneshot_games,
+      (
+        SELECT COUNT(DISTINCT game_master_player_id)::int
+        FROM completed
+      ) AS hosts,
+      (
+        SELECT COUNT(*)::int
+        FROM (
+          SELECT g.id, gs.player_id
+          FROM completed g
+          JOIN province_guess gs ON gs.game_id = g.id
+          WHERE gs.is_rate_limited = false
+          GROUP BY g.id, gs.player_id
+        ) participants
+      ) AS participations
+    FROM province_game
+  `;
+  const row = rows[0];
+  const medianRaw = row?.median_solve_seconds;
+  const medianSolveSeconds = medianRaw == null ? null : Number(medianRaw);
+  const topProvinceCode = row?.top_province_code == null ? null : String(row.top_province_code);
+  return {
+    completedGames: row?.completed_games ?? 0,
+    totalGuesses: row?.total_guesses ?? 0,
+    totalPlayers: row?.total_players ?? 0,
+    distinctProvinces: row?.distinct_provinces ?? 0,
+    topProvinceName: topProvinceCode == null ? null : getProvinceName(topProvinceCode),
+    topProvinceGames: row?.top_province_games ?? 0,
+    medianSolveSeconds: Number.isFinite(medianSolveSeconds) ? medianSolveSeconds : null,
+    oneshotGames: row?.oneshot_games ?? 0,
+    hosts: row?.hosts ?? 0,
+    participations: row?.participations ?? 0,
+  };
+};
+
 /** Works in guild channels and DMs. */
 export const handleAchievementsCommand = async (message: Message): Promise<boolean> => {
   const parsed = await parseCommand(message);
   if (!parsed) {
     return false;
   }
-  const { command, args } = parsed;
+  const { command } = parsed;
   if (!["achievements", "basarim", "basarimlar"].includes(command)) {
     return false;
   }
+  const { mode, args } = await resolveCommandMode(message, parsed.args);
+  const catalog = catalogForMode(mode);
 
   await sqlClient`
     INSERT INTO command_log (command, raw_message)
@@ -122,7 +230,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
     const owned = new Set<string>();
     try {
       const player = await upsertPlayer(message.author);
-      const unlocks = await getPlayerUnlocks(player.id);
+      const unlocks = await getPlayerUnlocks(player.id, mode);
       for (const unlock of unlocks) {
         owned.add(unlock.achievementId);
       }
@@ -130,13 +238,13 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
       // profile may not exist yet
     }
 
-    const lines = [messages.achievements.listHeader];
-    for (const item of ACHIEVEMENT_CATALOG) {
+    const lines = [withModeLabel(mode, messages.achievements.listHeader)];
+    for (const item of catalog) {
       const desc =
         item.hiddenUntilEarn && !owned.has(item.id)
           ? messages.achievements.hiddenDescription
-          : messages.achievements.description(item.id);
-      lines.push(`**${messages.achievements.name(item.id)}**: ${desc}`);
+          : messages.achievements.description(item.id, mode);
+      lines.push(`**${messages.achievements.name(item.id, mode)}**: ${desc}`);
     }
     await replyChunked(message, lines);
     return true;
@@ -148,9 +256,9 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
   }
 
   const player = await upsertPlayer(message.author);
-  const unlocks = await getPlayerUnlocks(player.id);
+  const unlocks = await getPlayerUnlocks(player.id, mode);
   if (unlocks.length === 0) {
-    await message.reply(messages.achievements.empty);
+    await message.reply(withModeLabel(mode, messages.achievements.empty));
     return true;
   }
 
@@ -163,12 +271,12 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
     byId.set(unlock.achievementId, tiers);
   }
 
-  const stats = await getPlayerStatSnapshot(player.id);
-  const hostStreak = await getHostStreak(player.id);
-  const playStreak = await getPlayStreak(player.id);
-  const lines = [messages.achievements.header];
+  const stats = await getPlayerStatSnapshot(player.id, mode);
+  const hostStreak = await getHostStreak(player.id, new Date(), mode);
+  const playStreak = await getPlayStreak(player.id, new Date(), mode);
+  const lines = [withModeLabel(mode, messages.achievements.header)];
 
-  for (const item of ACHIEVEMENT_CATALOG) {
+  for (const item of catalog) {
     if (!byId.has(item.id) && item.kind === "oneshot") {
       const ownedOneshot = unlocks.some(
         (u) => u.achievementId === item.id && u.tier === ONESHOT_TIER,
@@ -176,7 +284,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
       if (!ownedOneshot) {
         continue;
       }
-      lines.push(`**${messages.achievements.name(item.id)}** ✓`);
+      lines.push(`**${messages.achievements.name(item.id, mode)}** ✓`);
       continue;
     }
     if (!byId.has(item.id) && item.kind === "ladder") {
@@ -184,7 +292,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
     }
 
     if (item.kind === "oneshot") {
-      lines.push(`**${messages.achievements.name(item.id)}** ✓`);
+      lines.push(`**${messages.achievements.name(item.id, mode)}** ✓`);
       continue;
     }
 
@@ -207,7 +315,14 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
     }
 
     lines.push(
-      messages.achievements.progressLine(item.id, earned, nextTier, currentValue, streakCurrent),
+      messages.achievements.progressLine(
+        item.id,
+        earned,
+        nextTier,
+        currentValue,
+        streakCurrent,
+        mode,
+      ),
     );
   }
 
@@ -221,6 +336,7 @@ export const handleCommand = async (message: Message<true>) => {
     return false;
   }
   const { rules, command, args } = parsed;
+  const { mode, args: statArgs } = await resolveCommandMode(message, args);
 
   if (["achievements", "basarim", "basarimlar"].includes(command)) {
     return handleAchievementsCommand(message);
@@ -235,8 +351,7 @@ export const handleCommand = async (message: Message<true>) => {
     return handleTestCommand(message, args);
   }
 
-  const viewport = viewportAliases.get(command);
-  if (viewport) {
+  if (viewportAliases.has(command) || PROVINCE_MAP_COMMANDS.has(command)) {
     const state = await getActiveGameState(message.guild.id, message.channel.id);
     if (!state) {
       await message.reply(messages.commands.noActiveGameInChannel);
@@ -244,6 +359,22 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const wrongCountries = await getWrongCountries(state.gameId);
+    if (gameModeOf(state) === "province") {
+      const hash = mapHash(wrongCountries);
+      const cached = await getCachedMap(state.gameId, TURKEY_MAP_VIEWPORT, hash);
+      const map = cached
+        ? { buffer: cached, filename: messages.filenames.turkeyGuesses }
+        : renderProvinceMap({ wrongProvinces: wrongCountries });
+      await Promise.all([
+        message.channel.send({
+          files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
+        }),
+        cached ? undefined : setCachedMap(state.gameId, TURKEY_MAP_VIEWPORT, hash, map.buffer),
+      ]);
+      return true;
+    }
+
+    const viewport = viewportAliases.get(command) ?? "world";
     const hash = mapHash(wrongCountries);
     const cached = await getCachedMap(state.gameId, viewport, hash);
     const map = cached
@@ -270,7 +401,8 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const screenshotMessageId =
-      state.screenshotMessageId ?? (await getGameScreenshotMessageId(state.gameId));
+      state.screenshotMessageId ??
+      (await getGameScreenshotMessageId(state.gameId, gameModeOf(state)));
     const loaded = await loadGameScreenshot({
       screenshotUrl: state.screenshotUrl,
       fallbackName: messages.filenames.fallbackScreenshot,
@@ -301,7 +433,7 @@ export const handleCommand = async (message: Message<true>) => {
       await updateGameState(state);
       if (urlChanged) {
         await sqlClient`
-          UPDATE game
+          UPDATE ${sqlClient(tablesFor(gameModeOf(state)).game)}
           SET screenshot_url = ${loaded.url}, updated_at = now()
           WHERE id = ${state.gameId}
         `;
@@ -318,7 +450,7 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["profile", "profil"].includes(command)) {
-    const profile = await getPlayerProfile(message.author.id);
+    const profile = await getPlayerProfile(message.author.id, mode);
     if (!profile) {
       await message.reply(messages.commands.noProfileYet);
       return true;
@@ -328,31 +460,39 @@ export const handleCommand = async (message: Message<true>) => {
     const wins = Number(profile.games_won ?? 0);
     const winRate = participated === 0 ? 0 : Math.round((wins / participated) * 100);
     await message.reply(
-      messages.commands.profile({
-        displayName: profile.display_name,
-        points: profile.points_total ?? 0,
-        wins,
-        participated,
-        winRate,
-        gamesStarted: profile.games_started ?? 0,
-        guesses: profile.total_guesses ?? 0,
-        gmMultiplier: Number(profile.current_gm_multiplier ?? 1),
-        medalPoints: Number(profile.medal_points ?? 0),
-        gold: Number(profile.gold ?? 0),
-        silver: Number(profile.silver ?? 0),
-        bronze: Number(profile.bronze ?? 0),
-        achievementsUnlocked: await countPlayerUnlocksByDiscordId(message.author.id),
-      }),
+      withModeLabel(
+        mode,
+        messages.commands.profile({
+          displayName: profile.display_name,
+          points: profile.points_total ?? 0,
+          wins,
+          participated,
+          winRate,
+          gamesStarted: profile.games_started ?? 0,
+          guesses: profile.total_guesses ?? 0,
+          gmMultiplier: Number(profile.current_gm_multiplier ?? 1),
+          medalPoints: Number(profile.medal_points ?? 0),
+          gold: Number(profile.gold ?? 0),
+          silver: Number(profile.silver ?? 0),
+          bronze: Number(profile.bronze ?? 0),
+          achievementsUnlocked: await countPlayerUnlocksByDiscordId(message.author.id, mode),
+        }),
+      ),
     );
     return true;
   }
 
   const replyLeaderboard = async (kind: "points" | "wins" | "started" | "hardest") => {
-    const rows = await getLeaderboard(kind);
+    const rows = await getLeaderboard(kind, 10, mode);
     const lines = rows.map((row, index) =>
       messages.commands.leaderboardRow(index + 1, row.display_name, row.value),
     );
-    await message.reply(lines.length > 0 ? lines.join("\n") : messages.commands.noLeaderboardData);
+    await message.reply(
+      withModeLabel(
+        mode,
+        lines.length > 0 ? lines.join("\n") : messages.commands.noLeaderboardData,
+      ),
+    );
   };
 
   if (["hardest", "zor", "bestgm"].includes(command)) {
@@ -361,7 +501,7 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["leaderboard", "liderlik", "top", "best"].includes(command)) {
-    const arg = normalizeCommand(args[0] ?? "points");
+    const arg = normalizeCommand(statArgs[0] ?? "points");
     const kind =
       arg === "wins" || arg === "win"
         ? "wins"
@@ -377,27 +517,27 @@ export const handleCommand = async (message: Message<true>) => {
   const periodType = periodCommandAliases[command];
   if (periodType) {
     const window = getCurrentPeriodWindow(periodType);
-    const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10);
-    await message.reply(formatPeriodStandingsMessage(window, standings, "live"));
+    const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10, mode);
+    await message.reply(formatPeriodStandingsMessage(window, standings, "live", mode));
     return true;
   }
 
   if (["medals", "awards", "madalya"].includes(command)) {
-    const periodArg = normalizeCommand(args[0] ?? "");
+    const periodArg = normalizeCommand(statArgs[0] ?? "");
     const medalsPeriodType = periodArg ? periodCommandAliases[periodArg] : undefined;
     if (!medalsPeriodType) {
       await message.reply(messages.awards.medalsUsage);
       return true;
     }
 
-    const rows = await getMedalLeaderboard(medalsPeriodType);
+    const rows = await getMedalLeaderboard(medalsPeriodType, 10, mode);
     if (rows.length === 0) {
-      await message.reply(messages.awards.noMedalData);
+      await message.reply(withModeLabel(mode, messages.awards.noMedalData));
       return true;
     }
 
     const lines = [
-      messages.awards.medalsHeader(medalsPeriodType),
+      withModeLabel(mode, messages.awards.medalsHeader(medalsPeriodType)),
       ...rows.map((row, index) =>
         messages.awards.medalRow({
           rank: index + 1,
@@ -410,6 +550,11 @@ export const handleCommand = async (message: Message<true>) => {
       ),
     ];
     await message.reply(lines.join("\n"));
+    return true;
+  }
+
+  if (["stats", "istatistik"].includes(command) && mode === "province") {
+    await message.reply(messages.province.stats(await getProvinceGameStats()));
     return true;
   }
 
@@ -501,11 +646,13 @@ export const handleCommand = async (message: Message<true>) => {
 
   if (["help", "yardim"].includes(command)) {
     const isTestAdmin =
-      rules.testModeEnabled &&
-      rules.testChannelId === message.channel.id &&
+      isTestChannel(message.channel.id, rules) &&
       rules.testAdminUserIds.includes(message.author.id);
     await message.reply(
-      [messages.commands.helpCommands, isTestAdmin ? messages.commands.helpTestCommands : undefined]
+      [
+        mode === "province" ? messages.province.helpCommands : messages.commands.helpCommands,
+        isTestAdmin ? messages.commands.helpTestCommands : undefined,
+      ]
         .filter(Boolean)
         .join("\n"),
     );

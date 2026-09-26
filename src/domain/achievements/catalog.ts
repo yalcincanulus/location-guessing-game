@@ -1,4 +1,5 @@
 import type { PeriodType } from "../awards/periods.ts";
+import type { GameMode } from "../game/game-mode.ts";
 
 export type AchievementTrack = "host" | "guesser" | "hybrid" | "geography" | "rare";
 export type AchievementKind = "ladder" | "oneshot";
@@ -325,6 +326,18 @@ export const ACHIEVEMENT_CATALOG: AchievementDefinition[] = [
     alwaysChannel: true,
   },
 ];
+
+/**
+ * Achievements that only make sense with world geography. Province games cannot
+ * reach 100 unique wrong guesses either (81 provinces), so Patient Zero is out.
+ */
+const COUNTRY_ONLY_ACHIEVEMENTS = new Set(["territory_win", "continent_tour", "patient_zero"]);
+
+export const isAchievementInMode = (achievementId: string, mode: GameMode) =>
+  mode === "country" || !COUNTRY_ONLY_ACHIEVEMENTS.has(achievementId);
+
+export const catalogForMode = (mode: GameMode) =>
+  ACHIEVEMENT_CATALOG.filter((item) => isAchievementInMode(item.id, mode));
 
 export const achievementById = new Map(ACHIEVEMENT_CATALOG.map((item) => [item.id, item]));
 

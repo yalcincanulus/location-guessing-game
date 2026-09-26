@@ -8,6 +8,7 @@ import {
   type PeriodWindow,
   type StandingRow,
 } from "../domain/awards/periods.ts";
+import { tablesFor, type GameMode } from "../domain/game/game-mode.ts";
 
 /** postgres.js (under Bun) rejects Date params; pass ISO strings instead. */
 const sqlTimestamp = (date: Date) => date.toISOString();
@@ -17,7 +18,9 @@ export const getPeriodStandings = async (
   startsAt: Date,
   endsAt: Date,
   limit = 10,
+  mode: GameMode = "country",
 ): Promise<StandingRow[]> => {
+  const t = tablesFor(mode);
   const startsAtSql = sqlTimestamp(startsAt);
   const endsAtSql = sqlTimestamp(endsAt);
 
@@ -36,8 +39,8 @@ export const getPeriodStandings = async (
           p.display_name,
           p.discord_user_id,
           SUM(pl.points_delta)::int AS value
-        FROM point_ledger pl
-        JOIN game g ON g.id = pl.game_id
+        FROM ${sqlClient(t.pointLedger)} pl
+        JOIN ${sqlClient(t.game)} g ON g.id = pl.game_id
         JOIN player p ON p.id = pl.player_id
         WHERE g.is_test = false
           AND pl.created_at >= ${startsAtSql}
@@ -55,7 +58,7 @@ export const getPeriodStandings = async (
           p.display_name,
           p.discord_user_id,
           COUNT(*)::int AS value
-        FROM game g
+        FROM ${sqlClient(t.game)} g
         JOIN player p ON p.id = g.winner_player_id
         WHERE g.is_test = false
           AND g.status = 'completed'
@@ -74,7 +77,7 @@ export const getPeriodStandings = async (
           p.display_name,
           p.discord_user_id,
           COUNT(*)::int AS value
-        FROM game g
+        FROM ${sqlClient(t.game)} g
         JOIN player p ON p.id = g.game_master_player_id
         WHERE g.is_test = false
           AND g.started_at >= ${startsAtSql}
@@ -90,14 +93,14 @@ export const getPeriodStandings = async (
           p.id AS player_id,
           p.display_name,
           p.discord_user_id,
-          MAX(g.unique_wrong_country_count)::int AS value
-        FROM game g
+          MAX(g.${sqlClient(t.uniqueWrongColumn)})::int AS value
+        FROM ${sqlClient(t.game)} g
         JOIN player p ON p.id = g.game_master_player_id
         WHERE g.is_test = false
           AND g.status = 'completed'
           AND g.ended_at >= ${startsAtSql}
           AND g.ended_at < ${endsAtSql}
-          AND g.unique_wrong_country_count > 0
+          AND g.${sqlClient(t.uniqueWrongColumn)} > 0
         GROUP BY p.id, p.display_name, p.discord_user_id
         ORDER BY value DESC, p.display_name ASC
         LIMIT ${limit}
@@ -123,10 +126,11 @@ export const getAllCategoryStandings = async (
   startsAt: Date,
   endsAt: Date,
   limit = 10,
+  mode: GameMode = "country",
 ): Promise<CategoryStandings[]> => {
   const results: CategoryStandings[] = [];
   for (const category of AWARD_CATEGORIES) {
-    const rows = await getPeriodStandings(category, startsAt, endsAt, limit);
+    const rows = await getPeriodStandings(category, startsAt, endsAt, limit, mode);
     results.push({
       category,
       rows,
@@ -146,10 +150,14 @@ export type FinalizePeriodResult =
       shouldAnnounce: boolean;
     };
 
-export const finalizePeriodAwards = async (window: PeriodWindow): Promise<FinalizePeriodResult> => {
+export const finalizePeriodAwards = async (
+  window: PeriodWindow,
+  mode: GameMode = "country",
+): Promise<FinalizePeriodResult> => {
+  const t = tablesFor(mode);
   const existing = await sqlClient`
     SELECT id, announced_at
-    FROM award_period
+    FROM ${sqlClient(t.awardPeriod)}
     WHERE period_type = ${window.periodType}
       AND period_key = ${window.periodKey}
   `;
@@ -158,13 +166,13 @@ export const finalizePeriodAwards = async (window: PeriodWindow): Promise<Finali
     return { status: "skipped", reason: "already-announced" };
   }
 
-  const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10);
+  const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10, mode);
   const startsAtSql = sqlTimestamp(window.startsAt);
   const endsAtSql = sqlTimestamp(window.endsAt);
 
   const awardPeriodId = await sqlClient.begin(async (tx) => {
     const upserted = await tx`
-      INSERT INTO award_period (period_type, period_key, starts_at, ends_at)
+      INSERT INTO ${tx(t.awardPeriod)} (period_type, period_key, starts_at, ends_at)
       VALUES (${window.periodType}, ${window.periodKey}, ${startsAtSql}, ${endsAtSql})
       ON CONFLICT (period_type, period_key)
       DO UPDATE SET
@@ -183,14 +191,14 @@ export const finalizePeriodAwards = async (window: PeriodWindow): Promise<Finali
     }
 
     await tx`
-      DELETE FROM period_award
+      DELETE FROM ${tx(t.periodAward)}
       WHERE award_period_id = ${period.id}
     `;
 
     for (const { category, medals } of standings) {
       for (const medal of medals) {
         await tx`
-          INSERT INTO period_award (
+          INSERT INTO ${tx(t.periodAward)} (
             award_period_id,
             player_id,
             category,
@@ -226,9 +234,9 @@ export const finalizePeriodAwards = async (window: PeriodWindow): Promise<Finali
   };
 };
 
-export const markPeriodAnnounced = async (awardPeriodId: string) => {
+export const markPeriodAnnounced = async (awardPeriodId: string, mode: GameMode = "country") => {
   const rows = await sqlClient`
-    UPDATE award_period
+    UPDATE ${sqlClient(tablesFor(mode).awardPeriod)}
     SET announced_at = now(), updated_at = now()
     WHERE id = ${awardPeriodId}
       AND announced_at IS NULL
@@ -249,7 +257,9 @@ export type MedalLeaderboardRow = {
 export const getMedalLeaderboard = async (
   periodType: PeriodType,
   limit = 10,
+  mode: GameMode = "country",
 ): Promise<MedalLeaderboardRow[]> => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT
       p.display_name,
@@ -258,8 +268,8 @@ export const getMedalLeaderboard = async (
       COUNT(*) FILTER (WHERE pa.medal = 'gold')::int AS gold,
       COUNT(*) FILTER (WHERE pa.medal = 'silver')::int AS silver,
       COUNT(*) FILTER (WHERE pa.medal = 'bronze')::int AS bronze
-    FROM period_award pa
-    JOIN award_period ap ON ap.id = pa.award_period_id
+    FROM ${sqlClient(t.periodAward)} pa
+    JOIN ${sqlClient(t.awardPeriod)} ap ON ap.id = pa.award_period_id
     JOIN player p ON p.id = pa.player_id
     WHERE ap.period_type = ${periodType}
     GROUP BY p.id, p.display_name, p.discord_user_id

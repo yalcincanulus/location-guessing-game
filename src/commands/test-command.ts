@@ -1,13 +1,27 @@
 import type { Message } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
-import { loadRules } from "../config/rules.ts";
+import { isTestChannel, loadRules } from "../config/rules.ts";
 import { cancelOrFailActiveGame, getActiveGameContext } from "../domain/game/admin-game-ops.ts";
 import { getWrongCountries } from "../domain/game/active-game-state.ts";
 import { countries } from "../domain/countries/country-data.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
+import { renderProvinceMap } from "../domain/maps/province-map-renderer.ts";
+import { provinces } from "../domain/provinces/province-data.ts";
 import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
+import { modeForChannel, type GameMode } from "../domain/game/game-mode.ts";
+import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
+import type { ActiveDbGame } from "../domain/game/admin-game-ops.ts";
+
+/** The test channel can also be the province channel. */
+const channelMode = async (message: Message<true>): Promise<GameMode> =>
+  modeForChannel(await loadRules(), message.channel.id) ?? "country";
+
+const dbGameTarget = (dbGame: ActiveDbGame) =>
+  dbGame.provinceCode
+    ? `${dbGame.provinceCode} - ${getProvinceName(dbGame.provinceCode)}`
+    : `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`;
 
 const normalize = (value: string) =>
   value
@@ -28,7 +42,7 @@ const authorize = async (message: Message<true>) => {
     return { ok: false as const, reason: messages.test.modeDisabled };
   }
 
-  if (message.channel.id !== rules.testChannelId) {
+  if (!isTestChannel(message.channel.id, rules)) {
     return {
       ok: false as const,
       reason: messages.test.onlyInTestChannel,
@@ -57,6 +71,7 @@ const cancelOrFailGame = async (
     reason,
     cancelledBy: message.author,
     displayName: message.member?.displayName,
+    mode: await channelMode(message),
   });
 
   if (!result.ok) {
@@ -76,11 +91,10 @@ const statusCommand = async (message: Message<true>) => {
   const { state, dbGame, redisMissingButDbActive } = await getActiveGameContext(
     message.guild.id,
     message.channel.id,
+    await channelMode(message),
   );
   const wrongCountries = state ? await getWrongCountries(state.gameId) : [];
-  const target = dbGame
-    ? `${dbGame.countryCode} - ${dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)}`
-    : undefined;
+  const target = dbGame ? dbGameTarget(dbGame) : undefined;
 
   await message.reply(
     messages.test.status({
@@ -107,6 +121,7 @@ const revealCommand = async (message: Message<true>) => {
   const { dbGame, redisMissingButDbActive } = await getActiveGameContext(
     message.guild.id,
     message.channel.id,
+    await channelMode(message),
   );
   if (!dbGame) {
     await message.reply(messages.test.noActiveGameInTestChannel);
@@ -116,9 +131,7 @@ const revealCommand = async (message: Message<true>) => {
   await message.reply(
     messages.test.reveal({
       redisMissingButDbActive,
-      answer: `${dbGame.countryCode} - ${
-        dbGame.countryName ?? getCountryDisplayName(dbGame.countryCode, messages.locale)
-      }`,
+      answer: dbGameTarget(dbGame),
       regionName: dbGame.regionName,
       latitude: dbGame.latitude,
       longitude: dbGame.longitude,
@@ -128,7 +141,11 @@ const revealCommand = async (message: Message<true>) => {
 };
 
 const tickCommand = async (message: Message<true>) => {
-  const { state, dbGame } = await getActiveGameContext(message.guild.id, message.channel.id);
+  const { state, dbGame } = await getActiveGameContext(
+    message.guild.id,
+    message.channel.id,
+    await channelMode(message),
+  );
   const gameId = state?.gameId ?? dbGame?.gameId;
   if (!gameId) {
     await message.reply(messages.test.noActiveGameInTestChannel);
@@ -157,21 +174,49 @@ const tickCommand = async (message: Message<true>) => {
   return true;
 };
 
-const pickRandomCountries = (count: number) => {
-  const pool = [...countries];
+const pickRandom = (codes: string[], count: number) => {
+  const pool = [...codes];
   const picked: string[] = [];
   while (picked.length < count && pool.length > 0) {
     const index = Math.floor(Math.random() * pool.length);
-    const [country] = pool.splice(index, 1);
-    if (country) {
-      picked.push(country.alpha2);
+    const [code] = pool.splice(index, 1);
+    if (code) {
+      picked.push(code);
     }
   }
   return picked;
 };
 
+const provinceMapCommand = async (message: Message<true>) => {
+  const [correctProvince, ...wrongProvinces] = pickRandom(
+    provinces.map((province) => province.code),
+    9,
+  );
+  if (!correctProvince) {
+    await message.reply(messages.test.unknownCommand);
+    return true;
+  }
+
+  const map = renderProvinceMap({ wrongProvinces, correctProvince });
+  await message.channel.send({
+    content: messages.test.sampleMap(
+      getProvinceName(correctProvince),
+      wrongProvinces.map((code) => getProvinceName(code)),
+    ),
+    files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
+  });
+  return true;
+};
+
 const mapCommand = async (message: Message<true>) => {
-  const sample = pickRandomCountries(9);
+  if ((await channelMode(message)) === "province") {
+    return provinceMapCommand(message);
+  }
+
+  const sample = pickRandom(
+    countries.map((country) => country.alpha2),
+    9,
+  );
   const correctCountry = sample[0];
   const wrongCountries = sample.slice(1);
   if (!correctCountry || wrongCountries.length === 0) {

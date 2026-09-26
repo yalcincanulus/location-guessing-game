@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { crossedTiers, isChannelNotable, achievementById, ONESHOT_TIER } from "./catalog.ts";
+import {
+  achievementById,
+  catalogForMode,
+  crossedTiers,
+  isAchievementInMode,
+  isChannelNotable,
+  ONESHOT_TIER,
+} from "./catalog.ts";
 import { computeStreakFromDates } from "./metrics.ts";
 import {
   CONTINENTS,
@@ -118,5 +125,15 @@ describe("hiddenUntilEarn catalog flags", () => {
   test("rares hide conditions until earned", () => {
     expect(achievementById.get("oneshot_win")?.hiddenUntilEarn).toBe(true);
     expect(achievementById.get("host_games")?.hiddenUntilEarn).toBe(false);
+  });
+});
+
+describe("achievements per game mode", () => {
+  test("keeps world geography achievements out of province games", () => {
+    expect(isAchievementInMode("continent_tour", "province")).toBe(false);
+    expect(isAchievementInMode("territory_win", "province")).toBe(false);
+    expect(isAchievementInMode("patient_zero", "province")).toBe(false);
+    expect(isAchievementInMode("continent_tour", "country")).toBe(true);
+    expect(catalogForMode("province").some((item) => item.id === "win_countries")).toBe(true);
   });
 });

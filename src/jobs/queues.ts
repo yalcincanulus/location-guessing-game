@@ -1,10 +1,17 @@
 import { Queue, Worker, createBunRedisClient } from "bullmq";
 import type { Client } from "discord.js";
 import {
+  gameModeOf,
   getActiveGameState,
   getGameStateById,
   updateGameState,
 } from "../domain/game/active-game-state.ts";
+import {
+  GAME_MODES,
+  gameChannelIdFor,
+  tablesFor,
+  type GameMode,
+} from "../domain/game/game-mode.ts";
 import {
   clearPendingStart,
   clearStartReservation,
@@ -286,7 +293,7 @@ export const runIdleMultiplierCheck = async (
   }
 
   await sqlClient`
-    INSERT INTO multiplier_event (game_id, kind, previous_multiplier, increment, new_multiplier, message_id)
+    INSERT INTO ${sqlClient(tablesFor(gameModeOf(state)).multiplierEvent)} (game_id, kind, previous_multiplier, increment, new_multiplier, message_id)
     VALUES (${state.gameId}, 'idle', ${previous}, ${rules.idleMultiplierIncrement}, ${state.currentMultiplier}, ${messageId ?? null})
   `;
 
@@ -349,17 +356,21 @@ export type IdleReminderResult =
   | { status: "recent-game" }
   | { status: "reminded" };
 
-export const runChannelIdleReminder = async (client: Client): Promise<IdleReminderResult> => {
+export const runChannelIdleReminder = async (
+  client: Client,
+  mode: GameMode = "country",
+): Promise<IdleReminderResult> => {
   if (isIdleReminderQuietHours()) {
     return { status: "quiet-hours" };
   }
 
   const rules = await loadRules();
-  if (!rules.gameChannelId) {
+  const gameChannelId = gameChannelIdFor(rules, mode);
+  if (!gameChannelId) {
     return { status: "no-channel" };
   }
 
-  const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
+  const channel = await client.channels.fetch(gameChannelId).catch(() => null);
   if (!channel?.isSendable() || !("guild" in channel) || !channel.guild) {
     return { status: "channel-unavailable" };
   }
@@ -378,7 +389,7 @@ export const runChannelIdleReminder = async (client: Client): Promise<IdleRemind
   const rows = await sqlClient`
     SELECT EXISTS (
       SELECT 1
-      FROM game g
+      FROM ${sqlClient(tablesFor(mode).game)} g
       JOIN channel c ON c.id = g.channel_id
       WHERE c.discord_channel_id = ${channelId}
         AND g.is_test = false
@@ -405,6 +416,16 @@ const releaseOnce = async (key: string): Promise<void> => {
 const claimDailyJob = async (jobName: string, now = new Date()): Promise<string | null> => {
   const key = keys.dailyJob(jobName, istanbulDayKey(now));
   return (await claimOnce(key)) ? key : null;
+};
+
+/** Country keeps the original job name so its daily claim key does not change. */
+const dailyJobName = (name: string, mode: GameMode) =>
+  mode === "country" ? name : `${mode}-${name}`;
+
+/** Country always runs. Province runs once its channel is configured. */
+const activeModes = async (): Promise<GameMode[]> => {
+  const rules = await loadRules();
+  return GAME_MODES.filter((mode) => mode === "country" || Boolean(gameChannelIdFor(rules, mode)));
 };
 
 const resetSchedulerQueue = async (queue: Queue) => {
@@ -439,7 +460,11 @@ export const startIdleReminderWorker = (client: Client) =>
         return { status: "already-sent" };
       }
 
-      return runChannelIdleReminder(client);
+      const results: Partial<Record<GameMode, IdleReminderResult>> = {};
+      for (const mode of GAME_MODES) {
+        results[mode] = await runChannelIdleReminder(client, mode);
+      }
+      return results;
     },
     { connection: bullmqConnection },
   );
@@ -452,19 +477,25 @@ export const startPeriodAwardsWorker = (client: Client) =>
   new Worker(
     "period-awards",
     async () => {
-      const claimKey = await claimDailyJob("period-awards");
-      if (!claimKey) {
-        return { skipped: true };
-      }
+      const results: Partial<Record<GameMode, unknown>> = {};
+      for (const mode of await activeModes()) {
+        // Each mode has its own daily claim so one failing mode does not re-run the other.
+        const claimKey = await claimDailyJob(dailyJobName("period-awards", mode));
+        if (!claimKey) {
+          results[mode] = { skipped: true };
+          continue;
+        }
 
-      try {
-        const result = await runPeriodAwardsCheck(client);
-        logger.info("Period awards check completed", result);
-        return result;
-      } catch (error) {
-        await releaseOnce(claimKey);
-        throw error;
+        try {
+          const result = await runPeriodAwardsCheck(client, new Date(), mode);
+          logger.info("Period awards check completed", { mode, ...result });
+          results[mode] = result;
+        } catch (error) {
+          await releaseOnce(claimKey);
+          throw error;
+        }
       }
+      return results;
     },
     heavyWorkerOpts,
   );
@@ -481,19 +512,24 @@ export const startAchievementStreakWorker = (client: Client) =>
   new Worker(
     "achievement-streaks",
     async () => {
-      const claimKey = await claimDailyJob("achievement-streaks");
-      if (!claimKey) {
-        return { skipped: true };
-      }
+      const results: Partial<Record<GameMode, unknown>> = {};
+      for (const mode of await activeModes()) {
+        const claimKey = await claimDailyJob(dailyJobName("achievement-streaks", mode));
+        if (!claimKey) {
+          results[mode] = { skipped: true };
+          continue;
+        }
 
-      try {
-        const result = await runDailyAchievementStreaks(client);
-        logger.info("Achievement streak check completed", result);
-        return result;
-      } catch (error) {
-        await releaseOnce(claimKey);
-        throw error;
+        try {
+          const result = await runDailyAchievementStreaks(client, mode);
+          logger.info("Achievement streak check completed", { mode, ...result });
+          results[mode] = result;
+        } catch (error) {
+          await releaseOnce(claimKey);
+          throw error;
+        }
       }
+      return results;
     },
     heavyWorkerOpts,
   );

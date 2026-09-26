@@ -140,6 +140,40 @@ export const achievementDescriptionsTr: Record<string, string> = {
   early_bird: "06:00–09:00 İstanbul saatinde kur veya kazan.",
 };
 
+/** Province mode wording for achievements whose country copy does not fit. */
+export const provinceAchievementNamesEn: Record<string, string> = {
+  host_countries: "Province Tour Host",
+  win_countries: "Province Hopper",
+  win_same_country: "Hometown Expert",
+};
+
+export const provinceAchievementDescriptionsEn: Record<string, string> = {
+  host_countries: "Host games in many different provinces.",
+  oneshot_win: "Win with zero unique wrong provinces on the board.",
+  win_countries: "Win games in many different provinces.",
+  win_same_country: "Win the same province many times.",
+};
+
+export const provinceAchievementNamesTr: Record<string, string> = {
+  host_countries: "İl Turu Kurucu",
+  win_countries: "İl Gezgini",
+  win_same_country: "Hemşehri",
+};
+
+export const provinceAchievementDescriptionsTr: Record<string, string> = {
+  host_countries: "Birçok farklı ilde oyun kur.",
+  oneshot_win: "Tahtada hiç benzersiz yanlış il yokken kazan.",
+  win_countries: "Birçok farklı ilde kazan.",
+  win_same_country: "Aynı ilde çok kez kazan.",
+};
+
+export const achievementCopy = (
+  base: Record<string, string>,
+  province: Record<string, string>,
+  id: string,
+  mode?: "country" | "province",
+) => (mode === "province" ? province[id] : undefined) ?? base[id];
+
 export const formatAchievementTier = (achievementId: string, tier: number | null) => {
   if (tier === null || tier === 0) {
     return null;

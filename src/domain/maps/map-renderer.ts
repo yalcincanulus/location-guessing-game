@@ -4,7 +4,7 @@ import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
-import { activeMapTheme } from "./themes.ts";
+import { activeMapTheme, type MapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
 
 type GeometryCollection = {
@@ -19,7 +19,7 @@ type Topology = {
   transform?: unknown;
 };
 
-type Feature = {
+export type Feature = {
   id?: string | number;
   type: "Feature";
   geometry: unknown;
@@ -27,14 +27,14 @@ type Feature = {
 };
 
 const topology = countries50m as Topology;
-const countryFeatures = (
+export const countryFeatures = (
   feature(topology as never, topology.objects.countries as never) as unknown as {
     features: Feature[];
   }
 ).features;
 
 /** JPEG quality 0–100. Flat choropleth fills compress well; 90 stays sharp in Discord. */
-const MAP_JPEG_QUALITY = 90;
+export const MAP_JPEG_QUALITY = 90;
 
 /** Countries whose geometry can appear on a ±360° Mercator tile at the world-view edges. */
 const wrapsAntimeridian = (country: Feature) => {
@@ -132,6 +132,87 @@ const buildProjection = (
 /** Mercator world width in pixels; shift translate by this to tile horizontally across ±180°. */
 const mercatorWorldWidth = (projection: MapProjection) => 2 * Math.PI * projection.scale();
 
+type CanvasContext = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
+
+/** Red crosshair + dot on the exact answer location. */
+export const drawLocationMarker = (
+  context: CanvasContext,
+  projection: MapProjection,
+  marker: MapCoordinates,
+  width: number,
+  height: number,
+  theme: MapTheme,
+) => {
+  const projected = projection([marker.longitude, marker.latitude]);
+  if (!projected) {
+    return;
+  }
+  const [x, y] = projected;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return;
+  }
+  const ui = MAP_RESOLUTION_SCALE;
+  context.strokeStyle = theme.locationCrosshair;
+  context.lineWidth = 1.25 * ui;
+
+  context.beginPath();
+  context.moveTo(0, y);
+  context.lineTo(width, y);
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(x, 0);
+  context.lineTo(x, height);
+  context.stroke();
+
+  const radius = 5.5 * ui;
+  context.fillStyle = theme.locationMarker;
+  context.beginPath();
+  context.arc(x, y, radius, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = "#ffffffcc";
+  context.lineWidth = 1.5 * ui;
+  context.stroke();
+};
+
+/** Bottom-left legend box. */
+export const drawLegend = (
+  context: CanvasContext,
+  theme: MapTheme,
+  legendItems: Array<{ color: string; label: string }>,
+  height: number,
+) => {
+  const ui = MAP_RESOLUTION_SCALE;
+  // DejaVu is installed in the Alpine image; Arial is a host/dev fallback.
+  context.font = `${16 * ui}px "DejaVu Sans", Arial, sans-serif`;
+  const rowHeight = 26 * ui;
+  const paddingX = 16 * ui;
+  const paddingY = 12 * ui;
+  const swatchX = 20 * ui;
+  const textX = 36 * ui;
+  const labelWidth = Math.max(...legendItems.map((item) => context.measureText(item.label).width));
+  const boxWidth = Math.ceil(textX + labelWidth + paddingX);
+  const boxHeight = paddingY * 2 + legendItems.length * rowHeight - 4 * ui;
+  const boxX = 16 * ui;
+  const boxY = height - boxHeight - 16 * ui;
+
+  context.fillStyle = theme.legendBackground;
+  context.beginPath();
+  context.roundRect(boxX, boxY, boxWidth, boxHeight, 6 * ui);
+  context.fill();
+
+  legendItems.forEach((item, index) => {
+    const rowY = boxY + paddingY + index * rowHeight + 8 * ui;
+    context.fillStyle = item.color;
+    context.beginPath();
+    context.arc(boxX + swatchX, rowY, 7 * ui, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = theme.legendText;
+    context.fillText(item.label, boxX + textX, rowY + 5 * ui);
+  });
+};
+
 export const renderMap = ({
   wrongCountries,
   correctCountry,
@@ -190,68 +271,19 @@ export const renderMap = ({
   projection.translate([baseTx, baseTy]);
 
   if (marker) {
-    const projected = projection([marker.longitude, marker.latitude]);
-    if (projected) {
-      const [x, y] = projected;
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        context.strokeStyle = theme.locationCrosshair;
-        context.lineWidth = 1.25 * ui;
-
-        context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(preset.width, y);
-        context.stroke();
-
-        context.beginPath();
-        context.moveTo(x, 0);
-        context.lineTo(x, preset.height);
-        context.stroke();
-
-        const radius = 5.5 * ui;
-        context.fillStyle = theme.locationMarker;
-        context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
-        context.fill();
-
-        context.strokeStyle = "#ffffffcc";
-        context.lineWidth = 1.5 * ui;
-        context.stroke();
-      }
-    }
+    drawLocationMarker(context, projection, marker, preset.width, preset.height, theme);
   }
 
-  // DejaVu is installed in the Alpine image; Arial is a host/dev fallback.
-  context.font = `${16 * ui}px "DejaVu Sans", Arial, sans-serif`;
-  const legendItems = [
-    { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
-    ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
-    ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
-  ];
-  const rowHeight = 26 * ui;
-  const paddingX = 16 * ui;
-  const paddingY = 12 * ui;
-  const swatchX = 20 * ui;
-  const textX = 36 * ui;
-  const labelWidth = Math.max(...legendItems.map((item) => context.measureText(item.label).width));
-  const boxWidth = Math.ceil(textX + labelWidth + paddingX);
-  const boxHeight = paddingY * 2 + legendItems.length * rowHeight - 4 * ui;
-  const boxX = 16 * ui;
-  const boxY = preset.height - boxHeight - 16 * ui;
-
-  context.fillStyle = theme.legendBackground;
-  context.beginPath();
-  context.roundRect(boxX, boxY, boxWidth, boxHeight, 6 * ui);
-  context.fill();
-
-  legendItems.forEach((item, index) => {
-    const rowY = boxY + paddingY + index * rowHeight + 8 * ui;
-    context.fillStyle = item.color;
-    context.beginPath();
-    context.arc(boxX + swatchX, rowY, 7 * ui, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = theme.legendText;
-    context.fillText(item.label, boxX + textX, rowY + 5 * ui);
-  });
+  drawLegend(
+    context,
+    theme,
+    [
+      { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
+      ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
+      ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
+    ],
+    preset.height,
+  );
 
   return {
     buffer: canvas.toBuffer("image/jpeg", MAP_JPEG_QUALITY),

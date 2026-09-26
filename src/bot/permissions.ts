@@ -1,4 +1,4 @@
-import type { GuildMember, Message } from "discord.js";
+import type { GuildMember } from "discord.js";
 import type { GameRules } from "../config/rules.ts";
 
 export const hasVerifiedRole = (member: GuildMember | null, rules: GameRules) => {
@@ -14,6 +14,3 @@ export const hasVerifiedRole = (member: GuildMember | null, rules: GameRules) =>
     (role) => role.name.toLocaleLowerCase("tr") === rules.verifiedRoleName.toLocaleLowerCase("tr"),
   );
 };
-
-export const isConfiguredGameChannel = (message: Message, rules: GameRules) =>
-  !rules.gameChannelId || message.channel.id === rules.gameChannelId;

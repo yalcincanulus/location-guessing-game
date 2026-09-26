@@ -47,8 +47,14 @@ export const rule = snakeCase.table("rule", {
   queueGameStarts: boolean().notNull().default(false),
   /** When false, new games cannot be started. A game already in progress keeps running. */
   gameStartsEnabled: boolean().notNull().default(true),
+  /** Channel for Turkish province games. Province mode is off while this is null. */
+  provinceGameChannelId: text(),
+  /** Same as `gameStartsEnabled`, for province games only. */
+  provinceGameStartsEnabled: boolean().notNull().default(true),
   testModeEnabled: boolean().notNull().default(false),
   testChannelId: text(),
+  /** Test channel for province games. Uses `testModeEnabled` and `testAdminUserIds` too. */
+  provinceTestChannelId: text(),
   testAdminUserIds: jsonb()
     .$type<string[]>()
     .notNull()
@@ -422,6 +428,270 @@ export const playerAchievement = snakeCase.table(
   ],
 );
 
+/*
+ * Turkish province mode. These tables mirror the country tables above so the two
+ * modes never share game rows, stats, awards, or achievements. Province codes are
+ * the two-digit plate codes (`01`–`81`), which match ISO 3166-2:TR.
+ */
+
+export const provinceGame = snakeCase.table(
+  "province_game",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    guildId: uuid().references(() => guild.id),
+    channelId: uuid().references(() => channel.id),
+    gameMasterPlayerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    locationId: uuid()
+      .notNull()
+      .references(() => location.id),
+    targetProvinceCode: varchar({ length: 2 }).notNull(),
+    status: varchar({ length: 32 }).notNull().default("active"),
+    screenshotUrl: text().notNull(),
+    screenshotMessageId: text(),
+    announcementMessageId: text(),
+    startedAt: timestamp().notNull().defaultNow(),
+    endedAt: timestamp(),
+    winnerPlayerId: uuid().references(() => player.id),
+    winningGuessId: uuid(),
+    wrongGuessCount: integer().notNull().default(0),
+    uniqueWrongProvinceCount: integer().notNull().default(0),
+    totalGuessCount: integer().notNull().default(0),
+    repeatGuessCount: integer().notNull().default(0),
+    basePoints: integer().notNull().default(100),
+    currentMultiplierFinal: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
+    gmMultiplierAtStart: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
+    pointsAwarded: integer().notNull().default(0),
+    isTest: boolean().notNull().default(false),
+    /** `dm`, `channel`, or `hybrid`. */
+    startSource: varchar({ length: 16 }),
+    announcedAt: timestamp(),
+    cancelReason: text(),
+    cancelledByPlayerId: uuid().references(() => player.id),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      "province_game_start_source_known",
+      sql`${table.startSource} IS NULL OR ${table.startSource} IN ('dm', 'channel', 'hybrid')`,
+    ),
+  ],
+);
+
+export const provinceGuess = snakeCase.table("province_guess", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  gameId: uuid()
+    .notNull()
+    .references(() => provinceGame.id),
+  playerId: uuid()
+    .notNull()
+    .references(() => player.id),
+  discordMessageId: text().notNull(),
+  rawMessage: text().notNull(),
+  parsedProvinceCode: varchar({ length: 2 }),
+  parsedProvinceName: text(),
+  parserStrategy: text(),
+  isCorrect: boolean().notNull().default(false),
+  isRepeat: boolean().notNull().default(false),
+  isRateLimited: boolean().notNull().default(false),
+  reaction: text(),
+  /** Discord message time, decoded from the snowflake. */
+  sentAt: timestamp(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const provincePlayerGame = snakeCase.table(
+  "province_player_game",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    gameId: uuid()
+      .notNull()
+      .references(() => provinceGame.id),
+    role: varchar({ length: 32 }).notNull().default("player"),
+    guessCount: integer().notNull().default(0),
+    uniqueWrongGuessCount: integer().notNull().default(0),
+    repeatGuessCount: integer().notNull().default(0),
+    firstGuessAt: timestamp(),
+    lastGuessAt: timestamp(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("province_player_game_unique").on(table.playerId, table.gameId, table.role),
+  ],
+);
+
+export const provincePlayerStat = snakeCase.table("province_player_stat", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  playerId: uuid()
+    .notNull()
+    .references(() => player.id)
+    .unique(),
+  gamesStarted: integer().notNull().default(0),
+  gamesParticipated: integer().notNull().default(0),
+  gamesWon: integer().notNull().default(0),
+  totalGuesses: integer().notNull().default(0),
+  correctGuesses: integer().notNull().default(0),
+  wrongGuesses: integer().notNull().default(0),
+  repeatGuesses: integer().notNull().default(0),
+  pointsTotal: integer().notNull().default(0),
+  bestSingleGamePoints: integer().notNull().default(0),
+  currentGmMultiplier: numeric({ precision: 6, scale: 2 }).notNull().default("1.00"),
+  maxGameWrongGuessCountAsGm: integer().notNull().default(0),
+  ...timestamps,
+});
+
+export const provinceStat = snakeCase.table("province_stat", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  provinceCode: varchar({ length: 2 }).notNull().unique(),
+  timesUsedAsTarget: integer().notNull().default(0),
+  timesGuessed: integer().notNull().default(0),
+  timesGuessedWrong: integer().notNull().default(0),
+  timesGuessedCorrect: integer().notNull().default(0),
+  ...timestamps,
+});
+
+export const provinceGameMasterMilestone = snakeCase.table(
+  "province_game_master_milestone",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    milestoneGuessCount: integer().notNull(),
+    gameId: uuid()
+      .notNull()
+      .references(() => provinceGame.id),
+    earnedMultiplierIncrement: numeric({ precision: 6, scale: 2 }).notNull().default("0.10"),
+    earnedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("province_game_master_milestone_unique").on(
+      table.playerId,
+      table.milestoneGuessCount,
+    ),
+  ],
+);
+
+export const provincePointLedger = snakeCase.table("province_point_ledger", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  playerId: uuid()
+    .notNull()
+    .references(() => player.id),
+  gameId: uuid()
+    .notNull()
+    .references(() => provinceGame.id),
+  reason: text().notNull(),
+  basePoints: integer().notNull(),
+  currentMultiplier: numeric({ precision: 6, scale: 2 }).notNull(),
+  gmMultiplier: numeric({ precision: 6, scale: 2 }).notNull(),
+  pointsDelta: integer().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const provinceMultiplierEvent = snakeCase.table("province_multiplier_event", {
+  id: uuid()
+    .primaryKey()
+    .default(sql`uuidv7()`),
+  gameId: uuid()
+    .notNull()
+    .references(() => provinceGame.id),
+  kind: varchar({ length: 32 }).notNull(),
+  previousMultiplier: numeric({ precision: 6, scale: 2 }).notNull(),
+  increment: numeric({ precision: 6, scale: 2 }).notNull(),
+  newMultiplier: numeric({ precision: 6, scale: 2 }).notNull(),
+  messageId: text(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const provinceAwardPeriod = snakeCase.table(
+  "province_award_period",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    periodType: varchar({ length: 32 }).notNull(),
+    periodKey: text().notNull(),
+    startsAt: timestamp().notNull(),
+    endsAt: timestamp().notNull(),
+    announcedAt: timestamp(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("province_award_period_type_key_unique").on(table.periodType, table.periodKey),
+  ],
+);
+
+export const provincePeriodAward = snakeCase.table(
+  "province_period_award",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    awardPeriodId: uuid()
+      .notNull()
+      .references(() => provinceAwardPeriod.id),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    category: varchar({ length: 32 }).notNull(),
+    medal: varchar({ length: 16 }).notNull(),
+    rankValue: integer().notNull(),
+    medalPoints: integer().notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("province_period_award_period_category_player_unique").on(
+      table.awardPeriodId,
+      table.category,
+      table.playerId,
+    ),
+  ],
+);
+
+export const provincePlayerAchievement = snakeCase.table(
+  "province_player_achievement",
+  {
+    id: uuid()
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    playerId: uuid()
+      .notNull()
+      .references(() => player.id),
+    achievementId: text().notNull(),
+    /** Ladder threshold, or `0` for oneshots. */
+    tier: integer().notNull().default(0),
+    earnedAt: timestamp().notNull().defaultNow(),
+    sourceGameId: uuid().references(() => provinceGame.id),
+    meta: jsonb().$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("province_player_achievement_player_id_tier_unique").on(
+      table.playerId,
+      table.achievementId,
+      table.tier,
+    ),
+  ],
+);
+
 export const schema = {
   rule,
   guild,
@@ -443,4 +713,15 @@ export const schema = {
   awardPeriod,
   periodAward,
   playerAchievement,
+  provinceGame,
+  provinceGuess,
+  provincePlayerGame,
+  provincePlayerStat,
+  provinceStat,
+  provinceGameMasterMilestone,
+  provincePointLedger,
+  provinceMultiplierEvent,
+  provinceAwardPeriod,
+  provincePeriodAward,
+  provincePlayerAchievement,
 };

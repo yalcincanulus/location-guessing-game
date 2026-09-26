@@ -29,6 +29,21 @@ export type GameStatsMessageInput = {
   participations: number | string;
 };
 
+export type ProvinceStatsMessageInput = {
+  completedGames: number | string;
+  totalGuesses: number | string;
+  totalPlayers: number | string;
+  distinctProvinces: number | string;
+  topProvinceName: string | null;
+  topProvinceGames: number | string;
+  medianSolveSeconds: number | null;
+  oneshotGames: number | string;
+  hosts: number | string;
+  participations: number | string;
+};
+
+export type MessageGameMode = "country" | "province";
+
 export type AwardPeriodType = "daily" | "weekly" | "monthly" | "seasonal" | "yearly";
 export type AwardCategory = "points" | "wins" | "started" | "hardest";
 
@@ -68,6 +83,7 @@ export type BotMessages = {
   filenames: {
     fallbackScreenshot: string;
     worldGuesses: string;
+    turkeyGuesses: string;
   };
   mapLegend: {
     wrongGuesses: string;
@@ -216,6 +232,7 @@ export type BotMessages = {
       median: string;
       flags: string;
       source: string;
+      mode?: MessageGameMode;
     }) => string;
     playerUsage: string;
     playerSummary: (input: {
@@ -253,6 +270,7 @@ export type BotMessages = {
       median: string;
       winnerWrong: string;
       clockNote: string;
+      mode?: MessageGameMode;
     }) => string;
     gameClockAnnouncement: string;
     gameClockStart: string;
@@ -279,6 +297,7 @@ export type BotMessages = {
       median: string;
       flags: string;
       gameId: string;
+      mode?: MessageGameMode;
     }) => string;
     dismissUsage: string;
     dismissDone: (left: string, right: string) => string;
@@ -320,10 +339,15 @@ export type BotMessages = {
     }) => string;
   };
   achievements: {
-    name: (id: string) => string;
-    description: (id: string) => string;
-    unlockedDm: (id: string, tier: number | null) => string;
-    unlockedChannel: (id: string, tier: number | null, displayName: string) => string;
+    name: (id: string, mode?: MessageGameMode) => string;
+    description: (id: string, mode?: MessageGameMode) => string;
+    unlockedDm: (id: string, tier: number | null, mode?: MessageGameMode) => string;
+    unlockedChannel: (
+      id: string,
+      tier: number | null,
+      displayName: string,
+      mode?: MessageGameMode,
+    ) => string;
     header: string;
     listHeader: string;
     progressLine: (
@@ -332,6 +356,7 @@ export type BotMessages = {
       nextTier: number | null,
       currentValue: number | string,
       streakCurrent?: number,
+      mode?: MessageGameMode,
     ) => string;
     empty: string;
     usage: string;
@@ -359,5 +384,40 @@ export type BotMessages = {
   jobs: {
     multiplierIncreased: (currentMultiplier: number) => string;
     channelIdleReminder: string;
+  };
+  /** Turkish province mode. */
+  province: {
+    /** First line on province stats, standings, and admin output. */
+    label: string;
+    gameStarted: (
+      userId: string,
+      input: { coverageSource: "google" | "third-party" | "unknown" },
+    ) => string;
+    outsideTurkey: (userId: string) => string;
+    unknownProvince: (userId: string) => string;
+    foundProvince: (userId: string, provinceName: string) => string;
+    /** Result details: municipality (belediye), neighbourhood, coordinates, link. */
+    locationDetails: (input: {
+      district?: string;
+      municipality?: string;
+      metropolitanMunicipality?: string;
+      neighbourhood?: string;
+      googleMapsUrl: string;
+      latitude: number;
+      longitude: number;
+    }) => string;
+    chooseModePrompt: string;
+    chooseCountryButton: string;
+    chooseProvinceButton: string;
+    chooseModeChosen: (mode: MessageGameMode) => string;
+    chooseModeExpired: string;
+    chooseModeScreenshotSaved: string;
+    startMovedToProvince: (userId: string) => string;
+    channelNotConfigured: string;
+    channelUnavailable: string;
+    stats: (input: ProvinceStatsMessageInput) => string;
+    helpCommands: string;
+    startsState: (enabled: boolean) => string;
+    startsClosed: (userId: string) => string;
   };
 };

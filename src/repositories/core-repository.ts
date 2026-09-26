@@ -1,6 +1,7 @@
 import type { Guild, GuildBasedChannel, User } from "discord.js";
 import { sqlClient } from "../db/client.ts";
 import { discordSnowflakeToDate } from "../util/discord-snowflake.ts";
+import { tablesFor, type GameMode } from "../domain/game/game-mode.ts";
 
 export type DbPlayer = {
   id: string;
@@ -65,9 +66,9 @@ export const findPlayersByDisplayName = async (displayName: string): Promise<DbP
   }));
 };
 
-export const ensurePlayerStat = async (playerId: string) => {
+export const ensurePlayerStat = async (playerId: string, mode: GameMode = "country") => {
   await sqlClient`
-    INSERT INTO player_stat (player_id)
+    INSERT INTO ${sqlClient(tablesFor(mode).playerStat)} (player_id)
     VALUES (${playerId})
     ON CONFLICT (player_id) DO NOTHING
   `;
@@ -95,7 +96,8 @@ export const upsertChannel = async (channel: GuildBasedChannel, guildId?: string
   return rows[0]?.id as string | undefined;
 };
 
-export const getPlayerProfile = async (discordUserId: string) => {
+export const getPlayerProfile = async (discordUserId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT
       p.display_name,
@@ -115,14 +117,14 @@ export const getPlayerProfile = async (discordUserId: string) => {
       COALESCE(medals.silver, 0)::int AS silver,
       COALESCE(medals.bronze, 0)::int AS bronze
     FROM player p
-    LEFT JOIN player_stat ps ON ps.player_id = p.id
+    LEFT JOIN ${sqlClient(t.playerStat)} ps ON ps.player_id = p.id
     LEFT JOIN LATERAL (
       SELECT
         COALESCE(SUM(pa.medal_points), 0) AS medal_points,
         COUNT(*) FILTER (WHERE pa.medal = 'gold') AS gold,
         COUNT(*) FILTER (WHERE pa.medal = 'silver') AS silver,
         COUNT(*) FILTER (WHERE pa.medal = 'bronze') AS bronze
-      FROM period_award pa
+      FROM ${sqlClient(t.periodAward)} pa
       WHERE pa.player_id = p.id
     ) medals ON true
     WHERE p.discord_user_id = ${discordUserId}
@@ -134,6 +136,7 @@ export const getPlayerProfile = async (discordUserId: string) => {
 export const getLeaderboard = async (
   kind: "points" | "wins" | "started" | "hardest",
   limit = 10,
+  mode: GameMode = "country",
 ) => {
   const orderColumn =
     kind === "points"
@@ -147,7 +150,7 @@ export const getLeaderboard = async (
   return sqlClient.unsafe(
     `
       SELECT p.display_name, p.discord_user_id, ps.${orderColumn} AS value
-      FROM player_stat ps
+      FROM ${tablesFor(mode).playerStat} ps
       JOIN player p ON p.id = ps.player_id
       WHERE ps.${orderColumn} > 0
       ORDER BY ps.${orderColumn} DESC, p.display_name ASC

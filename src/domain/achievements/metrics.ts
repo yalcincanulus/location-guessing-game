@@ -1,6 +1,11 @@
 import { sqlClient } from "../../db/client.ts";
+import { tablesFor, type GameMode } from "../game/game-mode.ts";
 import { getIstanbulParts } from "../awards/periods.ts";
 import { CONTINENTS, continentForCountry, isTerritoryCountry } from "./geography.ts";
+
+/** Country games use the location's country; province games store the plate code on the game. */
+const targetCodeSql = (mode: GameMode) =>
+  mode === "province" ? sqlClient`g.target_province_code` : sqlClient`l.country_code`;
 
 export type StreakInfo = {
   best: number;
@@ -83,7 +88,8 @@ export const computeStreakFromDates = (dates: Date[], now = new Date()): StreakI
   return streakFromSortedUniqueDays(keys, toIstanbulDateKey(now));
 };
 
-export const getPlayerStatSnapshot = async (playerId: string) => {
+export const getPlayerStatSnapshot = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT
       COALESCE(games_started, 0)::int AS games_started,
@@ -93,7 +99,7 @@ export const getPlayerStatSnapshot = async (playerId: string) => {
       COALESCE(points_total, 0)::int AS points_total,
       COALESCE(best_single_game_points, 0)::int AS best_single_game_points,
       COALESCE(max_game_wrong_guess_count_as_gm, 0)::int AS max_game_wrong_guess_count_as_gm
-    FROM player_stat
+    FROM ${sqlClient(t.playerStat)}
     WHERE player_id = ${playerId}
   `;
   const row = rows[0];
@@ -108,22 +114,24 @@ export const getPlayerStatSnapshot = async (playerId: string) => {
   };
 };
 
-export const getGmMilestoneCount = async (playerId: string) => {
+export const getGmMilestoneCount = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COUNT(*)::int AS value
-    FROM game_master_milestone
+    FROM ${sqlClient(t.milestone)}
     WHERE player_id = ${playerId}
   `;
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getMaxHostedCrowd = async (playerId: string) => {
+export const getMaxHostedCrowd = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COALESCE(MAX(crowd), 0)::int AS value
     FROM (
       SELECT COUNT(DISTINCT pg.player_id) AS crowd
-      FROM game g
-      JOIN player_game pg ON pg.game_id = g.id
+      FROM ${sqlClient(t.game)} g
+      JOIN ${sqlClient(t.playerGame)} pg ON pg.game_id = g.id
       WHERE g.game_master_player_id = ${playerId}
         AND g.is_test = false
         AND g.status = 'completed'
@@ -133,10 +141,14 @@ export const getMaxHostedCrowd = async (playerId: string) => {
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getMaxHostedMultiplierHundredths = async (playerId: string) => {
+export const getMaxHostedMultiplierHundredths = async (
+  playerId: string,
+  mode: GameMode = "country",
+) => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COALESCE(MAX(current_multiplier_final), 0) AS value
-    FROM game
+    FROM ${sqlClient(t.game)}
     WHERE game_master_player_id = ${playerId}
       AND is_test = false
       AND status = 'completed'
@@ -144,10 +156,11 @@ export const getMaxHostedMultiplierHundredths = async (playerId: string) => {
   return Math.round(Number(rows[0]?.value ?? 0) * 100);
 };
 
-export const getHostedCountryCount = async (playerId: string) => {
+export const getHostedCountryCount = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
-    SELECT COUNT(DISTINCT l.country_code)::int AS value
-    FROM game g
+    SELECT COUNT(DISTINCT ${targetCodeSql(mode)})::int AS value
+    FROM ${sqlClient(t.game)} g
     JOIN location l ON l.id = g.location_id
     WHERE g.game_master_player_id = ${playerId}
       AND g.is_test = false
@@ -155,21 +168,23 @@ export const getHostedCountryCount = async (playerId: string) => {
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getHostStartDates = async (playerId: string) => {
+export const getHostStartDates = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT started_at
-    FROM game
+    FROM ${sqlClient(t.game)}
     WHERE game_master_player_id = ${playerId}
       AND is_test = false
   `;
   return rows.map((row) => new Date(row.started_at as string | Date));
 };
 
-export const getParticipationDates = async (playerId: string) => {
+export const getParticipationDates = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COALESCE(pg.first_guess_at, g.started_at) AS activity_at
-    FROM player_game pg
-    JOIN game g ON g.id = pg.game_id
+    FROM ${sqlClient(t.playerGame)} pg
+    JOIN ${sqlClient(t.game)} g ON g.id = pg.game_id
     WHERE pg.player_id = ${playerId}
       AND pg.role = 'player'
       AND g.is_test = false
@@ -177,17 +192,28 @@ export const getParticipationDates = async (playerId: string) => {
   return rows.map((row) => new Date(row.activity_at as string | Date));
 };
 
-export const getHostStreak = async (playerId: string, now = new Date()) =>
-  computeStreakFromDates(await getHostStartDates(playerId), now);
+export const getHostStreak = async (
+  playerId: string,
+  now = new Date(),
+  mode: GameMode = "country",
+) => computeStreakFromDates(await getHostStartDates(playerId, mode), now);
 
-export const getPlayStreak = async (playerId: string, now = new Date()) =>
-  computeStreakFromDates(await getParticipationDates(playerId), now);
+export const getPlayStreak = async (
+  playerId: string,
+  now = new Date(),
+  mode: GameMode = "country",
+) => computeStreakFromDates(await getParticipationDates(playerId, mode), now);
 
-export const getGoldMedalCount = async (playerId: string, periodType: string) => {
+export const getGoldMedalCount = async (
+  playerId: string,
+  periodType: string,
+  mode: GameMode = "country",
+) => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COUNT(*)::int AS value
-    FROM period_award pa
-    JOIN award_period ap ON ap.id = pa.award_period_id
+    FROM ${sqlClient(t.periodAward)} pa
+    JOIN ${sqlClient(t.awardPeriod)} ap ON ap.id = pa.award_period_id
     WHERE pa.player_id = ${playerId}
       AND pa.medal = 'gold'
       AND ap.period_type = ${periodType}
@@ -195,10 +221,11 @@ export const getGoldMedalCount = async (playerId: string, periodType: string) =>
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getWonCountryCodes = async (playerId: string) => {
+export const getWonCountryCodes = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
-    SELECT DISTINCT l.country_code
-    FROM game g
+    SELECT DISTINCT ${targetCodeSql(mode)} AS country_code
+    FROM ${sqlClient(t.game)} g
     JOIN location l ON l.id = g.location_id
     WHERE g.winner_player_id = ${playerId}
       AND g.is_test = false
@@ -207,15 +234,16 @@ export const getWonCountryCodes = async (playerId: string) => {
   return rows.map((row) => String(row.country_code));
 };
 
-export const getMaxWinsSameCountry = async (playerId: string) => {
+export const getMaxWinsSameCountry = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
-    SELECT l.country_code, COUNT(*)::int AS wins
-    FROM game g
+    SELECT ${targetCodeSql(mode)} AS country_code, COUNT(*)::int AS wins
+    FROM ${sqlClient(t.game)} g
     JOIN location l ON l.id = g.location_id
     WHERE g.winner_player_id = ${playerId}
       AND g.is_test = false
       AND g.status = 'completed'
-    GROUP BY l.country_code
+    GROUP BY 1
     ORDER BY wins DESC
     LIMIT 1
   `;
@@ -236,10 +264,11 @@ export const hasContinentTour = async (playerId: string) => {
   return CONTINENTS.every((continent) => found.has(continent));
 };
 
-export const getClutchWinMax = async (playerId: string) => {
+export const getClutchWinMax = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
-    SELECT COALESCE(MAX(unique_wrong_country_count), 0)::int AS value
-    FROM game
+    SELECT COALESCE(MAX(${sqlClient(t.uniqueWrongColumn)}), 0)::int AS value
+    FROM ${sqlClient(t.game)}
     WHERE winner_player_id = ${playerId}
       AND is_test = false
       AND status = 'completed'
@@ -247,11 +276,12 @@ export const getClutchWinMax = async (playerId: string) => {
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getComebackWinMax = async (playerId: string) => {
+export const getComebackWinMax = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COALESCE(MAX(pg.unique_wrong_guess_count), 0)::int AS value
-    FROM player_game pg
-    JOIN game g ON g.id = pg.game_id
+    FROM ${sqlClient(t.playerGame)} pg
+    JOIN ${sqlClient(t.game)} g ON g.id = pg.game_id
     WHERE pg.player_id = ${playerId}
       AND pg.role = 'player'
       AND g.winner_player_id = ${playerId}
@@ -261,18 +291,19 @@ export const getComebackWinMax = async (playerId: string) => {
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getFirstBloodCount = async (playerId: string) => {
+export const getFirstBloodCount = async (playerId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT COUNT(*)::int AS value
     FROM (
       SELECT g.id
-      FROM game g
+      FROM ${sqlClient(t.game)} g
       WHERE g.is_test = false
         AND g.status = 'completed'
-        AND g.unique_wrong_country_count >= 50
+        AND g.${sqlClient(t.uniqueWrongColumn)} >= 50
         AND (
           SELECT gu.player_id
-          FROM guess gu
+          FROM ${sqlClient(t.guess)} gu
           WHERE gu.game_id = g.id
             AND gu.is_correct = false
             AND gu.is_repeat = false
@@ -285,13 +316,18 @@ export const getFirstBloodCount = async (playerId: string) => {
   return Number(rows[0]?.value ?? 0);
 };
 
-export const wasPatientZero = async (playerId: string, gameId: string) => {
+export const wasPatientZero = async (
+  playerId: string,
+  gameId: string,
+  mode: GameMode = "country",
+) => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT
-      g.unique_wrong_country_count,
+      g.${sqlClient(t.uniqueWrongColumn)} AS unique_wrong_country_count,
       (
         SELECT gu.player_id
-        FROM guess gu
+        FROM ${sqlClient(t.guess)} gu
         WHERE gu.game_id = g.id
           AND gu.is_correct = false
           AND gu.is_repeat = false
@@ -299,7 +335,7 @@ export const wasPatientZero = async (playerId: string, gameId: string) => {
         ORDER BY gu.created_at ASC
         LIMIT 1
       ) AS first_wrong_player_id
-    FROM game g
+    FROM ${sqlClient(t.game)} g
     WHERE g.id = ${gameId}
       AND g.is_test = false
       AND g.status = 'completed'
@@ -310,10 +346,11 @@ export const wasPatientZero = async (playerId: string, gameId: string) => {
   );
 };
 
-export const getGameParticipantIds = async (gameId: string) => {
+export const getGameParticipantIds = async (gameId: string, mode: GameMode = "country") => {
+  const t = tablesFor(mode);
   const rows = await sqlClient`
     SELECT DISTINCT player_id
-    FROM player_game
+    FROM ${sqlClient(t.playerGame)}
     WHERE game_id = ${gameId}
   `;
   return rows.map((row) => String(row.player_id));

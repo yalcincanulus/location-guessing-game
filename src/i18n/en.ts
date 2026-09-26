@@ -1,8 +1,11 @@
 import type { BotMessages } from "./types.ts";
 import {
+  achievementCopy,
   achievementDescriptionsEn,
   achievementNamesEn,
   formatAchievementTier,
+  provinceAchievementDescriptionsEn,
+  provinceAchievementNamesEn,
 } from "./achievement-copy.ts";
 import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
@@ -11,6 +14,7 @@ export const enMessages = {
   filenames: {
     fallbackScreenshot: "screenshot.png",
     worldGuesses: "world-guesses.jpg",
+    turkeyGuesses: "turkey-guesses.jpg",
   },
   mapLegend: {
     wrongGuesses: "Wrong guesses",
@@ -245,6 +249,7 @@ export const enMessages = {
       "`!admin game <id>` — guess timeline for one game (DM)",
       "`!admin fast <seconds>` — wins at or under this solve time (DM)",
       "`!admin dismiss pair <player> <player>` — hide that pair from the review list (DM)",
+      "Province games: put `il` after `!admin` to use the province channel and province stats. Works with `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `game`, and `fast`. Example: `!admin il status`.",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -365,8 +370,9 @@ export const enMessages = {
       median,
       flags,
       source,
+      mode,
     }) =>
-      `\`${gameId}\` ${when} — host **${gmName}**, winner **${winnerName}**, ${countryCode}, solve ${solve} (country median ${median}), ${flags}, start ${source}.`,
+      `\`${gameId}\` ${when} — host **${gmName}**, winner **${winnerName}**, ${countryCode}, solve ${solve} (${mode === "province" ? "province" : "country"} median ${median}), ${flags}, start ${source}.`,
     playerUsage: "Usage: `!admin player <player>` — mention, Discord id, or display name.",
     playerSummary: ({
       name,
@@ -406,13 +412,14 @@ export const enMessages = {
       median,
       winnerWrong,
       clockNote,
+      mode,
     }) =>
       [
         `Game \`${id}\` (${status}, start ${source})`,
         `Host **${gmName}** (\`${gmDiscordUserId}\`)`,
         `Winner: ${winner}`,
-        `Country: **${country}**`,
-        `Solve ${solve} (country median ${median}). Winner's unique wrong guesses: **${winnerWrong}**.`,
+        mode === "province" ? `Province: **${country}**` : `Country: **${country}**`,
+        `Solve ${solve} (${mode === "province" ? "province" : "country"} median ${median}). Winner's unique wrong guesses: **${winnerWrong}**.`,
         clockNote,
       ].join("\n"),
     gameClockAnnouncement: "Times are measured from the announcement.",
@@ -507,15 +514,17 @@ export const enMessages = {
       `**Feedback ${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`,
   },
   achievements: {
-    name: (id) => achievementNamesEn[id] ?? id,
-    description: (id) => achievementDescriptionsEn[id] ?? "",
-    unlockedDm: (id, tier) => {
-      const name = achievementNamesEn[id] ?? id;
+    name: (id, mode) =>
+      achievementCopy(achievementNamesEn, provinceAchievementNamesEn, id, mode) ?? id,
+    description: (id, mode) =>
+      achievementCopy(achievementDescriptionsEn, provinceAchievementDescriptionsEn, id, mode) ?? "",
+    unlockedDm: (id, tier, mode) => {
+      const name = achievementCopy(achievementNamesEn, provinceAchievementNamesEn, id, mode) ?? id;
       const tierLabel = formatAchievementTier(id, tier);
       return tierLabel ? `Unlocked: **${name}** (${tierLabel})` : `Unlocked: **${name}**`;
     },
-    unlockedChannel: (id, tier, displayName) => {
-      const name = achievementNamesEn[id] ?? id;
+    unlockedChannel: (id, tier, displayName, mode) => {
+      const name = achievementCopy(achievementNamesEn, provinceAchievementNamesEn, id, mode) ?? id;
       const tierLabel = formatAchievementTier(id, tier);
       return tierLabel
         ? `Achievement unlocked: **${name}** (${tierLabel}) — ${displayName}`
@@ -523,8 +532,8 @@ export const enMessages = {
     },
     header: "**Your achievements**",
     listHeader: "**Achievement catalog**",
-    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent) => {
-      const name = achievementNamesEn[id] ?? id;
+    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent, mode) => {
+      const name = achievementCopy(achievementNamesEn, provinceAchievementNamesEn, id, mode) ?? id;
       const earned = earnedTiers.length > 0 ? earnedTiers.map(String).join(",") : "—";
       const next =
         nextTier === null ? "max" : (formatAchievementTier(id, nextTier) ?? String(nextTier));
@@ -559,5 +568,89 @@ export const enMessages = {
       `Current multiplier increased to **${currentMultiplier.toFixed(2)}x**.`,
     channelIdleReminder:
       "No game has started in the last hour. Start one by posting a **Google Maps link** and a **screenshot** in this channel, or by DMing the bot.",
+  },
+  province: {
+    label: "🇹🇷 **Province game**",
+    gameStarted: (userId, { coverageSource }) =>
+      [
+        `<@${userId}> started a new province game. Guess the province by typing its name or plate code (for example \`Ankara\` or \`06\`).`,
+        coverageSource === "google"
+          ? "**Coverage:** Official Google Street View"
+          : coverageSource === "third-party"
+            ? "**Coverage:** Third-party / photosphere"
+            : "**Coverage:** Unknown (could not tell from the link)",
+      ].join("\n"),
+    outsideTurkey: (userId) =>
+      `<@${userId}> this location is not in Türkiye. Province games need a location inside one of Türkiye's 81 provinces.`,
+    unknownProvince: (userId) =>
+      `<@${userId}> I could not tell which province this location is in. Please choose a different location.`,
+    foundProvince: (userId, provinceName) =>
+      `<@${userId}> found the province: **${provinceName}**.`,
+    locationDetails: ({
+      district,
+      municipality,
+      metropolitanMunicipality,
+      neighbourhood,
+      googleMapsUrl,
+      latitude,
+      longitude,
+    }) =>
+      [
+        municipality
+          ? `Municipality: **${municipality}**${district === "Merkez" ? " (central district)" : ""}`
+          : undefined,
+        metropolitanMunicipality ? `Metropolitan: **${metropolitanMunicipality}**` : undefined,
+        neighbourhood ? `Neighbourhood/village: **${neighbourhood}**` : undefined,
+        `Coordinates: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+        `Maps: ${googleMapsUrl}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    chooseModePrompt: "This location is in Türkiye. Which game do you want to start?",
+    chooseCountryButton: "Start Country Game 🌍",
+    chooseProvinceButton: "Start Province Game 🇹🇷",
+    chooseModeChosen: (mode) =>
+      mode === "province" ? "Starting a **province game** 🇹🇷." : "Starting a **country game** 🌍.",
+    chooseModeExpired: "This choice has expired. Send the Google Maps link again.",
+    chooseModeScreenshotSaved: "Got the screenshot. Pick a game type with the buttons above.",
+    startMovedToProvince: (userId) =>
+      `<@${userId}> started a province game instead. A new game can be started here.`,
+    channelNotConfigured: "The province game channel is not configured.",
+    channelUnavailable: "The configured province game channel is not available.",
+    stats: ({
+      completedGames,
+      totalGuesses,
+      totalPlayers,
+      distinctProvinces,
+      topProvinceName,
+      topProvinceGames,
+      medianSolveSeconds,
+      oneshotGames,
+      hosts,
+      participations,
+    }) =>
+      [
+        "🇹🇷 **Province game**",
+        `Completed games: **${completedGames}**`,
+        `Total guesses: **${totalGuesses}**`,
+        `Total players: **${totalPlayers}**`,
+        `Guesses per game: **${formatPerGame(totalGuesses, completedGames, "en")}**`,
+        `Distinct provinces: **${distinctProvinces}** / 81`,
+        topProvinceName == null
+          ? "Most common province: **—**"
+          : `Most common province: **${topProvinceName}** (${topProvinceGames})`,
+        `Median time: **${formatMedianDuration(medianSolveSeconds, "en")}**`,
+        `Solved on the first guess: **${oneshotGames}**`,
+        `Hosts: **${hosts}**`,
+        `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
+      ].join("\n"),
+    helpCommands:
+      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`. Guess with a province name or plate code. In other channels, add `il` to see province stats (for example `!profile il`).",
+    startsState: (enabled) =>
+      enabled
+        ? "New province game starts are **open**."
+        : "New province game starts are **closed**. A game already in progress keeps running.",
+    startsClosed: (userId) =>
+      `<@${userId}> new province game starts are closed. A game already in progress keeps running.`,
   },
 } satisfies BotMessages;

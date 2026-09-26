@@ -6,6 +6,7 @@ import { isChannelNotable, ONESHOT_TIER } from "./catalog.ts";
 import type { ProposedUnlock } from "./evaluate.ts";
 import { insertUnlocks, type StoredUnlock } from "../../repositories/achievements-repository.ts";
 import { getPlayerDiscordUserId } from "./metrics.ts";
+import { gameChannelIdFor, type GameMode } from "../game/game-mode.ts";
 
 /** Set to true to DM players when they unlock achievements. */
 export const SEND_ACHIEVEMENT_UNLOCK_DMS = false;
@@ -25,8 +26,9 @@ const dmUser = async (client: Client, discordUserId: string, content: string) =>
 export const persistAndAnnounceUnlocks = async (
   client: Client,
   proposed: ProposedUnlock[],
-  options: { announceChannel: boolean } = { announceChannel: true },
+  options: { announceChannel: boolean; mode?: GameMode } = { announceChannel: true },
 ) => {
+  const mode = options.mode ?? "country";
   if (proposed.length === 0) {
     return [] as StoredUnlock[];
   }
@@ -39,6 +41,7 @@ export const persistAndAnnounceUnlocks = async (
       sourceGameId: unlock.sourceGameId,
       meta: unlock.meta,
     })),
+    mode,
   );
 
   if (inserted.length === 0) {
@@ -81,6 +84,7 @@ export const persistAndAnnounceUnlocks = async (
         messages.achievements.unlockedDm(
           unlock.achievementId,
           unlock.tier === ONESHOT_TIER ? null : unlock.tier,
+          mode,
         ),
       );
       if (dmLines.length > 0) {
@@ -96,6 +100,7 @@ export const persistAndAnnounceUnlocks = async (
               unlock.achievementId,
               unlock.tier === ONESHOT_TIER ? null : unlock.tier,
               bucket.displayName,
+              mode,
             ),
           );
         }
@@ -109,8 +114,9 @@ export const persistAndAnnounceUnlocks = async (
     channelLines.length > 0
   ) {
     const rules = await loadRules();
-    if (rules.gameChannelId) {
-      const channel = await client.channels.fetch(rules.gameChannelId).catch(() => null);
+    const channelId = gameChannelIdFor(rules, mode);
+    if (channelId) {
+      const channel = await client.channels.fetch(channelId).catch(() => null);
       if (channel?.isSendable()) {
         // Discord 2000 char limit — chunk if needed
         let chunk = "";

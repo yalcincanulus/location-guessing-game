@@ -1,0 +1,1 @@
+ALTER TABLE "rule" ADD COLUMN "province_test_channel_id" text;

@@ -1,5 +1,12 @@
-import type { Attachment, Client, GuildBasedChannel, Message, User } from "discord.js";
-import { AttachmentBuilder } from "discord.js";
+import type {
+  Attachment,
+  ButtonInteraction,
+  Client,
+  GuildBasedChannel,
+  Message,
+  User,
+} from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { loadRules } from "../../config/rules.ts";
 import {
   findGoogleMapsUrl,
@@ -8,8 +15,18 @@ import {
 import {
   startGame,
   handleGuess,
+  LocationOutsideTurkeyError,
+  UnknownProvinceError,
   UntrustedReverseGeocodeCountryError,
 } from "../../domain/game/game-service.ts";
+import {
+  gameChannelIdFor,
+  gameStartsEnabledFor,
+  modeForChannel,
+  tablesFor,
+  type GameMode,
+} from "../../domain/game/game-mode.ts";
+import { reverseGeocode } from "../../domain/geocoding/nominatim-client.ts";
 import { onGameStarted } from "../../domain/achievements/hooks.ts";
 import { isOfficiallyCovered } from "../../domain/countries/official-coverage.ts";
 import { getActiveGameState, updateGameState } from "../../domain/game/active-game-state.ts";
@@ -21,7 +38,7 @@ import {
   updateStartReservation,
   type StartReservationMissing,
 } from "../../domain/game/start-reservation.ts";
-import { hasVerifiedRole, isConfiguredGameChannel } from "../permissions.ts";
+import { hasVerifiedRole } from "../permissions.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import {
@@ -58,6 +75,16 @@ type CapturedScreenshot = {
   name: string;
   buffer: Buffer;
 };
+
+/** A DM start in Türkiye that waits for the player to pick country or province mode. */
+type StartModeChoice = {
+  id: string;
+  googleMapsUrl: string;
+  screenshotUrl?: string;
+  screenshotName?: string;
+};
+
+const START_MODE_BUTTON_PREFIX = "start-mode";
 
 const isImageAttachment = (attachment: Attachment) =>
   Boolean(
@@ -157,11 +184,13 @@ const completeStartIfReady = async ({
   pendingKey,
   pending,
   gameChannel,
+  mode,
 }: {
   author: User;
   pendingKey: string;
   pending: PendingStart;
   gameChannel: GuildBasedChannel;
+  mode: GameMode;
 }) => {
   if (!pending.googleMapsUrl || !pending.screenshotUrl) {
     return false;
@@ -215,8 +244,22 @@ const completeStartIfReady = async ({
       location: parsedLocation,
       screenshotUrl: pending.screenshotUrl,
       startSource: resolveStartSource(pending.linkSource, pending.screenshotSource),
+      mode,
     });
   } catch (error) {
+    if (error instanceof LocationOutsideTurkeyError || error instanceof UnknownProvinceError) {
+      await sendToGameChannel(
+        gameChannel,
+        error instanceof LocationOutsideTurkeyError
+          ? messages.province.outsideTurkey(author.id)
+          : messages.province.unknownProvince(author.id),
+      );
+      await clearPendingStart(pendingKey);
+      await clearStartReservation(gameChannel.guild.id, gameChannel.id);
+      await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
+      return true;
+    }
+
     if (error instanceof UntrustedReverseGeocodeCountryError) {
       await dmUser(author, messages.start.untrustedLocation);
       await clearPendingStart(pendingKey);
@@ -242,10 +285,15 @@ const completeStartIfReady = async ({
 
   if (gameChannel.isSendable()) {
     const announcement = await gameChannel.send({
-      content: messages.start.gameStarted(author.id, {
-        inTheGame: isOfficiallyCovered(started.state.targetCountryCode),
-        coverageSource: parsedLocation.coverageSource,
-      }),
+      content:
+        mode === "province"
+          ? messages.province.gameStarted(author.id, {
+              coverageSource: parsedLocation.coverageSource,
+            })
+          : messages.start.gameStarted(author.id, {
+              inTheGame: isOfficiallyCovered(started.state.targetCountryCode),
+              coverageSource: parsedLocation.coverageSource,
+            }),
       files: [new AttachmentBuilder(screenshotBuffer, { name: screenshotName })],
     });
 
@@ -256,7 +304,7 @@ const completeStartIfReady = async ({
       await updateGameState(started.state);
     }
     await sqlClient`
-      UPDATE game
+      UPDATE ${sqlClient(tablesFor(mode).game)}
       SET
         screenshot_url = COALESCE(${durableScreenshotUrl ?? null}, screenshot_url),
         screenshot_message_id = ${announcement.id},
@@ -271,6 +319,7 @@ const completeStartIfReady = async ({
 
   if (!started.state.isTest) {
     await onGameStarted(author.client, {
+      mode,
       playerId: started.state.gameMasterPlayerId,
       gameId: started.state.gameId,
       countryCode: started.state.targetCountryCode,
@@ -286,24 +335,29 @@ const processStartAttempt = async ({
   gameChannel,
   googleMapsUrl,
   attachment,
+  screenshot: capturedScreenshot,
   deleteMessage,
   source,
+  mode,
 }: {
   author: User;
   gameChannel: GuildBasedChannel;
   googleMapsUrl?: string;
   attachment?: Attachment;
+  /** Already downloaded screenshot (DM mode choice). Used instead of `attachment`. */
+  screenshot?: CapturedScreenshot;
   deleteMessage?: Message;
   source: StartPartSource;
+  mode: GameMode;
 }) => {
   const rules = await loadRules();
   const ttlSeconds = rules.startReservationSeconds;
   const guildId = gameChannel.guild.id;
   const channelId = gameChannel.id;
-  const pendingKey = keys.pendingStart(guildId, author.id);
-  const hasBothParts = Boolean(googleMapsUrl && attachment);
+  const pendingKey = keys.pendingStart(guildId, author.id, mode);
+  const hasBothParts = Boolean(googleMapsUrl && (attachment || capturedScreenshot));
 
-  if (!rules.gameStartsEnabled) {
+  if (!gameStartsEnabledFor(rules, mode)) {
     if (deleteMessage) {
       await deleteMessage.delete().catch(() => undefined);
     }
@@ -313,7 +367,10 @@ const processStartAttempt = async ({
       await clearStartReservation(guildId, channelId);
       await cancelStartReservationExpiry(guildId, channelId);
     }
-    const notice = messages.start.startsClosed(author.id);
+    const notice =
+      mode === "province"
+        ? messages.province.startsClosed(author.id)
+        : messages.start.startsClosed(author.id);
     if (deleteMessage) {
       await sendToGameChannel(gameChannel, notice);
     } else {
@@ -367,18 +424,21 @@ const processStartAttempt = async ({
         gameChannel,
         googleMapsUrl,
         source,
+        mode,
       });
     }
   };
 
-  let screenshot: CapturedScreenshot | undefined;
-  if (attachment) {
+  let screenshot = capturedScreenshot;
+  if (!screenshot && attachment) {
     screenshot = await downloadScreenshot(attachment);
     if (!screenshot) {
       await rejectUnusableScreenshot();
       return;
     }
+  }
 
+  if (screenshot) {
     nextPending.screenshotUrl = screenshot.url;
     nextPending.screenshotName = screenshot.name;
     nextPending.screenshotSource = source;
@@ -417,6 +477,7 @@ const processStartAttempt = async ({
     pendingKey,
     pending: nextPending,
     gameChannel,
+    mode,
   });
   if (completed) {
     return;
@@ -471,18 +532,291 @@ const handleDmStart = async (client: Client, message: Message) => {
     return;
   }
 
+  if (await offerStartModeChoice(message, googleMapsUrl ?? undefined, attachment)) {
+    return;
+  }
+
+  // A screenshot for a province start that already has its link goes to the province channel.
+  if (!googleMapsUrl && attachment) {
+    const provinceChannel = await pendingProvinceChannel(client, message.author.id);
+    if (provinceChannel) {
+      await processStartAttempt({
+        author: message.author,
+        gameChannel: provinceChannel,
+        attachment,
+        source: "dm",
+        mode: "province",
+      });
+      return;
+    }
+  }
+
   await processStartAttempt({
     author: message.author,
     gameChannel: channel,
     googleMapsUrl: googleMapsUrl ?? undefined,
     attachment,
     source: "dm",
+    mode: "country",
   });
+};
+
+const getStartModeChoice = async (userId: string) => {
+  const raw = await redis.get(keys.startModeChoice(userId));
+  return raw ? (JSON.parse(raw) as StartModeChoice) : undefined;
+};
+
+const saveStartModeChoice = async (
+  userId: string,
+  choice: StartModeChoice,
+  screenshot: CapturedScreenshot | undefined,
+  ttlSeconds: number,
+) => {
+  await redis.set(keys.startModeChoice(userId), JSON.stringify(choice), "EX", ttlSeconds);
+  if (screenshot) {
+    await redis.set(keys.startModeChoiceScreenshot(userId), screenshot.buffer, "EX", ttlSeconds);
+  } else if (choice.screenshotUrl) {
+    await redis.expire(keys.startModeChoiceScreenshot(userId), ttlSeconds);
+  } else {
+    await redis.del(keys.startModeChoiceScreenshot(userId));
+  }
+};
+
+/** Removes the choice and returns its screenshot, if it has one. */
+const takeStartModeChoiceScreenshot = async (
+  userId: string,
+  choice: StartModeChoice,
+): Promise<CapturedScreenshot | undefined> => {
+  const buffer = await redis.getBuffer(keys.startModeChoiceScreenshot(userId));
+  await redis.del(keys.startModeChoice(userId), keys.startModeChoiceScreenshot(userId));
+  if (!buffer || !choice.screenshotUrl) {
+    return undefined;
+  }
+  return {
+    url: choice.screenshotUrl,
+    name: choice.screenshotName || messages.filenames.fallbackScreenshot,
+    buffer: Buffer.from(buffer),
+  };
+};
+
+const isInTurkey = async (googleMapsUrl: string) => {
+  try {
+    const parsed = await parseGoogleMapsUrl(googleMapsUrl);
+    if (!parsed) {
+      return false;
+    }
+    // Turkish, like province games, so a province start reuses this cached answer.
+    const geocode = await reverseGeocode(parsed.latitude, parsed.longitude, "tr");
+    return geocode.countryCode === "TR";
+  } catch (error) {
+    // The normal country start reports parse and geocode errors.
+    logger.warn("Could not check the DM start location for Türkiye", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+};
+
+/**
+ * DM starts in Türkiye can be a country game or a province game. Ask with buttons
+ * and hold the link (and screenshot) until the player picks. Returns true when the
+ * message was handled here.
+ */
+const offerStartModeChoice = async (
+  message: Message,
+  googleMapsUrl: string | undefined,
+  attachment: Attachment | undefined,
+) => {
+  const rules = await loadRules();
+  const author = message.author;
+  const ttlSeconds = rules.pendingStartTtlSeconds;
+  const existing = await getStartModeChoice(author.id);
+
+  let screenshot: CapturedScreenshot | undefined;
+  const captureScreenshot = async () => {
+    if (!attachment) {
+      return;
+    }
+    screenshot = await downloadScreenshot(attachment);
+    if (!screenshot) {
+      await dmUser(author, messages.start.screenshotTooLarge(author.id, MAX_SCREENSHOT_MB));
+    }
+  };
+
+  if (!googleMapsUrl) {
+    // A screenshot while the choice is still open belongs to that choice.
+    if (!existing || !attachment) {
+      return false;
+    }
+    await captureScreenshot();
+    if (screenshot) {
+      await saveStartModeChoice(
+        author.id,
+        { ...existing, screenshotUrl: screenshot.url, screenshotName: screenshot.name },
+        screenshot,
+        ttlSeconds,
+      );
+      await message.reply(messages.province.chooseModeScreenshotSaved);
+    }
+    return true;
+  }
+
+  if (
+    !rules.provinceGameChannelId ||
+    !rules.provinceGameStartsEnabled ||
+    !(await isInTurkey(googleMapsUrl))
+  ) {
+    // A new link outside Türkiye replaces any open choice.
+    if (existing) {
+      await redis.del(keys.startModeChoice(author.id), keys.startModeChoiceScreenshot(author.id));
+    }
+    return false;
+  }
+
+  await captureScreenshot();
+  // A new link replaces an open choice. Keep its screenshot if this message has none.
+  const keepScreenshot = !screenshot && existing?.screenshotUrl;
+  const choice: StartModeChoice = {
+    id: crypto.randomUUID().slice(0, 8),
+    googleMapsUrl,
+    screenshotUrl: screenshot?.url ?? (keepScreenshot ? existing.screenshotUrl : undefined),
+    screenshotName: screenshot?.name ?? (keepScreenshot ? existing.screenshotName : undefined),
+  };
+  await saveStartModeChoice(author.id, choice, screenshot, ttlSeconds);
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${START_MODE_BUTTON_PREFIX}:country:${choice.id}`)
+      .setLabel(messages.province.chooseCountryButton)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`${START_MODE_BUTTON_PREFIX}:province:${choice.id}`)
+      .setLabel(messages.province.chooseProvinceButton)
+      .setStyle(ButtonStyle.Success),
+  );
+  await message.reply({ content: messages.province.chooseModePrompt, components: [buttons] });
+  return true;
+};
+
+/** Province channel when the player has a province start that still waits for a screenshot. */
+const pendingProvinceChannel = async (client: Client, userId: string) => {
+  const rules = await loadRules();
+  if (!rules.provinceGameChannelId) {
+    return null;
+  }
+  const channel = await resolveGameChannel(client, rules.provinceGameChannelId);
+  if (!channel) {
+    return null;
+  }
+  const pending = await getPending(keys.pendingStart(channel.guild.id, userId, "province"));
+  return pending.googleMapsUrl ? channel : null;
+};
+
+/**
+ * A player who sent the screenshot first already holds the country channel.
+ * When they pick province mode, take that screenshot and free the country channel.
+ */
+const moveCountryScreenshotToProvince = async (
+  client: Client,
+  user: User,
+): Promise<CapturedScreenshot | undefined> => {
+  const rules = await loadRules();
+  if (!rules.gameChannelId) {
+    return undefined;
+  }
+  const countryChannel = await resolveGameChannel(client, rules.gameChannelId);
+  if (!countryChannel) {
+    return undefined;
+  }
+
+  const guildId = countryChannel.guild.id;
+  const pendingKey = keys.pendingStart(guildId, user.id);
+  const pending = await getPending(pendingKey);
+  if (!pending.screenshotUrl || pending.googleMapsUrl) {
+    return undefined;
+  }
+  const buffer = await loadPendingScreenshot(pendingKey);
+  if (!buffer) {
+    return undefined;
+  }
+
+  await clearPendingStart(pendingKey);
+  const reservation = await getStartReservation(guildId, countryChannel.id);
+  if (reservation?.userId === user.id) {
+    await clearStartReservation(guildId, countryChannel.id);
+    await cancelStartReservationExpiry(guildId, countryChannel.id);
+    await sendToGameChannel(countryChannel, messages.province.startMovedToProvince(user.id));
+  }
+
+  return {
+    url: pending.screenshotUrl,
+    name: pending.screenshotName || messages.filenames.fallbackScreenshot,
+    buffer,
+  };
+};
+
+/** Handles the country / province buttons from a DM start. Returns false for other buttons. */
+export const handleStartModeButton = async (interaction: ButtonInteraction) => {
+  const [prefix, modeValue, choiceId] = interaction.customId.split(":");
+  if (prefix !== START_MODE_BUTTON_PREFIX) {
+    return false;
+  }
+  const mode: GameMode = modeValue === "province" ? "province" : "country";
+  const user = interaction.user;
+
+  const choice = await getStartModeChoice(user.id);
+  if (!choice || choice.id !== choiceId) {
+    await interaction
+      .update({ content: messages.province.chooseModeExpired, components: [] })
+      .catch(() => undefined);
+    return true;
+  }
+
+  const choiceScreenshot = await takeStartModeChoiceScreenshot(user.id, choice);
+  await interaction.update({
+    content: `${messages.province.chooseModePrompt}\n${messages.province.chooseModeChosen(mode)}`,
+    components: [],
+  });
+
+  const rules = await loadRules();
+  const channelId = gameChannelIdFor(rules, mode);
+  const channel = channelId ? await resolveGameChannel(interaction.client, channelId) : null;
+  if (!channel) {
+    await interaction.followUp(
+      mode === "province"
+        ? messages.province.channelUnavailable
+        : messages.start.configuredGameChannelUnavailable,
+    );
+    return true;
+  }
+
+  const member = await channel.guild.members.fetch(user.id).catch(() => null);
+  if (!hasVerifiedRole(member, rules)) {
+    await interaction.followUp(messages.start.needsVerifiedRole);
+    return true;
+  }
+
+  const screenshot =
+    choiceScreenshot ??
+    (mode === "province"
+      ? await moveCountryScreenshotToProvince(interaction.client, user)
+      : undefined);
+
+  await processStartAttempt({
+    author: user,
+    gameChannel: channel,
+    googleMapsUrl: choice.googleMapsUrl,
+    screenshot,
+    source: "dm",
+    mode,
+  });
+  return true;
 };
 
 const handleChannelStart = async (_client: Client, message: Message<true>) => {
   const rules = await loadRules();
-  if (!isConfiguredGameChannel(message, rules)) {
+  const mode = modeForChannel(rules, message.channel.id);
+  if (!mode) {
     return false;
   }
 
@@ -492,7 +826,7 @@ const handleChannelStart = async (_client: Client, message: Message<true>) => {
 
   const googleMapsUrl = findGoogleMapsUrl(message.content);
   const attachment = firstImageAttachment(message);
-  const pendingKey = keys.pendingStart(message.guild.id, message.author.id);
+  const pendingKey = keys.pendingStart(message.guild.id, message.author.id, mode);
   const pending = await getPending(pendingKey);
 
   // Accept a Maps link (optionally with image), or a follow-up image after a
@@ -509,6 +843,7 @@ const handleChannelStart = async (_client: Client, message: Message<true>) => {
     attachment,
     deleteMessage: message,
     source: "channel",
+    mode,
   });
   return true;
 };
@@ -547,7 +882,7 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
       return;
     }
 
-    if (!isConfiguredGameChannel(message, rules) || !hasVerifiedRole(message.member, rules)) {
+    if (!modeForChannel(rules, message.channel.id) || !hasVerifiedRole(message.member, rules)) {
       return;
     }
 

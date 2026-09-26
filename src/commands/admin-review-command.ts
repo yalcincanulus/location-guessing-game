@@ -17,6 +17,8 @@ import {
   findPlayersByDisplayName,
   type DbPlayer,
 } from "../repositories/core-repository.ts";
+import type { GameMode } from "../domain/game/game-mode.ts";
+import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -82,8 +84,9 @@ const splitForDiscord = (lines: string[], maxLength = 1_900) => {
   return chunks;
 };
 
-const deliverPrivate = async (message: Message, lines: string[]) => {
-  const content = lines.length > 0 ? lines : [messages.admin.reviewEmpty];
+const deliverPrivate = async (message: Message, lines: string[], mode: GameMode = "country") => {
+  const body = lines.length > 0 ? lines : [messages.admin.reviewEmpty];
+  const content = mode === "province" ? [messages.province.label, ...body] : body;
   const chunks = splitForDiscord(content);
   if (chunks.length === 0) {
     chunks.push(messages.admin.reviewEmpty);
@@ -203,7 +206,11 @@ const pairFlags = (game: PairGameRow) =>
     ...(game.repeatPin ? (["repeat"] as const) : []),
   ]);
 
-const suspectsCommand = async (message: Message, args: string[]) => {
+/** Province rows show the plate code with the province name. */
+const targetLabel = (mode: GameMode, code: string) =>
+  mode === "province" ? `${code} ${getProvinceName(code)}` : code;
+
+const suspectsCommand = async (message: Message, args: string[], mode: GameMode) => {
   if (args.length > 1) {
     await message.reply(messages.admin.suspectsUsage);
     return;
@@ -214,7 +221,7 @@ const suspectsCommand = async (message: Message, args: string[]) => {
     return;
   }
 
-  const report = await listSuspects(minShared);
+  const report = await listSuspects(minShared, mode);
   const lines = [
     messages.admin.suspectsHeader(
       minShared,
@@ -255,7 +262,7 @@ const suspectsCommand = async (message: Message, args: string[]) => {
       }),
     ),
   ];
-  await deliverPrivate(message, lines);
+  await deliverPrivate(message, lines, mode);
 };
 
 const resolveTwo = async (message: Message, args: string[], usage: string) => {
@@ -286,13 +293,13 @@ const resolveTwo = async (message: Message, args: string[], usage: string) => {
   return { left: left.player, right: right.player };
 };
 
-const pairCommand = async (message: Message, args: string[]) => {
+const pairCommand = async (message: Message, args: string[], mode: GameMode) => {
   const resolved = await resolveTwo(message, args, messages.admin.pairUsage);
   if (!resolved) {
     return;
   }
 
-  const games = await listPairGames(resolved.left.id, resolved.right.id);
+  const games = await listPairGames(resolved.left.id, resolved.right.id, mode);
   const lines = [
     messages.admin.pairHeader(playerLabel(resolved.left), playerLabel(resolved.right)),
     games.length === 0 ? messages.admin.pairNone : "",
@@ -302,18 +309,19 @@ const pairCommand = async (message: Message, args: string[]) => {
         when: whenLabel(game.startedAt),
         gmName: game.gmName,
         winnerName: game.winnerName ?? "—",
-        countryCode: game.countryCode,
+        countryCode: targetLabel(mode, game.countryCode),
         solve: secondsLabel(game.solveSeconds),
         median: secondsLabel(game.countryMedianSeconds),
         flags: pairFlags(game),
         source: messages.admin.reviewStartSource(game.startSource),
+        mode,
       }),
     ),
   ];
-  await deliverPrivate(message, lines);
+  await deliverPrivate(message, lines, mode);
 };
 
-const playerCommand = async (message: Message, args: string[]) => {
+const playerCommand = async (message: Message, args: string[], mode: GameMode) => {
   const ref = parsePlayerArgs(args);
   if (!ref) {
     await message.reply(messages.admin.playerUsage);
@@ -325,7 +333,7 @@ const playerCommand = async (message: Message, args: string[]) => {
     return;
   }
 
-  const review = await getPlayerReview(resolved.player.id);
+  const review = await getPlayerReview(resolved.player.id, mode);
   if (!review) {
     await deliverPrivate(message, [
       messages.admin.reviewPlayerNotFound(playerLabel(resolved.player)),
@@ -361,7 +369,7 @@ const playerCommand = async (message: Message, args: string[]) => {
       ),
     ),
   ];
-  await deliverPrivate(message, lines);
+  await deliverPrivate(message, lines, mode);
 };
 
 const guessKind = (guess: {
@@ -381,21 +389,33 @@ const guessKind = (guess: {
   return "wrong";
 };
 
-const gameCommand = async (message: Message, args: string[]) => {
+const gameCommand = async (message: Message, args: string[], requestedMode: GameMode) => {
   const id = args[0]?.trim() ?? "";
   if (args.length !== 1 || !UUID_PATTERN.test(id)) {
     await message.reply(messages.admin.gameUsage);
     return;
   }
 
-  const game = await getGameReview(id);
+  // Game ids are unique across modes, so look in the other mode when the first misses.
+  const otherMode: GameMode = requestedMode === "province" ? "country" : "province";
+  let mode = requestedMode;
+  let game = await getGameReview(id, mode);
+  if (!game) {
+    mode = otherMode;
+    game = await getGameReview(id, mode);
+  }
   if (!game) {
     await deliverPrivate(message, [messages.admin.gameMissing]);
     return;
   }
 
   const winner = game.winnerName ? `**${game.winnerName}** (\`${game.winnerDiscordUserId}\`)` : "—";
-  const country = game.countryName ? `${game.countryCode} — ${game.countryName}` : game.countryCode;
+  const country =
+    mode === "province"
+      ? `${game.countryCode} — ${getProvinceName(game.countryCode)}`
+      : game.countryName
+        ? `${game.countryCode} — ${game.countryName}`
+        : game.countryCode;
   const lines = [
     messages.admin.gameHeader({
       id: game.id,
@@ -411,6 +431,7 @@ const gameCommand = async (message: Message, args: string[]) => {
       clockNote: game.usedStartFallback
         ? messages.admin.gameClockStart
         : messages.admin.gameClockAnnouncement,
+      mode,
     }),
     game.guesses.length === 0 ? messages.admin.gameNoGuesses : "",
     ...game.guesses.map((guess) =>
@@ -418,16 +439,16 @@ const gameCommand = async (message: Message, args: string[]) => {
         seconds: secondsLabel(guess.seconds),
         name: guess.displayName,
         raw: clip(guess.rawMessage),
-        country: guess.countryCode ?? "—",
+        country: guess.countryCode ? targetLabel(mode, guess.countryCode) : "—",
         kind: messages.admin.gameGuessKind(guessKind(guess)),
       }),
     ),
     game.truncated ? messages.admin.gameTruncated : "",
   ];
-  await deliverPrivate(message, lines);
+  await deliverPrivate(message, lines, mode);
 };
 
-const fastCommand = async (message: Message, args: string[]) => {
+const fastCommand = async (message: Message, args: string[], mode: GameMode) => {
   if (args.length !== 1) {
     await message.reply(messages.admin.fastUsage);
     return;
@@ -438,7 +459,7 @@ const fastCommand = async (message: Message, args: string[]) => {
     return;
   }
 
-  const wins = await listFastWins(seconds);
+  const wins = await listFastWins(seconds, mode);
   const lines = [
     wins.length === 0
       ? messages.admin.fastNone(seconds)
@@ -450,17 +471,18 @@ const fastCommand = async (message: Message, args: string[]) => {
         winnerDiscordUserId: win.winnerDiscordUserId,
         gmName: win.gmName,
         gmDiscordUserId: win.gmDiscordUserId,
-        countryCode: win.countryCode,
+        countryCode: targetLabel(mode, win.countryCode),
         median: secondsLabel(win.countryMedianSeconds),
         flags: flagList([
           ...(win.silent ? (["silent"] as const) : []),
           ...(win.dismissed ? (["cleared"] as const) : []),
         ]),
         gameId: win.gameId,
+        mode,
       }),
     ),
   ];
-  await deliverPrivate(message, lines);
+  await deliverPrivate(message, lines, mode);
 };
 
 const dismissCommand = async (message: Message, args: string[]) => {
@@ -487,29 +509,30 @@ export const handleAdminReviewCommand = async (
   message: Message,
   subcommand: string,
   args: string[],
+  mode: GameMode = "country",
 ) => {
   if (!REVIEW_COMMANDS.has(subcommand)) {
     return false;
   }
 
   if (["suspects", "supheli", "supheliler"].includes(subcommand)) {
-    await suspectsCommand(message, args);
+    await suspectsCommand(message, args, mode);
     return true;
   }
   if (["pair", "cift"].includes(subcommand)) {
-    await pairCommand(message, args);
+    await pairCommand(message, args, mode);
     return true;
   }
   if (["player", "oyuncu"].includes(subcommand)) {
-    await playerCommand(message, args);
+    await playerCommand(message, args, mode);
     return true;
   }
   if (["game", "oyun"].includes(subcommand)) {
-    await gameCommand(message, args);
+    await gameCommand(message, args, mode);
     return true;
   }
   if (["fast", "hizli"].includes(subcommand)) {
-    await fastCommand(message, args);
+    await fastCommand(message, args, mode);
     return true;
   }
   await dismissCommand(message, args);

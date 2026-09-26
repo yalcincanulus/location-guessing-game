@@ -1,8 +1,11 @@
 import type { BotMessages } from "./types.ts";
 import {
+  achievementCopy,
   achievementDescriptionsTr,
   achievementNamesTr,
   formatAchievementTier,
+  provinceAchievementDescriptionsTr,
+  provinceAchievementNamesTr,
 } from "./achievement-copy.ts";
 import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
@@ -11,6 +14,7 @@ export const trMessages = {
   filenames: {
     fallbackScreenshot: "ekran-goruntusu.png",
     worldGuesses: "dunya-tahminleri.jpg",
+    turkeyGuesses: "turkiye-tahminleri.jpg",
   },
   mapLegend: {
     wrongGuesses: "Yanlış tahminler",
@@ -244,6 +248,7 @@ export const trMessages = {
       "`!admin game <id>` — bir oyunun tahmin zaman çizelgesi (DM)",
       "`!admin fast <saniye>` — bu sürede veya daha kısa biten galibiyetler (DM)",
       "`!admin dismiss pair <oyuncu> <oyuncu>` — çifti inceleme listesinden çıkar (DM)",
+      "İl oyunları: il kanalı ve il istatistikleri için `!admin` sonrasına `il` yaz. `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `game` ve `fast` ile çalışır. Örnek: `!admin il status`.",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -364,8 +369,9 @@ export const trMessages = {
       median,
       flags,
       source,
+      mode,
     }) =>
-      `\`${gameId}\` ${when} — kurucu **${gmName}**, kazanan **${winnerName}**, ${countryCode}, çözüm ${solve} (ülke ortancası ${median}), ${flags}, başlangıç ${source}.`,
+      `\`${gameId}\` ${when} — kurucu **${gmName}**, kazanan **${winnerName}**, ${countryCode}, çözüm ${solve} (${mode === "province" ? "il" : "ülke"} ortancası ${median}), ${flags}, başlangıç ${source}.`,
     playerUsage: "Kullanım: `!admin player <oyuncu>` — mention, Discord kimliği veya görünen ad.",
     playerSummary: ({
       name,
@@ -405,13 +411,14 @@ export const trMessages = {
       median,
       winnerWrong,
       clockNote,
+      mode,
     }) =>
       [
         `Oyun \`${id}\` (${status}, başlangıç ${source})`,
         `Kurucu **${gmName}** (\`${gmDiscordUserId}\`)`,
         `Kazanan: ${winner}`,
-        `Ülke: **${country}**`,
-        `Çözüm ${solve} (ülke ortancası ${median}). Kazananın benzersiz yanlış tahmini: **${winnerWrong}**.`,
+        mode === "province" ? `İl: **${country}**` : `Ülke: **${country}**`,
+        `Çözüm ${solve} (${mode === "province" ? "il" : "ülke"} ortancası ${median}). Kazananın benzersiz yanlış tahmini: **${winnerWrong}**.`,
         clockNote,
       ].join("\n"),
     gameClockAnnouncement: "Süreler duyuru anından ölçülür.",
@@ -443,8 +450,9 @@ export const trMessages = {
       median,
       flags,
       gameId,
+      mode,
     }) =>
-      `${solve} **${winnerName}** (\`${winnerDiscordUserId}\`) **${gmName}** (\`${gmDiscordUserId}\`) oyununu ${countryCode} ülkesinde bitirdi (ortanca ${median}) ${flags} \`${gameId}\``,
+      `${solve} **${winnerName}** (\`${winnerDiscordUserId}\`) **${gmName}** (\`${gmDiscordUserId}\`) oyununu ${countryCode} ${mode === "province" ? "ilinde" : "ülkesinde"} bitirdi (ortanca ${median}) ${flags} \`${gameId}\``,
     dismissUsage:
       "Kullanım: `!admin dismiss pair <oyuncu> <oyuncu>` — mention, Discord kimliği veya tek kelimelik görünen ad.",
     dismissDone: (left, right) =>
@@ -507,15 +515,17 @@ export const trMessages = {
       `**Geri bildirim ${id}** — **${displayName}** (<@${discordUserId}>) — ${createdAt}`,
   },
   achievements: {
-    name: (id) => achievementNamesTr[id] ?? id,
-    description: (id) => achievementDescriptionsTr[id] ?? "",
-    unlockedDm: (id, tier) => {
-      const name = achievementNamesTr[id] ?? id;
+    name: (id, mode) =>
+      achievementCopy(achievementNamesTr, provinceAchievementNamesTr, id, mode) ?? id,
+    description: (id, mode) =>
+      achievementCopy(achievementDescriptionsTr, provinceAchievementDescriptionsTr, id, mode) ?? "",
+    unlockedDm: (id, tier, mode) => {
+      const name = achievementCopy(achievementNamesTr, provinceAchievementNamesTr, id, mode) ?? id;
       const tierLabel = formatAchievementTier(id, tier);
       return tierLabel ? `Açıldı: **${name}** (${tierLabel})` : `Açıldı: **${name}**`;
     },
-    unlockedChannel: (id, tier, displayName) => {
-      const name = achievementNamesTr[id] ?? id;
+    unlockedChannel: (id, tier, displayName, mode) => {
+      const name = achievementCopy(achievementNamesTr, provinceAchievementNamesTr, id, mode) ?? id;
       const tierLabel = formatAchievementTier(id, tier);
       return tierLabel
         ? `Başarım açıldı: **${name}** (${tierLabel}) — ${displayName}`
@@ -523,8 +533,8 @@ export const trMessages = {
     },
     header: "**Başarımların**",
     listHeader: "**Başarım kataloğu**",
-    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent) => {
-      const name = achievementNamesTr[id] ?? id;
+    progressLine: (id, earnedTiers, nextTier, currentValue, streakCurrent, mode) => {
+      const name = achievementCopy(achievementNamesTr, provinceAchievementNamesTr, id, mode) ?? id;
       const earned = earnedTiers.length > 0 ? earnedTiers.map(String).join(",") : "—";
       const next =
         nextTier === null ? "max" : (formatAchievementTier(id, nextTier) ?? String(nextTier));
@@ -559,5 +569,85 @@ export const trMessages = {
       `Güncel çarpan **${currentMultiplier.toFixed(2)}x** oldu.`,
     channelIdleReminder:
       "Son bir saatte oyun başlatılmadı. Başlatmak için bu kanala bir **Google Haritalar bağlantısı** ve bir **ekran görüntüsü** gönderin, veya bota DM atın.",
+  },
+  province: {
+    label: "🇹🇷 **İl oyunu**",
+    gameStarted: (userId, { coverageSource }) =>
+      [
+        `<@${userId}> yeni bir il oyunu başlattı. İli tahmin etmek için il adını veya plaka kodunu yazın (örneğin \`Ankara\` veya \`06\`).`,
+        coverageSource === "google"
+          ? "**Kapsama:** Resmi Google Street View"
+          : coverageSource === "third-party"
+            ? "**Kapsama:** Üçüncü taraf / photosphere. Resmi görüntü değil."
+            : "**Kapsama:** Bilinmiyor (bağlantıdan anlaşılamadı)",
+      ].join("\n"),
+    outsideTurkey: (userId) =>
+      `<@${userId}> bu konum Türkiye'de değil. İl oyunu için konum Türkiye'nin 81 ilinden birinde olmalı.`,
+    unknownProvince: (userId) =>
+      `<@${userId}> bu konumun hangi ilde olduğunu bulamadım. Lütfen başka bir konum seç.`,
+    foundProvince: (userId, provinceName) => `<@${userId}> ili buldu: **${provinceName}**.`,
+    locationDetails: ({
+      district,
+      municipality,
+      metropolitanMunicipality,
+      neighbourhood,
+      googleMapsUrl,
+      latitude,
+      longitude,
+    }) =>
+      [
+        municipality
+          ? `Belediye: **${municipality}**${district === "Merkez" ? " (Merkez ilçe)" : ""}`
+          : undefined,
+        metropolitanMunicipality ? `Büyükşehir: **${metropolitanMunicipality}**` : undefined,
+        neighbourhood ? `Mahalle/Köy: **${neighbourhood}**` : undefined,
+        `Koordinatlar: **${latitude.toFixed(5)}, ${longitude.toFixed(5)}**`,
+        `Link: ${googleMapsUrl}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    chooseModePrompt: "Bu konum Türkiye'de. Hangi oyunu başlatmak istiyorsun?",
+    chooseCountryButton: "Ülke Oyunu Başlat 🌍",
+    chooseProvinceButton: "İl Oyunu Başlat 🇹🇷",
+    chooseModeChosen: (mode) =>
+      mode === "province" ? "**İl oyunu** başlatılıyor 🇹🇷." : "**Ülke oyunu** başlatılıyor 🌍.",
+    chooseModeExpired: "Bu seçimin süresi doldu. Google Haritalar bağlantısını tekrar gönder.",
+    chooseModeScreenshotSaved: "Ekran görüntüsü alındı. Yukarıdaki butonlardan oyun türünü seç.",
+    startMovedToProvince: (userId) =>
+      `<@${userId}> bunun yerine il oyunu başlattı. Burada yeni bir oyun başlatılabilir.`,
+    channelNotConfigured: "İl oyunu kanalı yapılandırılmamış.",
+    channelUnavailable: "Yapılandırılmış il oyunu kanalına ulaşılamıyor.",
+    stats: ({
+      completedGames,
+      totalGuesses,
+      totalPlayers,
+      distinctProvinces,
+      topProvinceName,
+      topProvinceGames,
+      medianSolveSeconds,
+      oneshotGames,
+      hosts,
+      participations,
+    }) =>
+      [
+        "🇹🇷 **İl oyunu**",
+        `Tamamlanan oyun: **${completedGames}**`,
+        `Toplam tahmin: **${totalGuesses}**`,
+        `Toplam oyuncu: **${totalPlayers}**`,
+        `Oyun başına tahmin: **${formatPerGame(totalGuesses, completedGames, "tr")}**`,
+        `Farklı il: **${distinctProvinces}** / 81`,
+        topProvinceName == null
+          ? "En çok çıkan il: **—**"
+          : `En çok çıkan il: **${topProvinceName}** (${topProvinceGames})`,
+        `Ortanca süre: **${formatMedianDuration(medianSolveSeconds, "tr")}**`,
+        `Tek tahminde biten: **${oneshotGames}**`,
+        `Oyun kurucu: **${hosts}**`,
+        `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
+      ].join("\n"),
+    helpCommands:
+      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
+    startsState: (enabled) =>
+      enabled ? "Yeni il oyunu başlatma **açık**." : "Yeni il oyunu başlatma **kapalı**.",
+    startsClosed: (userId) => `<@${userId}> yeni il oyunu başlatma kapalı.`,
   },
 } satisfies BotMessages;

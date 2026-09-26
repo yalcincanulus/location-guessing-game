@@ -1,7 +1,10 @@
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
+import type { GameMode } from "./game-mode.ts";
 
 export type ActiveGameState = {
+  /** Missing on games started before province mode existed; those are country games. */
+  mode?: GameMode;
   gameId: string;
   guildId: string;
   channelId: string;
@@ -9,6 +12,8 @@ export type ActiveGameState = {
   gameMasterPlayerId: string;
   targetCountryCode: string;
   targetRegionName?: string;
+  /** Plate code of the answer in province games. */
+  targetProvinceCode?: string;
   screenshotUrl: string;
   /** Discord message id of the game-start announcement that holds the screenshot. */
   screenshotMessageId?: string;
@@ -19,6 +24,13 @@ export type ActiveGameState = {
   startedAt: number;
   isTest: boolean;
 };
+
+export const gameModeOf = (state: Pick<ActiveGameState, "mode">): GameMode =>
+  state.mode ?? "country";
+
+/** The code a correct guess must match. */
+export const targetCodeOf = (state: ActiveGameState) =>
+  gameModeOf(state) === "province" ? (state.targetProvinceCode ?? "") : state.targetCountryCode;
 
 export const getActiveGameId = async (guildId: string, channelId: string) =>
   redis.get(keys.activeGame(guildId, channelId));

@@ -1,5 +1,6 @@
 import { sqlClient } from "../db/client.ts";
 import { ONESHOT_TIER } from "../domain/achievements/catalog.ts";
+import { tablesFor, type GameMode } from "../domain/game/game-mode.ts";
 
 export type AchievementUnlockInsert = {
   playerId: string;
@@ -21,12 +22,14 @@ export type StoredUnlock = {
 
 export const insertUnlocks = async (
   unlocks: AchievementUnlockInsert[],
+  mode: GameMode = "country",
 ): Promise<StoredUnlock[]> => {
+  const table = sqlClient(tablesFor(mode).playerAchievement);
   const inserted: StoredUnlock[] = [];
   for (const unlock of unlocks) {
     const earnedAt = unlock.earnedAt ?? new Date();
     const rows = await sqlClient`
-      INSERT INTO player_achievement (
+      INSERT INTO ${table} (
         player_id,
         achievement_id,
         tier,
@@ -60,10 +63,11 @@ export const insertUnlocks = async (
   return inserted;
 };
 
-export const getPlayerUnlocks = async (playerId: string) => {
+export const getPlayerUnlocks = async (playerId: string, mode: GameMode = "country") => {
+  const table = sqlClient(tablesFor(mode).playerAchievement);
   const rows = await sqlClient`
     SELECT achievement_id, tier, earned_at, source_game_id, meta
-    FROM player_achievement
+    FROM ${table}
     WHERE player_id = ${playerId}
     ORDER BY earned_at ASC
   `;
@@ -76,37 +80,51 @@ export const getPlayerUnlocks = async (playerId: string) => {
   }));
 };
 
-export const countPlayerUnlocks = async (playerId: string) => {
+export const countPlayerUnlocks = async (playerId: string, mode: GameMode = "country") => {
+  const table = sqlClient(tablesFor(mode).playerAchievement);
   const rows = await sqlClient`
     SELECT COUNT(*)::int AS value
-    FROM player_achievement
+    FROM ${table}
     WHERE player_id = ${playerId}
   `;
   return Number(rows[0]?.value ?? 0);
 };
 
-export const countPlayerUnlocksByDiscordId = async (discordUserId: string) => {
+export const countPlayerUnlocksByDiscordId = async (
+  discordUserId: string,
+  mode: GameMode = "country",
+) => {
+  const table = sqlClient(tablesFor(mode).playerAchievement);
   const rows = await sqlClient`
     SELECT COUNT(*)::int AS value
-    FROM player_achievement pa
+    FROM ${table} pa
     JOIN player p ON p.id = pa.player_id
     WHERE p.discord_user_id = ${discordUserId}
   `;
   return Number(rows[0]?.value ?? 0);
 };
 
-export const getOwnedTiers = async (playerId: string, achievementId: string) => {
+export const getOwnedTiers = async (
+  playerId: string,
+  achievementId: string,
+  mode: GameMode = "country",
+) => {
+  const table = sqlClient(tablesFor(mode).playerAchievement);
   const rows = await sqlClient`
     SELECT tier
-    FROM player_achievement
+    FROM ${table}
     WHERE player_id = ${playerId}
       AND achievement_id = ${achievementId}
   `;
   return new Set(rows.map((row) => Number(row.tier)));
 };
 
-export const hasOneshot = async (playerId: string, achievementId: string) => {
-  const owned = await getOwnedTiers(playerId, achievementId);
+export const hasOneshot = async (
+  playerId: string,
+  achievementId: string,
+  mode: GameMode = "country",
+) => {
+  const owned = await getOwnedTiers(playerId, achievementId, mode);
   return owned.has(ONESHOT_TIER);
 };
 

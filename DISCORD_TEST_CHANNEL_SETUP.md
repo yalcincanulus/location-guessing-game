@@ -116,6 +116,20 @@ SET test_mode_enabled = false,
     updated_at = now();
 ```
 
+### Province Test Mode
+
+Province games get their own test channel. It uses the same `test_mode_enabled` switch and the same `test_admin_user_ids` list. Use a different channel from the country test channel and the real province channel.
+
+```sql
+UPDATE rule
+SET test_mode_enabled = true,
+    province_test_channel_id = 'YOUR_PROVINCE_TEST_CHANNEL_ID',
+    test_admin_user_ids = '["YOUR_DISCORD_USER_ID"]'::jsonb,
+    updated_at = now();
+```
+
+While test mode is on, that channel plays province games as test games. When test mode is off, the bot ignores the channel. The bot reads rules every 30 seconds; send `!admin reload` in a DM to apply the change at once.
+
 Test utilities:
 
 ```text
@@ -124,7 +138,10 @@ Test utilities:
 !test reveal
 !test tick
 !test reset
+!test map
 ```
+
+In the province test channel, `!test map` draws a sample Türkiye map.
 
 Test games are stored for debugging but do not award points and do not affect stats, leaderboards, or game-master milestones.
 

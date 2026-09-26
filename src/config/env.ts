@@ -20,6 +20,7 @@ export const env = {
   discordGuildId: optional("DISCORD_GUILD_ID"),
   discordAdminUserId: optional("DISCORD_ADMIN_USER_ID"),
   discordGameChannelId: optional("DISCORD_GAME_CHANNEL_ID"),
+  discordProvinceGameChannelId: optional("DISCORD_PROVINCE_GAME_CHANNEL_ID"),
   discordLogChannelId: optional("DISCORD_LOG_CHANNEL_ID"),
   nominatimUserAgent:
     optional("NOMINATIM_USER_AGENT") ?? "location-guessing-game/0.1 (+https://discord.com)",

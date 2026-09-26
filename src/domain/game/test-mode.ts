@@ -1,4 +1,4 @@
-import type { GameRules } from "../../config/rules.ts";
+import { isTestChannel, type GameRules } from "../../config/rules.ts";
 import type { ActiveGameState } from "./active-game-state.ts";
 
 export const canBypassGameMasterBlock = (
@@ -7,7 +7,4 @@ export const canBypassGameMasterBlock = (
   discordUserId: string,
   rules: GameRules,
 ) =>
-  state.isTest &&
-  rules.testModeEnabled &&
-  rules.testChannelId === channelId &&
-  rules.testAdminUserIds.includes(discordUserId);
+  state.isTest && isTestChannel(channelId, rules) && rules.testAdminUserIds.includes(discordUserId);

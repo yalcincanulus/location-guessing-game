@@ -4,6 +4,7 @@ import { migrate } from "../db/migrate.ts";
 import { seedDefaultRules } from "../db/seed.ts";
 import { logger } from "../util/logger.ts";
 import { onMessageCreate } from "./events/message-create.ts";
+import { onInteractionCreate } from "./events/interaction-create.ts";
 import { closeDatabase } from "../db/client.ts";
 import { closeRedis } from "../redis/client.ts";
 import {
@@ -42,6 +43,7 @@ export const startBot = async () => {
   });
 
   client.on(Events.MessageCreate, onMessageCreate(client));
+  client.on(Events.InteractionCreate, onInteractionCreate);
 
   await client.login(env.discordToken);
 

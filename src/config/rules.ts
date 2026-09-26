@@ -20,8 +20,11 @@ export type GameRules = {
   repeatGuessCountsForGmDifficulty: boolean;
   queueGameStarts: boolean;
   gameStartsEnabled: boolean;
+  provinceGameChannelId?: string;
+  provinceGameStartsEnabled: boolean;
   testModeEnabled: boolean;
   testChannelId?: string;
+  provinceTestChannelId?: string;
   testAdminUserIds: string[];
 };
 
@@ -74,8 +77,11 @@ export const loadRules = async (force = false): Promise<GameRules> => {
       repeat_guess_counts_for_gm_difficulty,
       queue_game_starts,
       game_starts_enabled,
+      province_game_channel_id,
+      province_game_starts_enabled,
       test_mode_enabled,
       test_channel_id,
+      province_test_channel_id,
       test_admin_user_ids
     FROM rule
     LIMIT 1
@@ -106,8 +112,11 @@ export const loadRules = async (force = false): Promise<GameRules> => {
     repeatGuessCountsForGmDifficulty: row.repeat_guess_counts_for_gm_difficulty,
     queueGameStarts: row.queue_game_starts,
     gameStartsEnabled: row.game_starts_enabled,
+    provinceGameChannelId: row.province_game_channel_id ?? undefined,
+    provinceGameStartsEnabled: row.province_game_starts_enabled,
     testModeEnabled: row.test_mode_enabled,
     testChannelId: row.test_channel_id ?? undefined,
+    provinceTestChannelId: row.province_test_channel_id ?? undefined,
     testAdminUserIds: stringArrayValue(row.test_admin_user_ids, []),
   };
 
@@ -115,13 +124,25 @@ export const loadRules = async (force = false): Promise<GameRules> => {
   return value;
 };
 
-export const updateGameStartsEnabled = async (enabled: boolean) => {
-  await sqlClient`
-    UPDATE rule
-    SET
-      game_starts_enabled = ${enabled},
-      updated_at = now()
-  `;
+export const updateGameStartsEnabled = async (
+  enabled: boolean,
+  mode: "country" | "province" = "country",
+) => {
+  if (mode === "province") {
+    await sqlClient`
+      UPDATE rule
+      SET
+        province_game_starts_enabled = ${enabled},
+        updated_at = now()
+    `;
+  } else {
+    await sqlClient`
+      UPDATE rule
+      SET
+        game_starts_enabled = ${enabled},
+        updated_at = now()
+    `;
+  }
   return loadRules(true);
 };
 
@@ -135,8 +156,10 @@ export const updateMaxConsecutiveGuesses = async (maxConsecutiveGuesses: number)
   return loadRules(true);
 };
 
-export const isTestChannel = (_guildId: string, channelId: string, rules: GameRules) =>
-  rules.testModeEnabled && rules.testChannelId === channelId;
+/** Country or province test channel, while test mode is on. */
+export const isTestChannel = (channelId: string, rules: GameRules) =>
+  rules.testModeEnabled &&
+  (rules.testChannelId === channelId || rules.provinceTestChannelId === channelId);
 
 export const isTestAdmin = (discordUserId: string, rules: GameRules) =>
   rules.testAdminUserIds.includes(discordUserId);

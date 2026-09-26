@@ -4,6 +4,7 @@ import {
   ACHIEVEMENT_CATALOG,
   ONESHOT_TIER,
   crossedTiers,
+  isAchievementInMode,
   medalistAchievementId,
   type AchievementDefinition,
 } from "./catalog.ts";
@@ -26,6 +27,7 @@ import {
   wasPatientZero,
 } from "./metrics.ts";
 import { getOwnedTiers } from "../../repositories/achievements-repository.ts";
+import { tablesFor, type GameMode } from "../game/game-mode.ts";
 
 export type ProposedUnlock = {
   playerId: string;
@@ -36,50 +38,55 @@ export type ProposedUnlock = {
   meta?: Record<string, unknown> | null;
 };
 
-const proposeLadder = async (
-  playerId: string,
-  definition: AchievementDefinition,
-  value: number,
-  sourceGameId?: string | null,
-  meta?: Record<string, unknown> | null,
-): Promise<ProposedUnlock[]> => {
-  const owned = await getOwnedTiers(playerId, definition.id);
-  return crossedTiers(definition.tiers, value)
-    .filter((tier) => !owned.has(tier))
-    .map((tier) => ({
-      playerId,
-      achievementId: definition.id,
-      tier,
-      definition,
-      sourceGameId,
-      meta,
-    }));
-};
+/** Ladder / oneshot proposals that check owned tiers in the given mode. */
+const makeProposers = (mode: GameMode) => {
+  const proposeLadder = async (
+    playerId: string,
+    definition: AchievementDefinition,
+    value: number,
+    sourceGameId?: string | null,
+    meta?: Record<string, unknown> | null,
+  ): Promise<ProposedUnlock[]> => {
+    const owned = await getOwnedTiers(playerId, definition.id, mode);
+    return crossedTiers(definition.tiers, value)
+      .filter((tier) => !owned.has(tier))
+      .map((tier) => ({
+        playerId,
+        achievementId: definition.id,
+        tier,
+        definition,
+        sourceGameId,
+        meta,
+      }));
+  };
 
-const proposeOneshot = async (
-  playerId: string,
-  definition: AchievementDefinition,
-  earned: boolean,
-  sourceGameId?: string | null,
-  meta?: Record<string, unknown> | null,
-): Promise<ProposedUnlock[]> => {
-  if (!earned) {
-    return [];
-  }
-  const owned = await getOwnedTiers(playerId, definition.id);
-  if (owned.has(ONESHOT_TIER)) {
-    return [];
-  }
-  return [
-    {
-      playerId,
-      achievementId: definition.id,
-      tier: ONESHOT_TIER,
-      definition,
-      sourceGameId,
-      meta,
-    },
-  ];
+  const proposeOneshot = async (
+    playerId: string,
+    definition: AchievementDefinition,
+    earned: boolean,
+    sourceGameId?: string | null,
+    meta?: Record<string, unknown> | null,
+  ): Promise<ProposedUnlock[]> => {
+    if (!earned) {
+      return [];
+    }
+    const owned = await getOwnedTiers(playerId, definition.id, mode);
+    if (owned.has(ONESHOT_TIER)) {
+      return [];
+    }
+    return [
+      {
+        playerId,
+        achievementId: definition.id,
+        tier: ONESHOT_TIER,
+        definition,
+        sourceGameId,
+        meta,
+      },
+    ];
+  };
+
+  return { proposeLadder, proposeOneshot };
 };
 
 const def = (id: string) => {
@@ -99,9 +106,12 @@ export const istanbulHour = (at: Date) =>
     }).format(at),
   );
 
-const dedupe = (unlocks: ProposedUnlock[]) => {
+const dedupe = (unlocks: ProposedUnlock[], mode: GameMode) => {
   const seen = new Set<string>();
   return unlocks.filter((unlock) => {
+    if (!isAchievementInMode(unlock.achievementId, mode)) {
+      return false;
+    }
     const key = `${unlock.playerId}:${unlock.achievementId}:${unlock.tier}`;
     if (seen.has(key)) {
       return false;
@@ -112,6 +122,8 @@ const dedupe = (unlocks: ProposedUnlock[]) => {
 };
 
 export type GameStartedContext = {
+  /** Defaults to `country`. */
+  mode?: GameMode;
   playerId: string;
   gameId: string;
   countryCode: string;
@@ -119,10 +131,12 @@ export type GameStartedContext = {
 };
 
 export const evaluateGameStarted = async (ctx: GameStartedContext): Promise<ProposedUnlock[]> => {
+  const mode = ctx.mode ?? "country";
+  const { proposeLadder, proposeOneshot } = makeProposers(mode);
   const unlocks: ProposedUnlock[] = [];
-  const stats = await getPlayerStatSnapshot(ctx.playerId);
-  const hostStreak = await getHostStreak(ctx.playerId, ctx.at);
-  const hostedCountries = await getHostedCountryCount(ctx.playerId);
+  const stats = await getPlayerStatSnapshot(ctx.playerId, mode);
+  const hostStreak = await getHostStreak(ctx.playerId, ctx.at, mode);
+  const hostedCountries = await getHostedCountryCount(ctx.playerId, mode);
   const hour = istanbulHour(ctx.at);
 
   unlocks.push(
@@ -150,10 +164,12 @@ export const evaluateGameStarted = async (ctx: GameStartedContext): Promise<Prop
     unlocks.push(...(await proposeOneshot(ctx.playerId, def("early_bird"), true, ctx.gameId)));
   }
 
-  return dedupe(unlocks);
+  return dedupe(unlocks, mode);
 };
 
 export type GameCompletedContext = {
+  /** Defaults to `country`. */
+  mode?: GameMode;
   gameId: string;
   winnerPlayerId: string;
   gameMasterPlayerId: string;
@@ -168,6 +184,8 @@ export type GameCompletedContext = {
 export const evaluateGameCompleted = async (
   ctx: GameCompletedContext,
 ): Promise<ProposedUnlock[]> => {
+  const mode = ctx.mode ?? "country";
+  const { proposeLadder, proposeOneshot } = makeProposers(mode);
   const unlocks: ProposedUnlock[] = [];
   const involved = new Set([
     ctx.winnerPlayerId,
@@ -179,10 +197,10 @@ export const evaluateGameCompleted = async (
   // Winner
   {
     const playerId = ctx.winnerPlayerId;
-    const stats = await getPlayerStatSnapshot(playerId);
-    const playStreak = await getPlayStreak(playerId, ctx.at);
-    const wonCountryCodes = await getWonCountryCodes(playerId);
-    const sameCountry = await getMaxWinsSameCountry(playerId);
+    const stats = await getPlayerStatSnapshot(playerId, mode);
+    const playStreak = await getPlayStreak(playerId, ctx.at, mode);
+    const wonCountryCodes = await getWonCountryCodes(playerId, mode);
+    const sameCountry = await getMaxWinsSameCountry(playerId, mode);
 
     unlocks.push(
       ...(await proposeOneshot(playerId, def("guess_first"), stats.totalGuesses >= 1, ctx.gameId)),
@@ -212,7 +230,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("clutch_win"),
-        await getClutchWinMax(playerId),
+        await getClutchWinMax(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -228,7 +246,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("comeback_win"),
-        await getComebackWinMax(playerId),
+        await getComebackWinMax(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -236,7 +254,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("first_blood"),
-        await getFirstBloodCount(playerId),
+        await getFirstBloodCount(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -291,7 +309,7 @@ export const evaluateGameCompleted = async (
   // Game master
   {
     const playerId = ctx.gameMasterPlayerId;
-    const stats = await getPlayerStatSnapshot(playerId);
+    const stats = await getPlayerStatSnapshot(playerId, mode);
     unlocks.push(
       ...(await proposeLadder(playerId, def("host_hard"), stats.maxGameWrongAsGm, ctx.gameId)),
     );
@@ -299,7 +317,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("host_milestones"),
-        await getGmMilestoneCount(playerId),
+        await getGmMilestoneCount(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -307,7 +325,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("host_crowd"),
-        await getMaxHostedCrowd(playerId),
+        await getMaxHostedCrowd(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -315,7 +333,7 @@ export const evaluateGameCompleted = async (
       ...(await proposeLadder(
         playerId,
         def("host_multiplier"),
-        await getMaxHostedMultiplierHundredths(playerId),
+        await getMaxHostedMultiplierHundredths(playerId, mode),
         ctx.gameId,
       )),
     );
@@ -326,8 +344,8 @@ export const evaluateGameCompleted = async (
     if (playerId === ctx.winnerPlayerId) {
       continue;
     }
-    const stats = await getPlayerStatSnapshot(playerId);
-    const playStreak = await getPlayStreak(playerId, ctx.at);
+    const stats = await getPlayerStatSnapshot(playerId, mode);
+    const playStreak = await getPlayStreak(playerId, ctx.at, mode);
     unlocks.push(
       ...(await proposeOneshot(playerId, def("guess_first"), stats.totalGuesses >= 1, ctx.gameId)),
     );
@@ -343,31 +361,35 @@ export const evaluateGameCompleted = async (
   }
 
   for (const playerId of involved) {
-    if (await wasPatientZero(playerId, ctx.gameId)) {
+    if (await wasPatientZero(playerId, ctx.gameId, mode)) {
       unlocks.push(...(await proposeOneshot(playerId, def("patient_zero"), true, ctx.gameId)));
     }
   }
 
-  return dedupe(unlocks);
+  return dedupe(unlocks, mode);
 };
 
 export const evaluateMedalistForPlayer = async (
   playerId: string,
   periodType: PeriodType,
+  mode: GameMode = "country",
 ): Promise<ProposedUnlock[]> => {
+  const { proposeLadder } = makeProposers(mode);
   const definition = def(medalistAchievementId(periodType));
-  const count = await getGoldMedalCount(playerId, periodType);
+  const count = await getGoldMedalCount(playerId, periodType, mode);
   return proposeLadder(playerId, definition, count);
 };
 
 export const evaluateDailyStreaksForPlayer = async (
   playerId: string,
   now = new Date(),
+  mode: GameMode = "country",
 ): Promise<ProposedUnlock[]> => {
+  const { proposeLadder } = makeProposers(mode);
   const unlocks: ProposedUnlock[] = [];
-  const hostStreak = await getHostStreak(playerId, now);
-  const playStreak = await getPlayStreak(playerId, now);
-  const stats = await getPlayerStatSnapshot(playerId);
+  const hostStreak = await getHostStreak(playerId, now, mode);
+  const playStreak = await getPlayStreak(playerId, now, mode);
+  const stats = await getPlayerStatSnapshot(playerId, mode);
   unlocks.push(...(await proposeLadder(playerId, def("host_streak_days"), hostStreak.best)));
   unlocks.push(...(await proposeLadder(playerId, def("play_streak_days"), playStreak.best)));
   unlocks.push(...(await proposeLadder(playerId, def("host_games"), stats.gamesStarted)));
@@ -375,37 +397,44 @@ export const evaluateDailyStreaksForPlayer = async (
     ...(await proposeLadder(
       playerId,
       def("host_countries"),
-      await getHostedCountryCount(playerId),
+      await getHostedCountryCount(playerId, mode),
     )),
   );
-  return dedupe(unlocks);
+  return dedupe(unlocks, mode);
 };
 
 /** Full backfill evaluation for one player (all metrics). */
 export const evaluateFullBackfillForPlayer = async (
   playerId: string,
   now = new Date(),
+  mode: GameMode = "country",
 ): Promise<ProposedUnlock[]> => {
+  const t = tablesFor(mode);
+  const { proposeLadder, proposeOneshot } = makeProposers(mode);
   const unlocks: ProposedUnlock[] = [];
-  const stats = await getPlayerStatSnapshot(playerId);
-  const hostStreak = await getHostStreak(playerId, now);
-  const playStreak = await getPlayStreak(playerId, now);
-  const wonCountries = await getWonCountryCodes(playerId);
-  const sameCountry = await getMaxWinsSameCountry(playerId);
+  const stats = await getPlayerStatSnapshot(playerId, mode);
+  const hostStreak = await getHostStreak(playerId, now, mode);
+  const playStreak = await getPlayStreak(playerId, now, mode);
+  const wonCountries = await getWonCountryCodes(playerId, mode);
+  const sameCountry = await getMaxWinsSameCountry(playerId, mode);
 
   unlocks.push(...(await proposeLadder(playerId, def("host_games"), stats.gamesStarted)));
   unlocks.push(...(await proposeLadder(playerId, def("host_hard"), stats.maxGameWrongAsGm)));
   unlocks.push(
-    ...(await proposeLadder(playerId, def("host_milestones"), await getGmMilestoneCount(playerId))),
+    ...(await proposeLadder(
+      playerId,
+      def("host_milestones"),
+      await getGmMilestoneCount(playerId, mode),
+    )),
   );
   unlocks.push(
-    ...(await proposeLadder(playerId, def("host_crowd"), await getMaxHostedCrowd(playerId))),
+    ...(await proposeLadder(playerId, def("host_crowd"), await getMaxHostedCrowd(playerId, mode))),
   );
   unlocks.push(
     ...(await proposeLadder(
       playerId,
       def("host_multiplier"),
-      await getMaxHostedMultiplierHundredths(playerId),
+      await getMaxHostedMultiplierHundredths(playerId, mode),
     )),
   );
   unlocks.push(...(await proposeLadder(playerId, def("host_streak_days"), hostStreak.best)));
@@ -413,7 +442,7 @@ export const evaluateFullBackfillForPlayer = async (
     ...(await proposeLadder(
       playerId,
       def("host_countries"),
-      await getHostedCountryCount(playerId),
+      await getHostedCountryCount(playerId, mode),
     )),
   );
 
@@ -427,16 +456,16 @@ export const evaluateFullBackfillForPlayer = async (
   unlocks.push(...(await proposeLadder(playerId, def("guess_volume"), stats.totalGuesses)));
   unlocks.push(...(await proposeLadder(playerId, def("play_streak_days"), playStreak.best)));
   unlocks.push(
-    ...(await proposeLadder(playerId, def("clutch_win"), await getClutchWinMax(playerId))),
+    ...(await proposeLadder(playerId, def("clutch_win"), await getClutchWinMax(playerId, mode))),
   );
 
   const oneshotRows = await sqlClient`
     SELECT EXISTS (
-      SELECT 1 FROM game
+      SELECT 1 FROM ${sqlClient(t.game)}
       WHERE winner_player_id = ${playerId}
         AND is_test = false
         AND status = 'completed'
-        AND unique_wrong_country_count = 0
+        AND ${sqlClient(t.uniqueWrongColumn)} = 0
     ) AS earned
   `;
   unlocks.push(
@@ -444,10 +473,18 @@ export const evaluateFullBackfillForPlayer = async (
   );
 
   unlocks.push(
-    ...(await proposeLadder(playerId, def("comeback_win"), await getComebackWinMax(playerId))),
+    ...(await proposeLadder(
+      playerId,
+      def("comeback_win"),
+      await getComebackWinMax(playerId, mode),
+    )),
   );
   unlocks.push(
-    ...(await proposeLadder(playerId, def("first_blood"), await getFirstBloodCount(playerId))),
+    ...(await proposeLadder(
+      playerId,
+      def("first_blood"),
+      await getFirstBloodCount(playerId, mode),
+    )),
   );
   unlocks.push(
     ...(await proposeLadder(
@@ -458,7 +495,7 @@ export const evaluateFullBackfillForPlayer = async (
   );
 
   for (const periodType of ["daily", "weekly", "monthly", "seasonal", "yearly"] as PeriodType[]) {
-    unlocks.push(...(await evaluateMedalistForPlayer(playerId, periodType)));
+    unlocks.push(...(await evaluateMedalistForPlayer(playerId, periodType, mode)));
   }
 
   unlocks.push(...(await proposeLadder(playerId, def("win_countries"), wonCountries.length)));
@@ -477,7 +514,7 @@ export const evaluateFullBackfillForPlayer = async (
   const rareRows = await sqlClient`
     SELECT
       EXISTS (
-        SELECT 1 FROM game
+        SELECT 1 FROM ${sqlClient(t.game)}
         WHERE winner_player_id = ${playerId}
           AND is_test = false
           AND status = 'completed'
@@ -486,12 +523,12 @@ export const evaluateFullBackfillForPlayer = async (
           )
       ) AS multiplier_thief,
       EXISTS (
-        SELECT 1 FROM game g
+        SELECT 1 FROM ${sqlClient(t.game)} g
         WHERE g.is_test = false
           AND g.status = 'completed'
-          AND g.unique_wrong_country_count >= 100
+          AND g.${sqlClient(t.uniqueWrongColumn)} >= 100
           AND (
-            SELECT gu.player_id FROM guess gu
+            SELECT gu.player_id FROM ${sqlClient(t.guess)} gu
             WHERE gu.game_id = g.id
               AND gu.is_correct = false AND gu.is_repeat = false AND gu.is_rate_limited = false
             ORDER BY gu.created_at ASC LIMIT 1
@@ -512,7 +549,7 @@ export const evaluateFullBackfillForPlayer = async (
   const timeRows = await sqlClient`
     SELECT
       EXISTS (
-        SELECT 1 FROM game g
+        SELECT 1 FROM ${sqlClient(t.game)} g
         WHERE g.is_test = false
           AND (
             g.game_master_player_id = ${playerId}
@@ -522,7 +559,7 @@ export const evaluateFullBackfillForPlayer = async (
           AND EXTRACT(HOUR FROM (COALESCE(g.ended_at, g.started_at) AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Istanbul')) < 6
       ) AS night_owl,
       EXISTS (
-        SELECT 1 FROM game g
+        SELECT 1 FROM ${sqlClient(t.game)} g
         WHERE g.is_test = false
           AND (
             g.game_master_player_id = ${playerId}
@@ -539,5 +576,5 @@ export const evaluateFullBackfillForPlayer = async (
     ...(await proposeOneshot(playerId, def("early_bird"), Boolean(timeRows[0]?.early_bird))),
   );
 
-  return dedupe(unlocks);
+  return dedupe(unlocks, mode);
 };
