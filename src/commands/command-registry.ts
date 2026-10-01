@@ -14,6 +14,7 @@ import { modeForChannel, tablesFor, takeModeArg, type GameMode } from "../domain
 import { renderProvinceMap, TURKEY_MAP_VIEWPORT } from "../domain/maps/province-map-renderer.ts";
 import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 import { loadGameScreenshot } from "../domain/game/load-screenshot.ts";
+import { neutralScreenshotFilename } from "../util/fit-screenshot.ts";
 import { logger } from "../util/logger.ts";
 import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
 import { getCurrentPeriodWindow, type PeriodType } from "../domain/awards/periods.ts";
@@ -444,7 +445,9 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     await message.channel.send({
-      files: [new AttachmentBuilder(loaded.buffer, { name: loaded.filename })],
+      files: [
+        new AttachmentBuilder(loaded.buffer, { name: neutralScreenshotFilename(loaded.filename) }),
+      ],
     });
     return true;
   }

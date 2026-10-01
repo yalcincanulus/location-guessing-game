@@ -16,10 +16,10 @@ const makePng = (width: number, height: number) => {
 };
 
 describe("fitScreenshotForDiscord", () => {
-  test("returns the original buffer when already under the limit", async () => {
+  test("returns the original buffer with a neutral filename when already under the limit", async () => {
     const small = makePng(64, 64);
-    const result = await fitScreenshotForDiscord(small, "shot.png");
-    expect(result).toEqual({ buffer: small, name: "shot.png" });
+    const result = await fitScreenshotForDiscord(small, "istanbul-turkey.png");
+    expect(result).toEqual({ buffer: small, name: "screenshot.png" });
   });
 
   test("compresses an oversized image under the Discord limit", async () => {
@@ -32,6 +32,6 @@ describe("fitScreenshotForDiscord", () => {
     expect(result).toBeDefined();
     expect(result!.buffer.byteLength).toBeLessThanOrEqual(maxBytes);
     expect(result!.buffer.byteLength).toBeLessThan(png.byteLength);
-    expect(result!.name).toBe("street-view.jpg");
+    expect(result!.name).toBe("screenshot.jpg");
   });
 });
