@@ -6,7 +6,7 @@ import type {
   Message,
   User,
 } from "discord.js";
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { loadRules } from "../../config/rules.ts";
 import {
   findGoogleMapsUrl,
@@ -59,6 +59,8 @@ import { sqlClient } from "../../db/client.ts";
 import { messages } from "../../i18n/messages.ts";
 import { handleFeedbackCommand } from "../../commands/feedback-command.ts";
 import { resolveStartSource, type StartPartSource } from "../../domain/review/start-source.ts";
+import { prepareGameScreenshot } from "../../domain/game/prepare-screenshot.ts";
+import { buildGameAnnouncement } from "../../domain/game/game-announcement.ts";
 
 type PendingStart = {
   googleMapsUrl?: string;
@@ -218,9 +220,10 @@ const completeStartIfReady = async ({
   const rawScreenshotBuffer =
     (await loadPendingScreenshot(pendingKey)) ??
     Buffer.from(await (await fetch(pending.screenshotUrl)).arrayBuffer());
-  const fittedScreenshot = await fitScreenshotForDiscord(
+  const fittedScreenshot = await prepareGameScreenshot(
     rawScreenshotBuffer,
     pending.screenshotName || messages.filenames.fallbackScreenshot,
+    rules.fairPlayNoticeEnabled ? messages.fairPlay.footer : undefined,
   );
   if (!fittedScreenshot) {
     await sendToGameChannel(
@@ -232,9 +235,6 @@ const completeStartIfReady = async ({
     await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
     return true;
   }
-
-  const screenshotBuffer = fittedScreenshot.buffer;
-  const screenshotName = fittedScreenshot.name;
 
   let started;
   try {
@@ -284,8 +284,8 @@ const completeStartIfReady = async ({
   await cancelStartReservationExpiry(gameChannel.guild.id, gameChannel.id);
 
   if (gameChannel.isSendable()) {
-    const announcement = await gameChannel.send({
-      content:
+    const announcement = await gameChannel.send(
+      buildGameAnnouncement(
         mode === "province"
           ? messages.province.gameStarted(author.id, {
               coverageSource: parsedLocation.coverageSource,
@@ -294,8 +294,10 @@ const completeStartIfReady = async ({
               inTheGame: isOfficiallyCovered(started.state.targetCountryCode),
               coverageSource: parsedLocation.coverageSource,
             }),
-      files: [new AttachmentBuilder(screenshotBuffer, { name: screenshotName })],
-    });
+        fittedScreenshot,
+        rules.fairPlayNoticeEnabled ? messages.fairPlay.reminder : undefined,
+      ),
+    );
 
     const durableScreenshotUrl = announcement.attachments.first()?.url;
     if (durableScreenshotUrl) {

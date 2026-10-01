@@ -36,6 +36,7 @@ A second game where players guess one of Türkiye's 81 provinces. It runs in its
 ### Moderation and admin tools
 
 - **Collusion review.** `!admin suspects` flags player pairs who win unusually often against each other, fast solves, and host-only accounts. Follow-up commands show the full history for a player, a pair, or a game.
+- **Fair play notices.** Screenshots include a small, single-line request addressed to AI and an image metadata notice. New rounds also include a friendly reminder for players below the image. These notices cannot prevent AI assistance. The database rule `fair_play_notice_enabled` controls all three notices in both game modes and defaults to `true`. Use `!admin fairplay` to show its status, or `!admin fairplay on` / `off` to change it immediately. `!ss` also adds the image notices to older screenshots without duplicating an existing footer. Disabling notices does not remove a footer already saved in an image.
 - **Test mode.** A private test channel where admins can run rounds without affecting real stats.
 - **Player feedback.** Players send `!feedback <message>` by DM, with rate limiting.
 - **Idle reminders.** The bot posts a reminder in the channel at set hours when nobody has started a round.

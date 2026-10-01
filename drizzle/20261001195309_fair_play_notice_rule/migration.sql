@@ -1,0 +1,1 @@
+ALTER TABLE "rule" ADD COLUMN "fair_play_notice_enabled" boolean DEFAULT true NOT NULL;

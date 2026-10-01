@@ -20,6 +20,7 @@ export type GameRules = {
   repeatGuessCountsForGmDifficulty: boolean;
   queueGameStarts: boolean;
   gameStartsEnabled: boolean;
+  fairPlayNoticeEnabled: boolean;
   provinceGameChannelId?: string;
   provinceGameStartsEnabled: boolean;
   testModeEnabled: boolean;
@@ -77,6 +78,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
       repeat_guess_counts_for_gm_difficulty,
       queue_game_starts,
       game_starts_enabled,
+      fair_play_notice_enabled,
       province_game_channel_id,
       province_game_starts_enabled,
       test_mode_enabled,
@@ -112,6 +114,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
     repeatGuessCountsForGmDifficulty: row.repeat_guess_counts_for_gm_difficulty,
     queueGameStarts: row.queue_game_starts,
     gameStartsEnabled: row.game_starts_enabled,
+    fairPlayNoticeEnabled: row.fair_play_notice_enabled,
     provinceGameChannelId: row.province_game_channel_id ?? undefined,
     provinceGameStartsEnabled: row.province_game_starts_enabled,
     testModeEnabled: row.test_mode_enabled,
@@ -151,6 +154,16 @@ export const updateMaxConsecutiveGuesses = async (maxConsecutiveGuesses: number)
     UPDATE rule
     SET
       max_consecutive_guesses = ${maxConsecutiveGuesses},
+      updated_at = now()
+  `;
+  return loadRules(true);
+};
+
+export const updateFairPlayNoticeEnabled = async (enabled: boolean) => {
+  await sqlClient`
+    UPDATE rule
+    SET
+      fair_play_notice_enabled = ${enabled},
       updated_at = now()
   `;
   return loadRules(true);

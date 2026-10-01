@@ -19,6 +19,7 @@ const baseRules: GameRules = {
   repeatGuessCountsForGmDifficulty: false,
   queueGameStarts: false,
   gameStartsEnabled: true,
+  fairPlayNoticeEnabled: true,
   provinceGameStartsEnabled: true,
   testModeEnabled: true,
   testChannelId: "test-channel",

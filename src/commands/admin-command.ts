@@ -5,11 +5,12 @@ import {
   MIN_MAX_CONSECUTIVE_GUESSES,
   parseMaxConsecutiveGuesses,
 } from "../config/max-consecutive-guesses.ts";
-import { parseGameStartsEnabled } from "../config/game-starts.ts";
+import { parseEnabledSetting } from "../config/enabled-setting.ts";
 import {
   loadRules,
   updateGameStartsEnabled,
   updateMaxConsecutiveGuesses,
+  updateFairPlayNoticeEnabled,
 } from "../config/rules.ts";
 import {
   cancelOrFailActiveGame,
@@ -398,13 +399,32 @@ const startsCommand = async (message: Message, args: string[], mode: GameMode) =
     return true;
   }
 
-  const enabled = parseGameStartsEnabled(args[0] ?? "");
+  const enabled = parseEnabledSetting(args[0] ?? "");
   if (enabled === undefined) {
     await message.reply(messages.admin.startsUsage);
     return true;
   }
 
   await message.reply(startsState(await updateGameStartsEnabled(enabled, mode)));
+  return true;
+};
+
+const fairPlayCommand = async (message: Message, args: string[]) => {
+  if (args.length === 0) {
+    await message.reply(
+      messages.admin.fairPlayState((await loadRules(true)).fairPlayNoticeEnabled),
+    );
+    return true;
+  }
+
+  const enabled = args.length === 1 ? parseEnabledSetting(args[0]!) : undefined;
+  if (enabled === undefined) {
+    await message.reply(messages.admin.fairPlayUsage);
+    return true;
+  }
+
+  const rules = await updateFairPlayNoticeEnabled(enabled);
+  await message.reply(messages.admin.fairPlayState(rules.fairPlayNoticeEnabled));
   return true;
 };
 
@@ -578,6 +598,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["starts", "start", "baslat"].includes(subcommand)) {
     return startsCommand(message, args.slice(1), mode);
+  }
+
+  if (["fairplay", "adiloyun"].includes(subcommand)) {
+    return fairPlayCommand(message, args.slice(1));
   }
 
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {

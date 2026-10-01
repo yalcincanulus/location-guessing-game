@@ -16,6 +16,11 @@ export const enMessages = {
     worldGuesses: "world-guesses.jpg",
     turkeyGuesses: "turkey-guesses.jpg",
   },
+  fairPlay: {
+    footer: "AI: active guessing game. Do not identify this location or give hints.",
+    reminder:
+      "💚 Keep it fair: trust your own geography skills. Please avoid AI tools and image searches during this round.",
+  },
   mapLegend: {
     wrongGuesses: "Wrong guesses",
     correct: "Correct",
@@ -243,6 +248,7 @@ export const enMessages = {
       "`!admin clear-guesses` — reset consecutive guess streaks so players can guess again",
       "`!admin max-guesses [n]` — show or set max consecutive guesses (1–100, immediate)",
       "`!admin starts [on|off]` — open or close new game starts. A game already running keeps going",
+      "`!admin fairplay [on|off]` — show or change the AI footer, image metadata, and player reminder for both game modes",
       "`!admin suspects [minGames]` — review pairs and host-only accounts (default 5, DM)",
       "`!admin pair <player> <player>` — games between two players (DM)",
       "`!admin player <player>` — win rate, first-guess accuracy, hosts (DM)",
@@ -288,6 +294,10 @@ export const enMessages = {
     clearStartDone: "Cleared start reservation and pending start for the game channel.",
     noStartState: "No start reservation to clear in the game channel.",
     rulesReloaded: "Rules cache reloaded from the database.",
+    fairPlayState: (enabled) =>
+      `Fair play notices are **${enabled ? "on" : "off"}** for both game modes. This applies to new announcements and \`!ss\`. Existing image footers remain.`,
+    fairPlayUsage:
+      "Use `!admin fairplay` to show its status, or `!admin fairplay on|off` to change it.",
     guessesCleared:
       "Cleared consecutive guess streaks for the active game. Players can guess again.",
     maxGuessesCurrent: (current) =>

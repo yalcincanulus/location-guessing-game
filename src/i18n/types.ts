@@ -85,6 +85,10 @@ export type BotMessages = {
     worldGuesses: string;
     turkeyGuesses: string;
   };
+  fairPlay: {
+    footer: string;
+    reminder: string;
+  };
   mapLegend: {
     wrongGuesses: string;
     correct: string;
@@ -165,6 +169,8 @@ export type BotMessages = {
     clearStartDone: string;
     noStartState: string;
     rulesReloaded: string;
+    fairPlayState: (enabled: boolean) => string;
+    fairPlayUsage: string;
     guessesCleared: string;
     maxGuessesCurrent: (current: number) => string;
     maxGuessesUpdated: (previous: number, next: number) => string;

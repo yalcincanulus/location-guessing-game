@@ -19,8 +19,8 @@ const CLOSED = new Set([
   "disabled",
 ]);
 
-/** `true` opens new game starts, `false` closes them. */
-export const parseGameStartsEnabled = (value: string): boolean | undefined => {
+/** Parses an English or Turkish on/off value for a boolean game rule. */
+export const parseEnabledSetting = (value: string): boolean | undefined => {
   const token = normalizeToken(value);
   if (OPEN.has(token)) {
     return true;

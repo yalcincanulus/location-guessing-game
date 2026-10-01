@@ -47,6 +47,8 @@ export const rule = snakeCase.table("rule", {
   queueGameStarts: boolean().notNull().default(false),
   /** When false, new games cannot be started. A game already in progress keeps running. */
   gameStartsEnabled: boolean().notNull().default(true),
+  /** Adds the AI footer, image metadata, and player reminder in both game modes. */
+  fairPlayNoticeEnabled: boolean().notNull().default(true),
   /** Channel for Turkish province games. Province mode is off while this is null. */
   provinceGameChannelId: text(),
   /** Same as `gameStartsEnabled`, for province games only. */
