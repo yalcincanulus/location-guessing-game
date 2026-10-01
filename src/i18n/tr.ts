@@ -245,10 +245,11 @@ export const trMessages = {
       "`!admin suspects [minGames]` — şüpheli çiftler ve yalnızca kuran hesaplar (varsayılan 5, DM)",
       "`!admin pair <oyuncu> <oyuncu>` — iki oyuncunun ortak elleri (DM)",
       "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular (DM)",
+      "`!admin winrates` — galibiyet oranına göre ilk 20 oyuncu, galibiyet ve katılım sayıları (DM)",
       "`!admin game <id>` — bir oyunun tahmin zaman çizelgesi (DM)",
       "`!admin fast <saniye>` — bu sürede veya daha kısa biten galibiyetler (DM)",
       "`!admin dismiss pair <oyuncu> <oyuncu>` — çifti inceleme listesinden çıkar (DM)",
-      "İl oyunları: il kanalı ve il istatistikleri için `!admin` sonrasına `il` yaz. `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `game` ve `fast` ile çalışır. Örnek: `!admin il status`.",
+      "İl oyunları: il kanalı ve il istatistikleri için `!admin` sonrasına `il` yaz. `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `winrates`, `game` ve `fast` ile çalışır. Örnek: `!admin il status`.",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -312,6 +313,12 @@ export const trMessages = {
     reviewSentToDm: "İnceleme DM'ine gönderildi.",
     reviewDmFailed: "DM açılamadı. Komutu botla özelden gönder.",
     reviewEmpty: "Raporlanacak bir şey yok.",
+    winRatesUsage: "Kullanım: `!admin winrates` veya `!admin il winrates`.",
+    winRatesHeader:
+      "Galibiyet oranına göre ilk 20 (tüm zamanlar, yüksekten düşüğe).\nGalibiyet oranı = galibiyet / katılınan oyun. Eşitlikte daha çok katılan oyuncu önce gelir.",
+    winRatesNone: "Bu oyun moduna henüz katılan oyuncu yok.",
+    winRatesLine: ({ rank, name, discordUserId, wins, played, rate }) =>
+      `${rank}. **${name}** (\`${discordUserId}\`) — **${rate}** (${wins}/${played})`,
     suspectsUsage:
       "Kullanım: `!admin suspects [minGames]` — **1** ile **100** arası tam sayı. Varsayılan: **5**.",
     suspectsHeader: (minGames, shownPairs, pairCount, shownHosts, hostCount) =>

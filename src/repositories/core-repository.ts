@@ -159,3 +159,27 @@ export const getLeaderboard = async (
     [limit],
   );
 };
+
+export const getWinRateLeaderboard = async (mode: GameMode = "country") => {
+  const rows = await sqlClient`
+    SELECT
+      p.display_name,
+      p.discord_user_id,
+      ps.games_won,
+      ps.games_participated,
+      ps.games_won::numeric / ps.games_participated AS win_rate
+    FROM ${sqlClient(tablesFor(mode).playerStat)} ps
+    JOIN player p ON p.id = ps.player_id
+    WHERE ps.games_participated > 0
+    ORDER BY win_rate DESC, ps.games_participated DESC, p.display_name ASC, p.discord_user_id ASC
+    LIMIT 20
+  `;
+
+  return rows.map((row) => ({
+    displayName: String(row.display_name),
+    discordUserId: String(row.discord_user_id),
+    wins: Number(row.games_won),
+    played: Number(row.games_participated),
+    winRate: Number(row.win_rate),
+  }));
+};

@@ -15,6 +15,7 @@ import { parseFastSeconds, parseMinSharedGames } from "../domain/review/scoring.
 import {
   findPlayerByDiscordUserId,
   findPlayersByDisplayName,
+  getWinRateLeaderboard,
   type DbPlayer,
 } from "../repositories/core-repository.ts";
 import type { GameMode } from "../domain/game/game-mode.ts";
@@ -42,6 +43,9 @@ const REVIEW_COMMANDS = new Set([
   "oyun",
   "fast",
   "hizli",
+  "winrates",
+  "winrate",
+  "galibiyet",
   "dismiss",
   "kapat",
 ]);
@@ -485,6 +489,33 @@ const fastCommand = async (message: Message, args: string[], mode: GameMode) => 
   await deliverPrivate(message, lines, mode);
 };
 
+const winRatesCommand = async (message: Message, args: string[], mode: GameMode) => {
+  if (args.length !== 0) {
+    await message.reply(messages.admin.winRatesUsage);
+    return;
+  }
+
+  const players = await getWinRateLeaderboard(mode);
+  await deliverPrivate(
+    message,
+    [
+      messages.admin.winRatesHeader,
+      players.length === 0 ? messages.admin.winRatesNone : "",
+      ...players.map((player, index) =>
+        messages.admin.winRatesLine({
+          rank: index + 1,
+          name: clip(player.displayName),
+          discordUserId: player.discordUserId,
+          wins: player.wins,
+          played: player.played,
+          rate: `${(player.winRate * 100).toFixed(2)}%`,
+        }),
+      ),
+    ],
+    mode,
+  );
+};
+
 const dismissCommand = async (message: Message, args: string[]) => {
   const action = normalize(args[0] ?? "");
   if (!["pair", "cift"].includes(action)) {
@@ -533,6 +564,10 @@ export const handleAdminReviewCommand = async (
   }
   if (["fast", "hizli"].includes(subcommand)) {
     await fastCommand(message, args, mode);
+    return true;
+  }
+  if (["winrates", "winrate", "galibiyet"].includes(subcommand)) {
+    await winRatesCommand(message, args, mode);
     return true;
   }
   await dismissCommand(message, args);

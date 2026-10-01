@@ -180,6 +180,17 @@ export type BotMessages = {
     reviewSentToDm: string;
     reviewDmFailed: string;
     reviewEmpty: string;
+    winRatesUsage: string;
+    winRatesHeader: string;
+    winRatesNone: string;
+    winRatesLine: (input: {
+      rank: number;
+      name: string;
+      discordUserId: string;
+      wins: number;
+      played: number;
+      rate: string;
+    }) => string;
     suspectsUsage: string;
     suspectsHeader: (
       minGames: number,

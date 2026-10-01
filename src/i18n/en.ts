@@ -246,10 +246,11 @@ export const enMessages = {
       "`!admin suspects [minGames]` — review pairs and host-only accounts (default 5, DM)",
       "`!admin pair <player> <player>` — games between two players (DM)",
       "`!admin player <player>` — win rate, first-guess accuracy, hosts (DM)",
+      "`!admin winrates` — top 20 players by win rate, with wins and participation counts (DM)",
       "`!admin game <id>` — guess timeline for one game (DM)",
       "`!admin fast <seconds>` — wins at or under this solve time (DM)",
       "`!admin dismiss pair <player> <player>` — hide that pair from the review list (DM)",
-      "Province games: put `il` after `!admin` to use the province channel and province stats. Works with `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `game`, and `fast`. Example: `!admin il status`.",
+      "Province games: put `il` after `!admin` to use the province channel and province stats. Works with `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `winrates`, `game`, and `fast`. Example: `!admin il status`.",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -313,6 +314,12 @@ export const enMessages = {
     reviewSentToDm: "Review sent to your DMs.",
     reviewDmFailed: "I couldn't open a DM. Send the command in a DM with the bot.",
     reviewEmpty: "Nothing to report.",
+    winRatesUsage: "Usage: `!admin winrates` or `!admin il winrates`.",
+    winRatesHeader:
+      "Top 20 win rates (all time, highest first).\nWin rate = wins / games participated. Ties: more games participated first.",
+    winRatesNone: "No players have participated in this game mode yet.",
+    winRatesLine: ({ rank, name, discordUserId, wins, played, rate }) =>
+      `${rank}. **${name}** (\`${discordUserId}\`) — **${rate}** (${wins}/${played})`,
     suspectsUsage:
       "Usage: `!admin suspects [minGames]` — integer from **1** to **100**. Default: **5**.",
     suspectsHeader: (minGames, shownPairs, pairCount, shownHosts, hostCount) =>
