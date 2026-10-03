@@ -295,7 +295,6 @@ const completeStartIfReady = async ({
               coverageSource: parsedLocation.coverageSource,
             }),
         fittedScreenshot,
-        rules.fairPlayNoticeEnabled ? messages.fairPlay.reminder : undefined,
       ),
     );
 
@@ -315,6 +314,12 @@ const completeStartIfReady = async ({
         updated_at = now()
       WHERE id = ${started.state.gameId}
     `;
+
+    if (rules.fairPlayNoticeEnabled) {
+      await gameChannel.send(messages.fairPlay.reminder).catch((error: unknown) => {
+        logger.warn("Could not send the fair play reminder", { error });
+      });
+    }
   }
 
   await scheduleIdleMultiplier(started.state.gameId, rules.idleMultiplierIntervalSeconds * 1000);

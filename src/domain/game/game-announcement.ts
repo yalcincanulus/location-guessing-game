@@ -1,31 +1,12 @@
-import {
-  AttachmentBuilder,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
-  MessageFlags,
-  TextDisplayBuilder,
-  type MessageCreateOptions,
-} from "discord.js";
+import { AttachmentBuilder, type MessageCreateOptions } from "discord.js";
 
+// Plain content + attachment only: older Discord clients (common where Discord is
+// blocked and clients go unupdated) cannot render Components V2 messages, so the
+// fair play reminder is sent as a separate follow-up message instead.
 export const buildGameAnnouncement = (
   content: string,
   screenshot: { buffer: Buffer; name: string },
-  reminder?: string,
-): MessageCreateOptions => {
-  const files = [new AttachmentBuilder(screenshot.buffer, { name: screenshot.name })];
-  if (!reminder) {
-    return { content, files };
-  }
-
-  return {
-    flags: MessageFlags.IsComponentsV2,
-    components: [
-      new TextDisplayBuilder().setContent(content),
-      new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL(`attachment://${screenshot.name}`),
-      ),
-      new TextDisplayBuilder().setContent(`-# ${reminder}`),
-    ],
-    files,
-  };
-};
+): MessageCreateOptions => ({
+  content,
+  files: [new AttachmentBuilder(screenshot.buffer, { name: screenshot.name })],
+});
