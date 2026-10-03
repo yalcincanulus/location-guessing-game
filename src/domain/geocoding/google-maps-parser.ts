@@ -48,7 +48,9 @@ const parsePair = (
   const lat = Number(latitude);
   const lon = Number(longitude);
 
-  if (!validateCoordinate(lat, lon)) {
+  // Exactly 0,0 is a placeholder, not a location. South Korea links hide coordinates
+  // behind a plus code and embed a thumbnail URL with "ll=0.0,0.0"; fall through to the pano id.
+  if (!validateCoordinate(lat, lon) || (lat === 0 && lon === 0)) {
     return undefined;
   }
 

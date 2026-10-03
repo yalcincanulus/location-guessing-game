@@ -119,4 +119,25 @@ describe("parseGoogleMapsUrl panorama-only links", () => {
     expect(parsed?.longitude).toBeCloseTo(-16.57705755810356);
     expect(parsed?.coverageSource).toBe("third-party");
   });
+
+  test("ignores the 0,0 thumbnail placeholder in South Korea plus-code links", async () => {
+    const url =
+      "https://www.google.com/maps/@8Q78FC6X+RJW3752,6a,60y,31.16h,99.75t/data=!3m5!1e1!3m3!1s_H35o32zKUJhOsSafHWfqQ!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fpanoid%3D_H35o32zKUJhOsSafHWfqQ%26w%3D900%26h%3D600%26ll%3D0.0,0.0%26yaw%3D31.0%26pitch%3D-9.0%26thumbfov%3D81%26cb_client%3Dgmm.iv.android?utm_source=mstt_0";
+    const fetchImpl = (async (input) => {
+      const requested = requestUrl(input as string | URL | Request);
+      if (!requested.includes("!2s_H35o32zKUJhOsSafHWfqQ")) {
+        return new Response("unexpected fetch", { status: 500 });
+      }
+      const data = [
+        [0],
+        [[[1], [2, "_H35o32zKUJhOsSafHWfqQ"], [], [], [], [[[1], [[null, null, 35.4621, 126.449]]]]]],
+      ];
+      return new Response(`/**/_xdc_._m && _xdc_._m(${JSON.stringify(data)})`, { status: 200 });
+    }) as typeof fetch;
+
+    const parsed = await parseGoogleMapsUrl(url, { fetchImpl });
+    expect(parsed?.latitude).toBeCloseTo(35.4621);
+    expect(parsed?.longitude).toBeCloseTo(126.449);
+    expect(parsed?.source).toBe("google-pano-metadata");
+  });
 });
