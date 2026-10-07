@@ -38,6 +38,8 @@ describe("normalizeCountryGuess overseas territories", () => {
   test("accepts 3-letter nicknames that are not ISO alpha-3 codes", () => {
     expect(normalizeCountryGuess("abd")?.countryCode).toBe("US");
     expect(normalizeCountryGuess("uae")?.countryCode).toBe("AE");
+    expect(normalizeCountryGuess("nmk")?.countryCode).toBe("MK");
+    expect(normalizeCountryGuess("NMI")?.countryCode).toBe("MP");
     expect(normalizeCountryGuess("usa")?.countryCode).toBe("US");
   });
 
