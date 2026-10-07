@@ -39,6 +39,26 @@ export const MEDAL_EMOJI: Record<Medal, string> = {
 
 export const AWARD_CATEGORIES: AwardCategory[] = ["points", "wins", "started", "hardest"];
 
+/** Command words (normalized, English and Turkish) for each period type. */
+export const PERIOD_ALIASES: Record<string, PeriodType> = {
+  daily: "daily",
+  gunluk: "daily",
+  weekly: "weekly",
+  haftalik: "weekly",
+  monthly: "monthly",
+  aylik: "monthly",
+  seasonal: "seasonal",
+  season: "seasonal",
+  mevsim: "seasonal",
+  mevsimlik: "seasonal",
+  yearly: "yearly",
+  year: "yearly",
+  yillik: "yearly",
+};
+
+/** Command words (normalized) that ask for medals across all period types. */
+export const ALL_TIME_ALIASES = new Set(["all", "alltime", "total", "tum", "tumu", "toplam"]);
+
 const MEDAL_BY_TIER: Medal[] = ["gold", "silver", "bronze"];
 
 type IstanbulParts = {

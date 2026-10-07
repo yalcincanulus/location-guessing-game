@@ -18,6 +18,8 @@ import {
   getWinRateLeaderboard,
   type DbPlayer,
 } from "../repositories/core-repository.ts";
+import { getMedalLeaderboard } from "../repositories/awards-repository.ts";
+import { ALL_TIME_ALIASES, PERIOD_ALIASES } from "../domain/awards/periods.ts";
 import type { GameMode } from "../domain/game/game-mode.ts";
 import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 import { formatPlayerProfile } from "./player-profile.ts";
@@ -49,6 +51,9 @@ const REVIEW_COMMANDS = new Set([
   "winrates",
   "winrate",
   "galibiyet",
+  "medals",
+  "madalya",
+  "madalyalar",
   "dismiss",
   "kapat",
 ]);
@@ -539,6 +544,37 @@ const winRatesCommand = async (message: Message, args: string[], mode: GameMode)
   );
 };
 
+const medalsCommand = async (message: Message, args: string[], mode: GameMode) => {
+  const periodArg = normalize(args[0] ?? "");
+  const allTime = !periodArg || ALL_TIME_ALIASES.has(periodArg);
+  const periodType = allTime ? undefined : PERIOD_ALIASES[periodArg];
+  if (args.length > 1 || (!allTime && !periodType)) {
+    await message.reply(messages.admin.medalsUsage);
+    return;
+  }
+
+  const rows = await getMedalLeaderboard(periodType, 25, mode);
+  await deliverPrivate(
+    message,
+    [
+      messages.admin.medalsHeader(messages.awards.medalsHeader(periodType)),
+      rows.length === 0 ? messages.awards.noMedalData : "",
+      ...rows.map((row, index) =>
+        messages.admin.medalsLine({
+          rank: index + 1,
+          name: clip(row.displayName),
+          discordUserId: row.discordUserId,
+          medalPoints: row.medalPoints,
+          gold: row.gold,
+          silver: row.silver,
+          bronze: row.bronze,
+        }),
+      ),
+    ],
+    mode,
+  );
+};
+
 const dismissCommand = async (message: Message, args: string[]) => {
   const action = normalize(args[0] ?? "");
   if (!["pair", "cift"].includes(action)) {
@@ -595,6 +631,10 @@ export const handleAdminReviewCommand = async (
   }
   if (["winrates", "winrate", "galibiyet"].includes(subcommand)) {
     await winRatesCommand(message, args, mode);
+    return true;
+  }
+  if (["medals", "madalya", "madalyalar"].includes(subcommand)) {
+    await medalsCommand(message, args, mode);
     return true;
   }
   await dismissCommand(message, args);

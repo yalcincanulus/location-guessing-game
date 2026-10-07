@@ -146,7 +146,7 @@ export const trMessages = {
       ].join("\n");
     },
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM). Galibiyet ve başlatma haritaları DM'de de çalışır. Mod seçmek için `il` veya `ülke` ekle.",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [dönem]`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM). Galibiyet ve başlatma haritaları DM'de de çalışır. Mod seçmek için `il` veya `ülke` ekle.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -185,12 +185,15 @@ export const trMessages = {
         ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
         : `${rank}. ${displayName}: **${value}**`,
     noCategoryData: "_Henüz veri yok._",
-    noMedalData: "Bu dönem için henüz madalya verilmedi.",
+    noMedalData: "Henüz madalya verilmedi.",
     medalsUsage:
-      "Kullanım: `!medals <dönem>` — dönem: `daily`, `weekly`, `monthly`, `seasonal` veya `yearly`.",
+      "Kullanım: `!medals [dönem]` — dönem: `daily`, `weekly`, `monthly`, `seasonal` veya `yearly`. Tüm zamanların madalya puanları için dönem yazma (veya `tüm` yaz).",
     medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
       `${rank}. ${displayName}: **${medalPoints}** puan (🥇${gold} 🥈${silver} 🥉${bronze})`,
     medalsHeader: (periodType) => {
+      if (!periodType) {
+        return "**Tüm zamanlar madalya puanı sıralaması**";
+      }
       const labels = {
         daily: "Günlük",
         weekly: "Haftalık",
@@ -276,10 +279,11 @@ export const trMessages = {
       "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular",
       "`!admin profile <oyuncu>` — oyuncunun `!profile` istatistikleri",
       "`!admin winrates` — ilk 20 galibiyet oranı, galibiyet ve katılım sayıları",
+      "`!admin medals [dönem]` — ilk 25 madalya puanı (varsayılan: tüm zamanlar)",
       "`!admin game <id>` — tahmin zaman çizelgesi",
       "`!admin fast <saniye>` — bu süre içindeki galibiyetler",
       "`!admin dismiss pair <oyuncu> <oyuncu>` — çifti incelemeden çıkar",
-      "İl kanalı/istatistikleri: `!admin il <komut>` (ör. `!admin il status`). Desteklenen: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `game`, `fast`.",
+      "İl kanalı/istatistikleri: `!admin il <komut>` (ör. `!admin il status`). Desteklenen: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `medals`, `game`, `fast`.",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -347,6 +351,11 @@ export const trMessages = {
     reviewSentToDm: "İnceleme DM'ine gönderildi.",
     reviewDmFailed: "DM açılamadı. Komutu botla özelden gönder.",
     reviewEmpty: "Raporlanacak bir şey yok.",
+    medalsUsage:
+      "Kullanım: `!admin medals [dönem]` — dönem: `daily`, `weekly`, `monthly`, `seasonal` veya `yearly`. Varsayılan: tüm zamanlar.",
+    medalsHeader: (rankingTitle) => `${rankingTitle} — ilk 25`,
+    medalsLine: ({ rank, name, discordUserId, medalPoints, gold, silver, bronze }) =>
+      `${rank}. **${name}** (\`${discordUserId}\`) — **${medalPoints}** puan (🥇${gold} 🥈${silver} 🥉${bronze})`,
     winRatesUsage: "Kullanım: `!admin winrates` veya `!admin il winrates`.",
     winRatesHeader:
       "Galibiyet oranına göre ilk 20 (tüm zamanlar, yüksekten düşüğe).\nGalibiyet oranı = galibiyet / katılınan oyun. Eşitlikte daha çok katılan oyuncu önce gelir.",
@@ -687,7 +696,7 @@ export const trMessages = {
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
       ].join("\n"),
     helpCommands:
-      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda veya DM'de il haritaları için `il` ekle (örneğin `!winmap il`). Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
+      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [dönem]`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda veya DM'de il haritaları için `il` ekle (örneğin `!winmap il`). Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
     startsState: (enabled) =>
       enabled ? "Yeni il oyunu başlatma **açık**." : "Yeni il oyunu başlatma **kapalı**.",
     startsClosed: (userId) => `<@${userId}> yeni il oyunu başlatma kapalı.`,

@@ -17,7 +17,11 @@ import { loadGameScreenshot } from "../domain/game/load-screenshot.ts";
 import { prepareGameScreenshot } from "../domain/game/prepare-screenshot.ts";
 import { logger } from "../util/logger.ts";
 import { formatPeriodStandingsMessage } from "../domain/awards/announce.ts";
-import { getCurrentPeriodWindow, type PeriodType } from "../domain/awards/periods.ts";
+import {
+  ALL_TIME_ALIASES,
+  getCurrentPeriodWindow,
+  PERIOD_ALIASES,
+} from "../domain/awards/periods.ts";
 import { renderMap } from "../domain/maps/map-renderer.ts";
 import { viewportAliases } from "../domain/maps/region-presets.ts";
 import { getLeaderboard, getPlayerProfile, upsertPlayer } from "../repositories/core-repository.ts";
@@ -45,22 +49,6 @@ const normalizeCommand = (value: string) =>
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{Letter}\p{Number}]/gu, "");
-
-const periodCommandAliases: Record<string, PeriodType> = {
-  daily: "daily",
-  gunluk: "daily",
-  weekly: "weekly",
-  haftalik: "weekly",
-  monthly: "monthly",
-  aylik: "monthly",
-  seasonal: "seasonal",
-  season: "seasonal",
-  mevsim: "seasonal",
-  mevsimlik: "seasonal",
-  yearly: "yearly",
-  year: "yearly",
-  yillik: "yearly",
-};
 
 export const isCommandMessage = async (content: string) => {
   const rules = await loadRules();
@@ -543,7 +531,7 @@ export const handleCommand = async (message: Message<true>) => {
     return true;
   }
 
-  const periodType = periodCommandAliases[command];
+  const periodType = PERIOD_ALIASES[command];
   if (periodType) {
     const window = getCurrentPeriodWindow(periodType);
     const standings = await getAllCategoryStandings(window.startsAt, window.endsAt, 10, mode);
@@ -551,10 +539,11 @@ export const handleCommand = async (message: Message<true>) => {
     return true;
   }
 
-  if (["medals", "awards", "madalya"].includes(command)) {
+  if (["medals", "awards", "madalya", "madalyalar"].includes(command)) {
     const periodArg = normalizeCommand(statArgs[0] ?? "");
-    const medalsPeriodType = periodArg ? periodCommandAliases[periodArg] : undefined;
-    if (!medalsPeriodType) {
+    const allTime = !periodArg || ALL_TIME_ALIASES.has(periodArg);
+    const medalsPeriodType = allTime ? undefined : PERIOD_ALIASES[periodArg];
+    if (!allTime && !medalsPeriodType) {
       await message.reply(messages.awards.medalsUsage);
       return true;
     }

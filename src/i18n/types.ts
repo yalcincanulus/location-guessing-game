@@ -152,7 +152,8 @@ export type BotMessages = {
     noMedalData: string;
     medalsUsage: string;
     medalRow: (input: MedalLeaderboardMessageInput) => string;
-    medalsHeader: (periodType: AwardPeriodType) => string;
+    /** Without a period type, the header is for all-time medal points. */
+    medalsHeader: (periodType?: AwardPeriodType) => string;
   };
   test: {
     modeDisabled: string;
@@ -199,6 +200,14 @@ export type BotMessages = {
     reviewSentToDm: string;
     reviewDmFailed: string;
     reviewEmpty: string;
+    medalsUsage: string;
+    medalsHeader: (rankingTitle: string) => string;
+    medalsLine: (
+      input: Omit<MedalLeaderboardMessageInput, "displayName"> & {
+        name: string;
+        discordUserId: string;
+      },
+    ) => string;
     winRatesUsage: string;
     winRatesHeader: string;
     winRatesNone: string;

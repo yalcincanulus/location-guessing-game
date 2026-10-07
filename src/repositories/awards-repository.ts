@@ -254,8 +254,9 @@ export type MedalLeaderboardRow = {
   bronze: number;
 };
 
+/** Medal points per player. Without a period type, all period types count (the `!profile` total). */
 export const getMedalLeaderboard = async (
-  periodType: PeriodType,
+  periodType: PeriodType | undefined,
   limit = 10,
   mode: GameMode = "country",
 ): Promise<MedalLeaderboardRow[]> => {
@@ -271,7 +272,7 @@ export const getMedalLeaderboard = async (
     FROM ${sqlClient(t.periodAward)} pa
     JOIN ${sqlClient(t.awardPeriod)} ap ON ap.id = pa.award_period_id
     JOIN player p ON p.id = pa.player_id
-    WHERE ap.period_type = ${periodType}
+    WHERE (${periodType ?? null}::text IS NULL OR ap.period_type = ${periodType ?? null})
     GROUP BY p.id, p.display_name, p.discord_user_id
     HAVING SUM(pa.medal_points) > 0
     ORDER BY medal_points DESC, gold DESC, silver DESC, bronze DESC, p.display_name ASC

@@ -140,7 +140,7 @@ export const enMessages = {
       ].join("\n");
     },
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM), `!feedback <message>` (DM only). Win and start maps also work in DM. Add `province` or `country` to select a map mode.",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [period]`, `!achievements` (also works in DM), `!feedback <message>` (DM only). Win and start maps also work in DM. Add `province` or `country` to select a map mode.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -179,12 +179,15 @@ export const enMessages = {
         ? `${medalEmoji} ${rank}. ${displayName}: **${value}**`
         : `${rank}. ${displayName}: **${value}**`,
     noCategoryData: "_No data yet._",
-    noMedalData: "No medals awarded yet for that period.",
+    noMedalData: "No medals awarded yet.",
     medalsUsage:
-      "Usage: `!medals <period>` — period is `daily`, `weekly`, `monthly`, `seasonal`, or `yearly`.",
+      "Usage: `!medals [period]` — period is `daily`, `weekly`, `monthly`, `seasonal`, or `yearly`. Leave it out (or use `all`) for all-time medal points.",
     medalRow: ({ rank, displayName, medalPoints, gold, silver, bronze }) =>
       `${rank}. ${displayName}: **${medalPoints}** pts (🥇${gold} 🥈${silver} 🥉${bronze})`,
     medalsHeader: (periodType) => {
+      if (!periodType) {
+        return "**All-time medal points rankings**";
+      }
       const labels = {
         daily: "Daily",
         weekly: "Weekly",
@@ -270,10 +273,11 @@ export const enMessages = {
       "`!admin player <player>` — win rate, first-guess accuracy, hosts",
       "`!admin profile <player>` — that player's `!profile` stats",
       "`!admin winrates` — top 20 win rates, wins & participations",
+      "`!admin medals [period]` — top 25 medal points (default: all-time)",
       "`!admin game <id>` — guess timeline",
       "`!admin fast <seconds>` — wins within this time",
       "`!admin dismiss pair <player> <player>` — hide pair from review",
-      "Province channel/stats: `!admin il <command>` (e.g. `!admin il status`). Supports: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `game`, `fast`.",
+      "Province channel/stats: `!admin il <command>` (e.g. `!admin il status`). Supports: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `medals`, `game`, `fast`.",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -341,6 +345,11 @@ export const enMessages = {
     reviewSentToDm: "Review sent to your DMs.",
     reviewDmFailed: "I couldn't open a DM. Send the command in a DM with the bot.",
     reviewEmpty: "Nothing to report.",
+    medalsUsage:
+      "Usage: `!admin medals [period]` — period is `daily`, `weekly`, `monthly`, `seasonal`, or `yearly`. Default: all-time.",
+    medalsHeader: (rankingTitle) => `${rankingTitle} — top 25`,
+    medalsLine: ({ rank, name, discordUserId, medalPoints, gold, silver, bronze }) =>
+      `${rank}. **${name}** (\`${discordUserId}\`) — **${medalPoints}** pts (🥇${gold} 🥈${silver} 🥉${bronze})`,
     winRatesUsage: "Usage: `!admin winrates` or `!admin il winrates`.",
     winRatesHeader:
       "Top 20 win rates (all time, highest first).\nWin rate = wins / games participated. Ties: more games participated first.",
@@ -680,7 +689,7 @@ export const enMessages = {
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
       ].join("\n"),
     helpCommands:
-      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`. Guess with a province name or plate code. In other channels or DM, add `il` to see province maps (for example `!winmap il`). In other channels, add `il` to see province stats (for example `!profile il`).",
+      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [period]`, `!achievements`. Guess with a province name or plate code. In other channels or DM, add `il` to see province maps (for example `!winmap il`). In other channels, add `il` to see province stats (for example `!profile il`).",
     startsState: (enabled) =>
       enabled
         ? "New province game starts are **open**."

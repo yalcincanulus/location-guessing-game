@@ -20,7 +20,7 @@ import {
 import { clearGuessStreaks, getWrongCountries } from "../domain/game/active-game-state.ts";
 import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { runPeriodAwardsForType } from "../domain/awards/announce.ts";
-import type { PeriodType } from "../domain/awards/periods.ts";
+import { PERIOD_ALIASES } from "../domain/awards/periods.ts";
 import { runAchievementsBackfill } from "../domain/achievements/hooks.ts";
 import { runIdleMultiplierCheck } from "../jobs/queues.ts";
 import { messages } from "../i18n/messages.ts";
@@ -506,25 +506,9 @@ const tickCommand = async (message: Message, ctx: GameChannelContext) => {
   return true;
 };
 
-const awardsPeriodAliases: Record<string, PeriodType> = {
-  daily: "daily",
-  gunluk: "daily",
-  weekly: "weekly",
-  haftalik: "weekly",
-  monthly: "monthly",
-  aylik: "monthly",
-  seasonal: "seasonal",
-  season: "seasonal",
-  mevsim: "seasonal",
-  mevsimlik: "seasonal",
-  yearly: "yearly",
-  year: "yearly",
-  yillik: "yearly",
-};
-
 const awardsCommand = async (message: Message, args: string[], mode: GameMode) => {
   const periodArg = normalize(args[0] ?? "daily");
-  const periodType = awardsPeriodAliases[periodArg];
+  const periodType = PERIOD_ALIASES[periodArg];
   if (!periodType) {
     await message.reply(messages.admin.awardsInvalidPeriod);
     return true;
