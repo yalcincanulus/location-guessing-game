@@ -1,4 +1,5 @@
 import type { SKRSContext2D } from "@napi-rs/canvas";
+import { MEDAL_POINTS } from "../awards/periods.ts";
 import type { MapMedalCounts } from "./map-header.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 
@@ -43,13 +44,19 @@ export const PLAYER_NAME_STYLES = {
 export type PlayerNameTier = keyof typeof PLAYER_NAME_STYLES;
 export type PlayerNameStyle = (typeof PLAYER_NAME_STYLES)[PlayerNameTier];
 
-/** Thresholds use medal counts, not medal points, within the selected game mode. */
+/** Medal points within the selected game mode, as on `!profile`. */
+export const playerMedalPoints = (medals: MapMedalCounts) =>
+  medals.gold * MEDAL_POINTS.gold +
+  medals.silver * MEDAL_POINTS.silver +
+  medals.bronze * MEDAL_POINTS.bronze;
+
+/** Thresholds use medal points, not medal counts. */
 export const getPlayerNameTier = (medals: MapMedalCounts): PlayerNameTier => {
-  const total = medals.gold + medals.silver + medals.bronze;
-  if (total >= 400) return "explorer";
-  if (total >= 300) return "platinum";
-  if (total >= 150) return "rose";
-  if (total >= 25) return "gold";
+  const points = playerMedalPoints(medals);
+  if (points >= 200) return "explorer";
+  if (points >= 120) return "platinum";
+  if (points >= 40) return "rose";
+  if (points >= 10) return "gold";
   return "white";
 };
 

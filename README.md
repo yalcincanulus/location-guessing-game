@@ -35,7 +35,7 @@ A second game where players guess one of Türkiye's 81 provinces. It runs in its
 
   Start maps include completed, cancelled, and failed rounds, and hide active rounds to protect the answer. The channel selects the mode. An explicit mode argument overrides the channel, such as `!winmap province` or `!startmap country`. Both commands also work in DM, where the default mode is country.
 
-  Name colors use the total medal count for the selected mode. White covers 0–24 medals, gold 25–149, rose-plum 150–299, and platinum blue 300–399. The explorer tier starts at 400 medals, with iridescent mint lettering and four sparkles.
+  Name colors use the medal points for the selected mode (gold 3, silver 2, bronze 1, as on `!profile`). White covers 0–9 points, gold 10–39, rose-plum 40–119, and platinum blue 120–199. The explorer tier starts at 200 points, with iridescent mint lettering and four sparkles.
 
   Explorer headers use Atlas, with a geography background, world silhouette, and compass rose. All designs remain available in `src/domain/maps/player-map-header-designs.ts`: Atlas, Nautical, Aurora, Pixel Atlas, and Pixel Voyager. Set `activePlayerMapHeaderDesign` to switch designs. Lower tiers always keep the plain header.
 

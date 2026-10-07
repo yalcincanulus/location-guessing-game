@@ -14,14 +14,17 @@ const designs = Object.keys(PLAYER_MAP_HEADER_DESIGNS).filter(
 ) as PlayerMapHeaderDesign[];
 
 describe("explorer map headers", () => {
-  test.each(designs)("%s is available at 400 medals and preserves the lower tiers", (design) => {
-    expect(getPlayerMapHeaderDesign({ gold: 200, silver: 100, bronze: 99 }, design)).toBe("plain");
-    expect(getPlayerMapHeaderDesign({ gold: 0, silver: 250, bronze: 150 }, design)).toBe(design);
-    expect(getPlayerMapHeaderDesign({ gold: 0, silver: 0, bronze: 1000 }, design)).toBe(design);
-  });
+  test.each(designs)(
+    "%s is available at 200 medal points and preserves the lower tiers",
+    (design) => {
+      expect(getPlayerMapHeaderDesign({ gold: 50, silver: 24, bronze: 1 }, design)).toBe("plain");
+      expect(getPlayerMapHeaderDesign({ gold: 50, silver: 25, bronze: 0 }, design)).toBe(design);
+      expect(getPlayerMapHeaderDesign({ gold: 0, silver: 0, bronze: 1000 }, design)).toBe(design);
+    },
+  );
 
   test("uses the selected design when no preview override is supplied", () => {
-    expect(getPlayerMapHeaderDesign({ gold: 400, silver: 0, bronze: 0 })).toBe(
+    expect(getPlayerMapHeaderDesign({ gold: 70, silver: 0, bronze: 0 })).toBe(
       activePlayerMapHeaderDesign,
     );
   });

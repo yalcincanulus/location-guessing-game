@@ -343,7 +343,7 @@ export const PLAYER_MAP_HEADER_DESIGNS = {
 
 export type PlayerMapHeaderDesign = keyof typeof PLAYER_MAP_HEADER_DESIGNS;
 
-/** Select the background for the 400+ tier; all alternatives stay in the registry above. */
+/** Select the background for the 200+ medal point tier; all alternatives stay in the registry above. */
 export const activePlayerMapHeaderDesign: PlayerMapHeaderDesign = "atlas";
 
 export const getPlayerMapHeaderDesign = (
