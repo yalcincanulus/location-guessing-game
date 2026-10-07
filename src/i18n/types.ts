@@ -95,6 +95,22 @@ export type BotMessages = {
     correct: string;
     location: string;
   };
+  profileCard: {
+    tierNames: Record<"white" | "gold" | "rose" | "platinum" | "explorer" | "legend", string>;
+    mode: (mode: MessageGameMode) => string;
+    points: string;
+    wins: string;
+    winRate: string;
+    participated: string;
+    gamesStarted: string;
+    guesses: string;
+    multiplier: string;
+    medals: string;
+    medalPoints: (points: string) => string;
+    achievements: (count: string) => string;
+    nextTier: (tierName: string, missing: string) => string;
+    topTier: string;
+  };
   playerMap: {
     title: (kind: PlayerMapKind, mode: MessageGameMode) => string;
     summary: (

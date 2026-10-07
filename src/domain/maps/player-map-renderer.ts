@@ -30,7 +30,7 @@ export type RenderPlayerMapOptions = {
 
 const PASSPORT_STAMP_LIMIT = 6;
 
-const toPassportStamps = (
+export const toPassportStamps = (
   mode: GameMode,
   locations: Array<{ code: string; count: number }>,
 ): PassportStamp[] =>

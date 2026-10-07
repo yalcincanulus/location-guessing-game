@@ -37,7 +37,7 @@ import { getCountryDisplayName } from "../domain/countries/normalize-country-gue
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
-import { formatPlayerProfile } from "./player-profile.ts";
+import { formatPlayerProfile, renderPlayerProfileCard } from "./player-profile.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 
@@ -498,8 +498,25 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["profile", "profil"].includes(command)) {
-    const profile = await formatPlayerProfile(message.author.id, mode);
-    await message.reply(profile ? withModeLabel(mode, profile) : messages.commands.noProfileYet);
+    try {
+      const card = await renderPlayerProfileCard(
+        message.author.id,
+        mode,
+        message.author.displayAvatarURL({ extension: "png", size: 256 }),
+      );
+      await message.reply(
+        card
+          ? {
+              files: [new AttachmentBuilder(card.buffer, { name: card.filename })],
+              allowedMentions: { repliedUser: false },
+            }
+          : messages.commands.noProfileYet,
+      );
+    } catch (error) {
+      logger.error("Profile card failed; replying with text", { error: String(error) });
+      const profile = await formatPlayerProfile(message.author.id, mode);
+      await message.reply(profile ? withModeLabel(mode, profile) : messages.commands.noProfileYet);
+    }
     return true;
   }
 

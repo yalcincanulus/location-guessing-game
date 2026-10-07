@@ -253,15 +253,20 @@ export const playerMedalPoints = (medals: MapMedalCounts) =>
   medals.silver * MEDAL_POINTS.silver +
   medals.bronze * MEDAL_POINTS.bronze;
 
+/** Lowest medal points for each tier, in ascending order. */
+export const PLAYER_NAME_TIER_THRESHOLDS: ReadonlyArray<[PlayerNameTier, number]> = [
+  ["white", 0],
+  ["gold", 10],
+  ["rose", 40],
+  ["platinum", 120],
+  ["explorer", 200],
+  ["legend", 500],
+];
+
 /** Thresholds use medal points, not medal counts. */
 export const getPlayerNameTier = (medals: MapMedalCounts): PlayerNameTier => {
   const points = playerMedalPoints(medals);
-  if (points >= 500) return "legend";
-  if (points >= 200) return "explorer";
-  if (points >= 120) return "platinum";
-  if (points >= 40) return "rose";
-  if (points >= 10) return "gold";
-  return "white";
+  return PLAYER_NAME_TIER_THRESHOLDS.findLast(([, minimum]) => points >= minimum)![0];
 };
 
 export const getPlayerNameStyle = (medals: MapMedalCounts): PlayerNameStyle =>

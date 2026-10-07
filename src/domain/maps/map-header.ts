@@ -51,7 +51,7 @@ const fitText = (context: SKRSContext2D, text: string, maxWidth: number) => {
 };
 
 /** Canvas medals also render on the production image, which has no emoji font. */
-const drawMedalIcon = (
+export const drawMedalIcon = (
   context: SKRSContext2D,
   x: number,
   baseline: number,

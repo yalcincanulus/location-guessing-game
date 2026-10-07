@@ -1,4 +1,4 @@
-import type { Message } from "discord.js";
+import { AttachmentBuilder, type Message } from "discord.js";
 import { messages } from "../i18n/messages.ts";
 import {
   dismissReviewPair,
@@ -22,7 +22,8 @@ import { getMedalLeaderboard } from "../repositories/awards-repository.ts";
 import { ALL_TIME_ALIASES, PERIOD_ALIASES } from "../domain/awards/periods.ts";
 import type { GameMode } from "../domain/game/game-mode.ts";
 import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
-import { formatPlayerProfile } from "./player-profile.ts";
+import { formatPlayerProfile, renderPlayerProfileCard } from "./player-profile.ts";
+import { logger } from "../util/logger.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -96,29 +97,39 @@ const splitForDiscord = (lines: string[], maxLength = 1_900) => {
   return chunks;
 };
 
-const deliverPrivate = async (message: Message, lines: string[], mode: GameMode = "country") => {
+const deliverPrivate = async (
+  message: Message,
+  lines: string[],
+  mode: GameMode = "country",
+  files: AttachmentBuilder[] = [],
+) => {
   const body = lines.length > 0 ? lines : [messages.admin.reviewEmpty];
   const content = mode === "province" ? [messages.province.label, ...body] : body;
   const chunks = splitForDiscord(content);
   if (chunks.length === 0) {
     chunks.push(messages.admin.reviewEmpty);
   }
-  const payload = (text: string) => ({ content: text, allowedMentions: { parse: [] } });
+  // Attachments go with the last chunk so they appear below the text.
+  const payload = (text: string, index: number) => ({
+    content: text,
+    files: index === chunks.length - 1 ? files : [],
+    allowedMentions: { parse: [] },
+  });
 
   if (!message.inGuild()) {
-    for (const chunk of chunks) {
-      await message.reply(payload(chunk));
+    for (const [index, chunk] of chunks.entries()) {
+      await message.reply(payload(chunk, index));
     }
     return;
   }
 
   try {
-    for (const chunk of chunks) {
-      await message.author.send(payload(chunk));
+    for (const [index, chunk] of chunks.entries()) {
+      await message.author.send(payload(chunk, index));
     }
-    await message.reply(payload(messages.admin.reviewSentToDm));
+    await message.reply({ content: messages.admin.reviewSentToDm, allowedMentions: { parse: [] } });
   } catch {
-    await message.reply(payload(messages.admin.reviewDmFailed));
+    await message.reply({ content: messages.admin.reviewDmFailed, allowedMentions: { parse: [] } });
   }
 };
 
@@ -345,7 +356,24 @@ const profileCommand = async (message: Message, args: string[], mode: GameMode) 
     return;
   }
 
-  const profile = await formatPlayerProfile(resolved.player.discordUserId, mode);
+  const { discordUserId } = resolved.player;
+  try {
+    const user = await message.client.users.fetch(discordUserId).catch(() => undefined);
+    const card = await renderPlayerProfileCard(
+      discordUserId,
+      mode,
+      user?.displayAvatarURL({ extension: "png", size: 256 }),
+    );
+    if (card) {
+      await deliverPrivate(message, [playerLabel(resolved.player)], mode, [
+        new AttachmentBuilder(card.buffer, { name: card.filename }),
+      ]);
+      return;
+    }
+  } catch (error) {
+    logger.error("Profile card failed; sending text", { error: String(error) });
+  }
+  const profile = await formatPlayerProfile(discordUserId, mode);
   await deliverPrivate(
     message,
     [profile ?? messages.admin.reviewPlayerNotFound(playerLabel(resolved.player))],
