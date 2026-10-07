@@ -6,7 +6,7 @@ export const keys = {
   guessStreaks: (gameId: string) => `game:${gameId}:guess-streaks`,
   winClaim: (gameId: string) => `game:${gameId}:win-claim`,
   mapCache: (gameId: string, viewport: string, hash: string) =>
-    `game:${gameId}:map-cache:${viewport}:${hash}:jpg`,
+    `game:${gameId}:map-cache:${viewport}:${hash}:png:v2`,
   /** Country starts keep the original key. Province starts get their own suffix. */
   pendingStart: (guildId: string, userId: string, mode: "country" | "province" = "country") =>
     mode === "province"

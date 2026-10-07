@@ -25,12 +25,11 @@ const baseMapViewports: Record<string, BaseMapViewport> = {
   world: {
     name: "world",
     width: 1400,
-    height: 950,
-    // Slightly under full-canvas width so ±180° wrap tiles are visible at the edges
-    // (Alaska east of Russia / Chukotka west of Alaska) instead of a hard cut.
-    scale: 200,
-    // scale: 220,
-    translate: [700, 590],
+    height: 1010,
+    // Frame roughly 169°W–180°E, with mainland Alaska at the left edge.
+    // Keep Greenland in view and stop near 65°S, just below the Antarctic Peninsula's tip.
+    scale: 230,
+    translate: [678, 665],
     center: [0, 0],
   },
   europe: {

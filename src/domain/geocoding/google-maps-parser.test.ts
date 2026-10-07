@@ -130,7 +130,16 @@ describe("parseGoogleMapsUrl panorama-only links", () => {
       }
       const data = [
         [0],
-        [[[1], [2, "_H35o32zKUJhOsSafHWfqQ"], [], [], [], [[[1], [[null, null, 35.4621, 126.449]]]]]],
+        [
+          [
+            [1],
+            [2, "_H35o32zKUJhOsSafHWfqQ"],
+            [],
+            [],
+            [],
+            [[[1], [[null, null, 35.4621, 126.449]]]],
+          ],
+        ],
       ];
       return new Response(`/**/_xdc_._m && _xdc_._m(${JSON.stringify(data)})`, { status: 200 });
     }) as typeof fetch;

@@ -13,8 +13,8 @@ export const trMessages = {
   locale: "tr",
   filenames: {
     fallbackScreenshot: "ekran-goruntusu.png",
-    worldGuesses: "dunya-tahminleri.jpg",
-    turkeyGuesses: "turkiye-tahminleri.jpg",
+    worldGuesses: "dunya-tahminleri.png",
+    turkeyGuesses: "turkiye-tahminleri.png",
   },
   fairPlay: {
     footer:
@@ -26,6 +26,28 @@ export const trMessages = {
     wrongGuesses: "Yanlış tahminler",
     correct: "Doğru",
     location: "Konum",
+  },
+  playerMap: {
+    title: (kind, mode) =>
+      `${kind === "wins" ? "Galibiyet haritası" : "Başlatma haritası"} · ${mode === "province" ? "Türkiye'nin illeri" : "Ülkeler"}`,
+    summary: (kind, mode, games, locations) =>
+      `${kind === "wins" ? "Kazanılan oyun" : "Başlatılan oyun"}: ${games} · ${mode === "province" ? "İl" : "Ülke"}: ${locations}`,
+    generatedAt: (date) =>
+      new Intl.DateTimeFormat("tr-TR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Istanbul",
+      }).format(date),
+    legend: (kind, mode) =>
+      kind === "wins"
+        ? mode === "province"
+          ? "Kazanılan iller"
+          : "Kazanılan ülkeler"
+        : mode === "province"
+          ? "Oyun başlatılan iller"
+          : "Oyun başlatılan ülkeler",
+    usage:
+      "Kendi haritan için `!winmap` veya `!startmap` kullan. Mod seçmek için `il` / `province` veya `ülke` / `country` ekle. Aktif oyunlar ve test oyunları dahil edilmez.",
   },
   start: {
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
@@ -124,7 +146,7 @@ export const trMessages = {
       ].join("\n");
     },
     helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM).",
+      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM). Galibiyet ve başlatma haritaları DM'de de çalışır. Mod seçmek için `il` veya `ülke` ekle.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -663,7 +685,7 @@ export const trMessages = {
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
       ].join("\n"),
     helpCommands:
-      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
+      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <dönem>`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda veya DM'de il haritaları için `il` ekle (örneğin `!winmap il`). Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
     startsState: (enabled) =>
       enabled ? "Yeni il oyunu başlatma **açık**." : "Yeni il oyunu başlatma **kapalı**.",
     startsClosed: (userId) => `<@${userId}> yeni il oyunu başlatma kapalı.`,

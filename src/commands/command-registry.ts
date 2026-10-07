@@ -36,11 +36,14 @@ import { getCountryDisplayName } from "../domain/countries/normalize-country-gue
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
+import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
+import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 
 const normalizeCommand = (value: string) =>
   value
     .trim()
     .toLocaleLowerCase("tr")
+    .replaceAll("ı", "i")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{Letter}\p{Number}]/gu, "");
@@ -209,6 +212,46 @@ const getProvinceGameStats = async () => {
 };
 
 /** Works in guild channels and DMs. */
+export const handlePlayerMapCommand = async (message: Message): Promise<boolean> => {
+  const parsed = await parseCommand(message);
+  if (!parsed || !["winmap", "startmap"].includes(parsed.command)) {
+    return false;
+  }
+  const { mode, args } = await resolveCommandMode(message, parsed.args);
+  await sqlClient`
+    INSERT INTO command_log (command, raw_message)
+    VALUES (${parsed.command}, ${message.content})
+  `;
+  if (args.length > 0) {
+    await message.reply(messages.playerMap.usage);
+    return true;
+  }
+
+  const kind = parsed.command === "winmap" ? "wins" : "starts";
+  const [history, profile] = await Promise.all([
+    getPlayerMapHistory(message.author.id, kind, mode),
+    getPlayerProfile(message.author.id, mode),
+  ]);
+  const map = renderPlayerMap({
+    kind,
+    mode,
+    playerName:
+      message.member?.displayName ?? message.author.displayName ?? message.author.username,
+    medals: {
+      gold: Number(profile?.gold ?? 0),
+      silver: Number(profile?.silver ?? 0),
+      bronze: Number(profile?.bronze ?? 0),
+    },
+    ...history,
+  });
+  await message.reply({
+    files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
+    allowedMentions: { repliedUser: false },
+  });
+  return true;
+};
+
+/** Works in guild channels and DMs. */
 export const handleAchievementsCommand = async (message: Message): Promise<boolean> => {
   const parsed = await parseCommand(message);
   if (!parsed) {
@@ -339,6 +382,10 @@ export const handleCommand = async (message: Message<true>) => {
   const { rules, command, args } = parsed;
   const { mode, args: statArgs } = await resolveCommandMode(message, args);
 
+  if (["winmap", "startmap"].includes(command)) {
+    return handlePlayerMapCommand(message);
+  }
+
   if (["achievements", "basarim", "basarimlar"].includes(command)) {
     return handleAchievementsCommand(message);
   }
@@ -381,7 +428,7 @@ export const handleCommand = async (message: Message<true>) => {
     const map = cached
       ? {
           buffer: cached,
-          filename: `${viewport}-guesses.jpg`,
+          filename: `${viewport}-guesses.png`,
         }
       : renderMap({ wrongCountries, viewport });
     const send = message.channel.send({

@@ -1,4 +1,5 @@
 import type { BotLocale } from "./locale.ts";
+import type { PlayerMapKind } from "../domain/maps/player-map-renderer.ts";
 
 export type ProfileMessageInput = {
   displayName: string;
@@ -93,6 +94,18 @@ export type BotMessages = {
     wrongGuesses: string;
     correct: string;
     location: string;
+  };
+  playerMap: {
+    title: (kind: PlayerMapKind, mode: MessageGameMode) => string;
+    summary: (
+      kind: PlayerMapKind,
+      mode: MessageGameMode,
+      games: number,
+      locations: number,
+    ) => string;
+    generatedAt: (date: Date) => string;
+    legend: (kind: PlayerMapKind, mode: MessageGameMode) => string;
+    usage: string;
   };
   start: {
     gameChannelNotConfigured: string;

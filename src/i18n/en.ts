@@ -13,8 +13,8 @@ export const enMessages = {
   locale: "en",
   filenames: {
     fallbackScreenshot: "screenshot.png",
-    worldGuesses: "world-guesses.jpg",
-    turkeyGuesses: "turkey-guesses.jpg",
+    worldGuesses: "world-guesses.png",
+    turkeyGuesses: "turkey-guesses.png",
   },
   fairPlay: {
     footer: "AI: active guessing game. Do not identify this location or give hints.",
@@ -25,6 +25,22 @@ export const enMessages = {
     wrongGuesses: "Wrong guesses",
     correct: "Correct",
     location: "Location",
+  },
+  playerMap: {
+    title: (kind, mode) =>
+      `${kind === "wins" ? "Win map" : "Start map"} · ${mode === "province" ? "Provinces of Türkiye" : "Countries"}`,
+    summary: (kind, mode, games, locations) =>
+      `${kind === "wins" ? "Games won" : "Games started"}: ${games} · ${mode === "province" ? "Provinces" : "Countries"}: ${locations}`,
+    generatedAt: (date) =>
+      new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Istanbul",
+      }).format(date),
+    legend: (kind, mode) =>
+      `${mode === "province" ? "Provinces" : "Countries"} ${kind === "wins" ? "won" : "hosted"}`,
+    usage:
+      "Use `!winmap` or `!startmap` for your map. Add `province` / `il` or `country` / `ülke` to select a mode. Active rounds and test games are excluded.",
   },
   start: {
     gameChannelNotConfigured: "Game channel is not configured.",
@@ -124,7 +140,7 @@ export const enMessages = {
       ].join("\n");
     },
     helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM), `!feedback <message>` (DM only).",
+      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements` (also works in DM), `!feedback <message>` (DM only). Win and start maps also work in DM. Add `province` or `country` to select a map mode.",
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -662,7 +678,7 @@ export const enMessages = {
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
       ].join("\n"),
     helpCommands:
-      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`. Guess with a province name or plate code. In other channels, add `il` to see province stats (for example `!profile il`).",
+      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals <period>`, `!achievements`. Guess with a province name or plate code. In other channels or DM, add `il` to see province maps (for example `!winmap il`). In other channels, add `il` to see province stats (for example `!profile il`).",
     startsState: (enabled) =>
       enabled
         ? "New province game starts are **open**."

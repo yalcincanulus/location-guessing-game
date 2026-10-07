@@ -44,6 +44,7 @@ import { keys } from "../../redis/keys.ts";
 import {
   handleCommand,
   handleAchievementsCommand,
+  handlePlayerMapCommand,
   isCommandMessage,
 } from "../../commands/command-registry.ts";
 import { handleAdminCommand } from "../../commands/admin-command.ts";
@@ -872,7 +873,10 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
         if (await handleAchievementsCommand(message)) {
           return;
         }
-        await message.reply(messages.achievements.dmUsage);
+        if (await handlePlayerMapCommand(message)) {
+          return;
+        }
+        await message.reply(`${messages.achievements.dmUsage}\n${messages.playerMap.usage}`);
         return;
       }
       await handleDmStart(client, message);

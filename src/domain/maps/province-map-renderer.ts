@@ -7,12 +7,17 @@ import {
   countryFeatures,
   drawLegend,
   drawLocationMarker,
-  MAP_JPEG_QUALITY,
   type MapCoordinates,
 } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import { activeMapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
+import {
+  drawMapHeader,
+  MAP_HEADER_HEIGHT,
+  type MapHeader,
+  type MapHighlights,
+} from "./map-header.ts";
 
 export const TURKEY_MAP_VIEWPORT = "turkey";
 
@@ -35,18 +40,23 @@ export type RenderProvinceMapOptions = {
   correctProvince?: string;
   /** Exact answer location; draws a red crosshair + dot when provided. */
   marker?: MapCoordinates;
+  highlights?: MapHighlights;
+  header?: MapHeader;
 };
 
 export const renderProvinceMap = ({
   wrongProvinces,
   correctProvince,
   marker,
+  highlights,
+  header,
 }: RenderProvinceMapOptions) => {
   const ui = MAP_RESOLUTION_SCALE;
   const width = BASE_WIDTH * ui;
   const height = BASE_HEIGHT * ui;
   const theme = activeMapTheme;
   const wrong = new Set(wrongProvinces);
+  const highlighted = new Set(highlights?.codes);
 
   const pad = 28 * ui;
   const projection = geoMercator().fitExtent(
@@ -57,8 +67,11 @@ export const renderProvinceMap = ({
     provinceCollection as never,
   );
 
-  const canvas = createCanvas(width, height);
+  const headerHeight = header ? MAP_HEADER_HEIGHT : 0;
+  const canvas = createCanvas(width, height + headerHeight);
   const context = canvas.getContext("2d");
+  context.save();
+  context.translate(0, headerHeight);
   const path = geoPath(projection, context as never);
 
   context.fillStyle = theme.ocean;
@@ -90,7 +103,9 @@ export const renderProvinceMap = ({
         ? theme.correct
         : wrong.has(province.id)
           ? theme.wrong
-          : theme.country;
+          : highlights && highlighted.has(province.id)
+            ? highlights.color
+            : theme.country;
     context.fill();
     context.stroke();
   }
@@ -108,16 +123,23 @@ export const renderProvinceMap = ({
     context,
     theme,
     [
-      { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
+      ...(highlights
+        ? [{ color: highlights.color, label: highlights.label }]
+        : [{ color: theme.wrong, label: messages.mapLegend.wrongGuesses }]),
       ...(correctProvince ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
       ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
     ],
     height,
   );
 
+  context.restore();
+  if (header) {
+    drawMapHeader(context, header, theme, width);
+  }
+
   return {
-    buffer: canvas.toBuffer("image/jpeg", MAP_JPEG_QUALITY),
+    buffer: canvas.toBuffer("image/png"),
     filename: messages.filenames.turkeyGuesses,
-    contentType: "image/jpeg",
+    contentType: "image/png",
   };
 };

@@ -15,6 +15,7 @@ Join [GeoGuessr Türkiye](https://www.geoturkiye.community/) to play this game.
 - **Automatic answers.** The bot reads coordinates from all common Google Maps URL formats, including short links. It finds the country with Nominatim (OpenStreetMap) reverse geocoding.
 - **Flexible starts.** Send the link and the screenshot by DM, in the channel, or one in each place, in any order.
 - **Wrong-guess maps.** At the end of a round, the bot draws a map with wrong guesses in red and the answer in green. Players can also ask for the current map during a round, zoomed to a region such as `!europe` or `!asia`.
+- **Sharp map images.** All maps use lossless PNG at twice the base resolution to preserve borders, text, and colors without JPEG artifacts.
 
 ### 🇹🇷 Province mode
 
@@ -30,6 +31,16 @@ A second game where players guess one of Türkiye's 81 provinces. It runs in its
   - The **round multiplier** grows while a round stays unsolved, so hard rounds pay more.
   - The **host multiplier** grows each time a host's round reaches a new wrong-guess milestone (10, 20, … 200). This rewards hosts who pick hard locations.
 - **Leaderboards and profiles** with `!leaderboard`, `!profile`, `!hardest`, and `!stats`.
+- **Personal maps.** `!winmap` shows the countries or provinces where you won in gold. `!startmap` shows where you started finished rounds in violet. Each image includes your name, medal counts, the game mode, totals, and the creation date in Istanbul time. Both commands use all recorded history and exclude test games.
+
+  Start maps include completed, cancelled, and failed rounds, and hide active rounds to protect the answer. The channel selects the mode. An explicit mode argument overrides the channel, such as `!winmap province` or `!startmap country`. Both commands also work in DM, where the default mode is country.
+
+  Name colors use the total medal count for the selected mode. White covers 0–24 medals, gold 25–149, rose-plum 150–299, and platinum blue 300–399. The explorer tier starts at 400 medals, with iridescent mint lettering and four sparkles.
+
+  Explorer headers use Atlas, with a geography background, world silhouette, and compass rose. All designs remain available in `src/domain/maps/player-map-header-designs.ts`: Atlas, Nautical, Aurora, Pixel Atlas, and Pixel Voyager. Set `activePlayerMapHeaderDesign` to switch designs. Lower tiers always keep the plain header.
+
+  Run `bun run preview:player-maps` to render every design for both commands and modes in `.cache/player-map-headers`.
+
 - **Period awards.** Daily, weekly, monthly, seasonal, and yearly standings for most points, most wins, most games started, and best game master. Gold, silver, and bronze medals go to the top three when each period ends.
 - **Achievements.** More than 30 achievements across a **host** track and a **guesser** track. They include tier ladders, streaks, geography goals, and rare one-time moments. Players view them with `!achievements`.
 

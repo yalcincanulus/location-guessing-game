@@ -6,6 +6,12 @@ import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
 import { activeMapTheme, type MapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
+import {
+  drawMapHeader,
+  MAP_HEADER_HEIGHT,
+  type MapHeader,
+  type MapHighlights,
+} from "./map-header.ts";
 
 type GeometryCollection = {
   type: "GeometryCollection";
@@ -33,9 +39,6 @@ export const countryFeatures = (
   }
 ).features;
 
-/** JPEG quality 0–100. Flat choropleth fills compress well; 90 stays sharp in Discord. */
-export const MAP_JPEG_QUALITY = 90;
-
 /** Countries whose geometry can appear on a ±360° Mercator tile at the world-view edges. */
 const wrapsAntimeridian = (country: Feature) => {
   const [[west], [east]] = geoBounds(country as never);
@@ -55,6 +58,8 @@ export type RenderMapOptions = {
   viewport?: string;
   /** Exact answer location; draws a red crosshair + dot when provided. */
   marker?: MapCoordinates;
+  highlights?: MapHighlights;
+  header?: MapHeader;
 };
 
 type MapProjection = ReturnType<typeof geoMercator>;
@@ -218,6 +223,8 @@ export const renderMap = ({
   correctCountry,
   viewport = "world",
   marker,
+  highlights,
+  header,
 }: RenderMapOptions) => {
   const preset = mapViewports[viewport] ?? mapViewports.world;
   if (!preset) {
@@ -225,11 +232,15 @@ export const renderMap = ({
   }
   const wrongNumericIds = new Set(wrongCountries.map(getCountryNumericId).filter(Boolean));
   const correctNumericId = correctCountry ? getCountryNumericId(correctCountry) : undefined;
+  const highlightedNumericIds = new Set(highlights?.codes.map(getCountryNumericId).filter(Boolean));
   const theme = activeMapTheme;
 
   const projection = buildProjection(preset, marker, correctNumericId);
-  const canvas = createCanvas(preset.width, preset.height);
+  const headerHeight = header ? MAP_HEADER_HEIGHT : 0;
+  const canvas = createCanvas(preset.width, preset.height + headerHeight);
   const context = canvas.getContext("2d");
+  context.save();
+  context.translate(0, headerHeight);
   const path = geoPath(projection, context as never);
 
   context.fillStyle = theme.ocean;
@@ -250,7 +261,9 @@ export const renderMap = ({
           ? theme.correct
           : wrongNumericIds.has(id)
             ? theme.wrong
-            : theme.country;
+            : highlights && highlightedNumericIds.has(id)
+              ? highlights.color
+              : theme.country;
       context.fill();
       context.stroke();
     }
@@ -278,16 +291,23 @@ export const renderMap = ({
     context,
     theme,
     [
-      { color: theme.wrong, label: messages.mapLegend.wrongGuesses },
+      ...(highlights
+        ? [{ color: highlights.color, label: highlights.label }]
+        : [{ color: theme.wrong, label: messages.mapLegend.wrongGuesses }]),
       ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
       ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
     ],
     preset.height,
   );
 
+  context.restore();
+  if (header) {
+    drawMapHeader(context, header, theme, preset.width);
+  }
+
   return {
-    buffer: canvas.toBuffer("image/jpeg", MAP_JPEG_QUALITY),
-    filename: `${preset.name}-guesses.jpg`,
-    contentType: "image/jpeg",
+    buffer: canvas.toBuffer("image/png"),
+    filename: `${preset.name}-guesses.png`,
+    contentType: "image/png",
   };
 };
