@@ -274,11 +274,12 @@ export const trMessages = {
       "`!admin suspects [minGames]` — şüpheli çiftler / yalnızca kuranlar (varsayılan: 5)",
       "`!admin pair <oyuncu> <oyuncu>` — ortak eller",
       "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular",
+      "`!admin profile <oyuncu>` — oyuncunun `!profile` istatistikleri",
       "`!admin winrates` — ilk 20 galibiyet oranı, galibiyet ve katılım sayıları",
       "`!admin game <id>` — tahmin zaman çizelgesi",
       "`!admin fast <saniye>` — bu süre içindeki galibiyetler",
       "`!admin dismiss pair <oyuncu> <oyuncu>` — çifti incelemeden çıkar",
-      "İl kanalı/istatistikleri: `!admin il <komut>` (ör. `!admin il status`). Desteklenen: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `winrates`, `game`, `fast`.",
+      "İl kanalı/istatistikleri: `!admin il <komut>` (ör. `!admin il status`). Desteklenen: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `game`, `fast`.",
     ].join("\n"),
     gameChannelNotConfigured: "Oyun kanalı yapılandırılmamış.",
     gameChannelUnavailable: "Yapılandırılmış oyun kanalına ulaşılamıyor.",
@@ -413,6 +414,7 @@ export const trMessages = {
     }) =>
       `\`${gameId}\` ${when} — kurucu **${gmName}**, kazanan **${winnerName}**, ${countryCode}, çözüm ${solve} (${mode === "province" ? "il" : "ülke"} ortancası ${median}), ${flags}, başlangıç ${source}.`,
     playerUsage: "Kullanım: `!admin player <oyuncu>` — mention, Discord kimliği veya görünen ad.",
+    profileUsage: "Kullanım: `!admin profile <oyuncu>` — mention, Discord kimliği veya görünen ad.",
     playerSummary: ({
       name,
       discordUserId,
@@ -524,7 +526,7 @@ export const trMessages = {
     startsState: (enabled) =>
       enabled ? "Yeni oyun başlatma **açık**." : "Yeni oyun başlatma **kapalı**.",
     unknownCommand:
-      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `game`, `fast` veya `dismiss pair` kullan.",
+      "Bilinmeyen admin komutu. `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `profile`, `game`, `fast` veya `dismiss pair` kullan.",
   },
   feedback: {
     usage: "Kullanım: `!feedback <mesaj>` -> DM'den admine geri bildirim gönder.",

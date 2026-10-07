@@ -265,6 +265,7 @@ export type BotMessages = {
       mode?: MessageGameMode;
     }) => string;
     playerUsage: string;
+    profileUsage: string;
     playerSummary: (input: {
       name: string;
       discordUserId: string;

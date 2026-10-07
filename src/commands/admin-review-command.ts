@@ -20,6 +20,7 @@ import {
 } from "../repositories/core-repository.ts";
 import type { GameMode } from "../domain/game/game-mode.ts";
 import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
+import { formatPlayerProfile } from "./player-profile.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -39,6 +40,8 @@ const REVIEW_COMMANDS = new Set([
   "cift",
   "player",
   "oyuncu",
+  "profile",
+  "profil",
   "game",
   "oyun",
   "fast",
@@ -325,6 +328,26 @@ const pairCommand = async (message: Message, args: string[], mode: GameMode) => 
   await deliverPrivate(message, lines, mode);
 };
 
+const profileCommand = async (message: Message, args: string[], mode: GameMode) => {
+  const ref = parsePlayerArgs(args);
+  if (!ref) {
+    await message.reply(messages.admin.profileUsage);
+    return;
+  }
+  const resolved = await resolveRef(ref);
+  if (!resolved.ok) {
+    await deliverPrivate(message, failureLines(resolved));
+    return;
+  }
+
+  const profile = await formatPlayerProfile(resolved.player.discordUserId, mode);
+  await deliverPrivate(
+    message,
+    [profile ?? messages.admin.reviewPlayerNotFound(playerLabel(resolved.player))],
+    mode,
+  );
+};
+
 const playerCommand = async (message: Message, args: string[], mode: GameMode) => {
   const ref = parsePlayerArgs(args);
   if (!ref) {
@@ -556,6 +579,10 @@ export const handleAdminReviewCommand = async (
   }
   if (["player", "oyuncu"].includes(subcommand)) {
     await playerCommand(message, args, mode);
+    return true;
+  }
+  if (["profile", "profil"].includes(subcommand)) {
+    await profileCommand(message, args, mode);
     return true;
   }
   if (["game", "oyun"].includes(subcommand)) {

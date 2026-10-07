@@ -22,10 +22,7 @@ import { renderMap } from "../domain/maps/map-renderer.ts";
 import { viewportAliases } from "../domain/maps/region-presets.ts";
 import { getLeaderboard, getPlayerProfile, upsertPlayer } from "../repositories/core-repository.ts";
 import { getAllCategoryStandings, getMedalLeaderboard } from "../repositories/awards-repository.ts";
-import {
-  countPlayerUnlocksByDiscordId,
-  getPlayerUnlocks,
-} from "../repositories/achievements-repository.ts";
+import { getPlayerUnlocks } from "../repositories/achievements-repository.ts";
 import { catalogForMode, ONESHOT_TIER } from "../domain/achievements/catalog.ts";
 import {
   getHostStreak,
@@ -36,6 +33,7 @@ import { getCountryDisplayName } from "../domain/countries/normalize-country-gue
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
+import { formatPlayerProfile } from "./player-profile.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 
@@ -508,35 +506,8 @@ export const handleCommand = async (message: Message<true>) => {
   }
 
   if (["profile", "profil"].includes(command)) {
-    const profile = await getPlayerProfile(message.author.id, mode);
-    if (!profile) {
-      await message.reply(messages.commands.noProfileYet);
-      return true;
-    }
-
-    const participated = Number(profile.games_participated ?? 0);
-    const wins = Number(profile.games_won ?? 0);
-    const winRate = participated === 0 ? 0 : Math.round((wins / participated) * 100);
-    await message.reply(
-      withModeLabel(
-        mode,
-        messages.commands.profile({
-          displayName: profile.display_name,
-          points: profile.points_total ?? 0,
-          wins,
-          participated,
-          winRate,
-          gamesStarted: profile.games_started ?? 0,
-          guesses: profile.total_guesses ?? 0,
-          gmMultiplier: Number(profile.current_gm_multiplier ?? 1),
-          medalPoints: Number(profile.medal_points ?? 0),
-          gold: Number(profile.gold ?? 0),
-          silver: Number(profile.silver ?? 0),
-          bronze: Number(profile.bronze ?? 0),
-          achievementsUnlocked: await countPlayerUnlocksByDiscordId(message.author.id, mode),
-        }),
-      ),
-    );
+    const profile = await formatPlayerProfile(message.author.id, mode);
+    await message.reply(profile ? withModeLabel(mode, profile) : messages.commands.noProfileYet);
     return true;
   }
 

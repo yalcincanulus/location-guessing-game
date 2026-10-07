@@ -268,11 +268,12 @@ export const enMessages = {
       "`!admin suspects [minGames]` — suspicious pairs / host-only accounts (default: 5)",
       "`!admin pair <player> <player>` — shared games",
       "`!admin player <player>` — win rate, first-guess accuracy, hosts",
+      "`!admin profile <player>` — that player's `!profile` stats",
       "`!admin winrates` — top 20 win rates, wins & participations",
       "`!admin game <id>` — guess timeline",
       "`!admin fast <seconds>` — wins within this time",
       "`!admin dismiss pair <player> <player>` — hide pair from review",
-      "Province channel/stats: `!admin il <command>` (e.g. `!admin il status`). Supports: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `winrates`, `game`, `fast`.",
+      "Province channel/stats: `!admin il <command>` (e.g. `!admin il status`). Supports: `status`, `cancel`, `reveal`, `clear-start`, `tick`, `clear-guesses`, `starts`, `awards`, `achievements backfill`, `suspects`, `pair`, `player`, `profile`, `winrates`, `game`, `fast`.",
     ].join("\n"),
     gameChannelNotConfigured: "Game channel is not configured.",
     gameChannelUnavailable: "Configured game channel is not available.",
@@ -407,6 +408,7 @@ export const enMessages = {
     }) =>
       `\`${gameId}\` ${when} — host **${gmName}**, winner **${winnerName}**, ${countryCode}, solve ${solve} (${mode === "province" ? "province" : "country"} median ${median}), ${flags}, start ${source}.`,
     playerUsage: "Usage: `!admin player <player>` — mention, Discord id, or display name.",
+    profileUsage: "Usage: `!admin profile <player>` — mention, Discord id, or display name.",
     playerSummary: ({
       name,
       discordUserId,
@@ -517,7 +519,7 @@ export const enMessages = {
         ? "New game starts are **open**."
         : "New game starts are **closed**. A game already in progress keeps running.",
     unknownCommand:
-      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `game`, `fast`, or `dismiss pair`.",
+      "Unknown admin command. Use `!admin help`, `status`, `cancel`, `reveal`, `clear-start`, `reload`, `tick`, `awards`, `feedback`, `achievements backfill`, `clear-guesses`, `max-guesses`, `starts`, `suspects`, `pair`, `player`, `profile`, `game`, `fast`, or `dismiss pair`.",
   },
   feedback: {
     usage: "Usage: `!feedback <message>` — send feedback to the admin from a DM.",
