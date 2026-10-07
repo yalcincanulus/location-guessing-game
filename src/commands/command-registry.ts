@@ -214,8 +214,10 @@ export const handlePlayerMapCommand = async (message: Message): Promise<boolean>
   }
 
   const kind = parsed.command === "winmap" ? "wins" : "starts";
-  const [history, profile] = await Promise.all([
+  const [history, winsHistory, profile] = await Promise.all([
     getPlayerMapHistory(message.author.id, kind, mode),
+    // Passport stamps always show the most-won locations, on start maps too.
+    kind === "wins" ? undefined : getPlayerMapHistory(message.author.id, "wins", mode),
     getPlayerProfile(message.author.id, mode),
   ]);
   const map = renderPlayerMap({
@@ -228,7 +230,9 @@ export const handlePlayerMapCommand = async (message: Message): Promise<boolean>
       silver: Number(profile?.silver ?? 0),
       bronze: Number(profile?.bronze ?? 0),
     },
-    ...history,
+    locationCodes: history.locationCodes,
+    gameCount: history.gameCount,
+    stamps: (winsHistory ?? history).topLocations,
   });
   await message.reply({
     files: [new AttachmentBuilder(map.buffer, { name: map.filename })],

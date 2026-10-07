@@ -72,10 +72,15 @@ describe("player map history", () => {
           expect(await getPlayerMapHistory(discordUserId, "wins", mode, sql)).toEqual({
             locationCodes: mode === "country" ? ["FR"] : ["06"],
             gameCount: 3,
+            topLocations: [{ code: mode === "country" ? "FR" : "06", count: 3 }],
           });
           expect(await getPlayerMapHistory(discordUserId, "starts", mode, sql)).toEqual({
             locationCodes: mode === "country" ? ["AU", "DE", "FR", "JP"] : ["06", "34", "35", "42"],
             gameCount: 4,
+            topLocations: (mode === "country"
+              ? ["AU", "DE", "FR", "JP"]
+              : ["06", "34", "35", "42"]
+            ).map((code) => ({ code, count: 1 })),
           });
           expect(
             await getPlayerMapHistory(
@@ -87,12 +92,14 @@ describe("player map history", () => {
           ).toEqual({
             locationCodes: [],
             gameCount: 0,
+            topLocations: [],
           });
           expect(
             await getPlayerMapHistory(`${discordUserId}-missing`, "starts", mode, sql),
           ).toEqual({
             locationCodes: [],
             gameCount: 0,
+            topLocations: [],
           });
           throw rollback;
         });

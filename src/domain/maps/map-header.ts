@@ -1,16 +1,15 @@
 import type { SKRSContext2D } from "@napi-rs/canvas";
+import type { GameMode } from "../game/game-mode.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import type { MapTheme } from "./themes.ts";
 import {
   drawPlayerMapHeaderBackground,
   getPlayerMapHeaderDesign,
+  getPlayerMapNameStyle,
+  type PassportStamp,
   type PlayerMapHeaderDesign,
 } from "./player-map-header-designs.ts";
-import {
-  drawStyledPlayerName,
-  getPlayerNameStyle,
-  playerNameDecorationWidth,
-} from "./player-name-style.ts";
+import { drawStyledPlayerName, playerNameDecorationWidth } from "./player-name-style.ts";
 
 export type MapHighlights = {
   codes: string[];
@@ -32,6 +31,9 @@ export type MapHeader = {
   generatedAt: string;
   color: string;
   design?: PlayerMapHeaderDesign;
+  /** Without stamps, the passport header shows sample stamps (for previews). */
+  stamps?: PassportStamp[];
+  mode?: GameMode;
 };
 
 export const MAP_HEADER_HEIGHT = 154 * MAP_RESOLUTION_SCALE;
@@ -105,6 +107,7 @@ const drawMedalIcon = (
 const drawPlayerName = (
   context: SKRSContext2D,
   header: MapHeader,
+  design: PlayerMapHeaderDesign,
   padding: number,
   maxWidth: number,
 ) => {
@@ -114,7 +117,7 @@ const drawPlayerName = (
   const iconWidth = 28 * ui;
   const iconGap = 6 * ui;
   const groupGap = 18 * ui;
-  const nameStyle = getPlayerNameStyle(header.medals);
+  const nameStyle = getPlayerMapNameStyle(header.medals, design);
   const decorationWidth = playerNameDecorationWidth(nameStyle);
   context.font = `bold ${24 * ui}px "DejaVu Sans", Arial, sans-serif`;
   const medals = [
@@ -158,13 +161,16 @@ export const drawMapHeader = (
   context.fillRect(0, 0, width, MAP_HEADER_HEIGHT);
   context.fillStyle = theme.legendBackground;
   context.fillRect(0, 0, width, MAP_HEADER_HEIGHT);
-  drawPlayerMapHeaderBackground(context, design, width, MAP_HEADER_HEIGHT);
+  drawPlayerMapHeaderBackground(context, design, width, MAP_HEADER_HEIGHT, {
+    stamps: header.stamps,
+    mode: header.mode,
+  });
   context.fillStyle = header.color;
 
   context.font = `bold ${16 * ui}px "DejaVu Sans", Arial, sans-serif`;
   context.fillText(fitText(context, header.title, maxWidth), padding, 30 * ui);
   context.fillStyle = design === "plain" ? theme.legendText : "#f1f5f9";
-  drawPlayerName(context, header, padding, maxWidth);
+  drawPlayerName(context, header, design, padding, maxWidth);
   context.font = `${17 * ui}px "DejaVu Sans", Arial, sans-serif`;
   context.fillText(fitText(context, header.summary, maxWidth), padding, 105 * ui);
   context.globalAlpha = 0.75;

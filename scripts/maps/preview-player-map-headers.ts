@@ -20,7 +20,11 @@ for (const mode of ["country", "province"] as const) {
         mode,
         headerDesign: design,
         playerName: "Çağrı",
-        medals: { gold: 180, silver: 140, bronze: 80 },
+        // Each design renders at the lowest tier that unlocks it.
+        medals:
+          PLAYER_MAP_HEADER_DESIGNS[design].tier === "legend"
+            ? { gold: 143, silver: 90, bronze: 40 }
+            : { gold: 52, silver: 31, bronze: 18 },
         locationCodes:
           mode === "country"
             ? ["TR", "FR", "GB", "BR", "US", "JP", "AU", "ZA", "DE", "IN", "CA", "MX"]

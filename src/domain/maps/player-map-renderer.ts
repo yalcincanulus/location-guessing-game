@@ -3,7 +3,10 @@ import { messages } from "../../i18n/messages.ts";
 import { renderMap } from "./map-renderer.ts";
 import { renderProvinceMap } from "./province-map-renderer.ts";
 import type { MapHeader, MapHighlights, MapMedalCounts } from "./map-header.ts";
-import type { PlayerMapHeaderDesign } from "./player-map-header-designs.ts";
+import type { PassportStamp, PlayerMapHeaderDesign } from "./player-map-header-designs.ts";
+import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
+import { getProvinceName } from "../provinces/normalize-province-guess.ts";
+import { getLocationCentroid } from "./location-centroids.ts";
 
 export type PlayerMapKind = "wins" | "starts";
 
@@ -21,7 +24,25 @@ export type RenderPlayerMapOptions = {
   gameCount: number;
   generatedAt?: Date;
   headerDesign?: PlayerMapHeaderDesign;
+  /** The player's most-won locations, most wins first, for the passport header. */
+  stamps?: Array<{ code: string; count: number }>;
 };
+
+const PASSPORT_STAMP_LIMIT = 6;
+
+const toPassportStamps = (
+  mode: GameMode,
+  locations: Array<{ code: string; count: number }>,
+): PassportStamp[] =>
+  locations.slice(0, PASSPORT_STAMP_LIMIT).map(({ code, count }) => ({
+    code,
+    count,
+    name: (mode === "province"
+      ? getProvinceName(code)
+      : getCountryDisplayName(code, messages.locale)
+    ).toLocaleUpperCase(messages.locale),
+    coordinates: getLocationCentroid(mode, code),
+  }));
 
 export const renderPlayerMap = ({
   kind,
@@ -32,6 +53,7 @@ export const renderPlayerMap = ({
   gameCount,
   generatedAt = new Date(),
   headerDesign,
+  stamps,
 }: RenderPlayerMapOptions) => {
   const codes = [...new Set(locationCodes)];
   const color = PLAYER_MAP_COLORS[kind];
@@ -43,6 +65,8 @@ export const renderPlayerMap = ({
     generatedAt: messages.playerMap.generatedAt(generatedAt),
     color,
     design: headerDesign,
+    stamps: stamps && toPassportStamps(mode, stamps),
+    mode,
   };
   const highlights: MapHighlights = { codes, color, label: messages.playerMap.legend(kind, mode) };
   const map =

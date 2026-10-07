@@ -3,9 +3,16 @@ import { tablesFor, type GameMode } from "../domain/game/game-mode.ts";
 import type { PlayerMapKind } from "../domain/maps/player-map-renderer.ts";
 import type { Sql, TransactionSql } from "postgres";
 
+export type PlayerMapLocationCount = {
+  code: string;
+  count: number;
+};
+
 export type PlayerMapHistory = {
   locationCodes: string[];
   gameCount: number;
+  /** Every location with its game count, most games first. */
+  topLocations: PlayerMapLocationCount[];
 };
 
 /** Only finished rounds are public: an active host map would expose the answer. */
@@ -35,8 +42,15 @@ export const getPlayerMapHistory = async (
     GROUP BY 1
     ORDER BY 1
   `;
+  const locations = rows.map((row) => ({
+    code: String(row.location_code),
+    count: Number(row.game_count),
+  }));
   return {
-    locationCodes: rows.map((row) => String(row.location_code)),
-    gameCount: rows.reduce((total, row) => total + Number(row.game_count), 0),
+    locationCodes: locations.map((location) => location.code),
+    gameCount: locations.reduce((total, location) => total + location.count, 0),
+    topLocations: locations.toSorted(
+      (left, right) => right.count - left.count || left.code.localeCompare(right.code),
+    ),
   };
 };
