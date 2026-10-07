@@ -29,10 +29,10 @@ export const trMessages = {
   },
   profileCard: {
     tierNames: {
-      white: "Beyaz",
-      gold: "Altın",
-      rose: "Gül",
-      platinum: "Platin",
+      white: "Meraklı",
+      gold: "Yolcu",
+      rose: "Gezgin",
+      platinum: "Seyyah",
       explorer: "Kâşif",
       legend: "Efsane",
     },

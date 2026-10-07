@@ -28,10 +28,10 @@ export const enMessages = {
   },
   profileCard: {
     tierNames: {
-      white: "White",
-      gold: "Gold",
-      rose: "Rose",
-      platinum: "Platinum",
+      white: "Curious",
+      gold: "Traveler",
+      rose: "Wanderer",
+      platinum: "Voyager",
       explorer: "Explorer",
       legend: "Legend",
     },
