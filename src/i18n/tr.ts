@@ -9,6 +9,20 @@ import {
 } from "./achievement-copy.ts";
 import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
+const trPlayerHelp = [
+  "**Oyuncu**",
+  "`!profil` — profil kartın ve sonraki seviyeye kalan puan",
+  "`!winmap` / `!startmap` — kazandığın / başlattığın yerlerin haritası",
+  "`!achievements` — başarımların (`!achievements list`: tüm liste)",
+  "**Sıralamalar**",
+  "`!leaderboard [wins|started|hardest]` — tüm zamanlar ilk 10 (varsayılan: puan)",
+  "`!hardest` — oyun kurucu olarak en çok yanlış tahmin",
+  "`!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly` — güncel dönemin sıralamaları",
+  "`!medals [dönem]` — madalya puanı sıralaması (dönem yazmazsan tüm zamanlar)",
+  "`!stats` — genel oyun istatistikleri",
+  "**DM'de:** `!profil`, `!winmap`, `!startmap`, `!achievements`, `!feedback <mesaj>`",
+];
+
 export const trMessages = {
   locale: "tr",
   filenames: {
@@ -168,8 +182,14 @@ export const trMessages = {
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
       ].join("\n");
     },
-    helpCommands:
-      "Komutlar: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [dönem]`, `!achievements` (DM'de de çalışır), `!feedback <mesaj>` (yalnızca DM). Galibiyet ve başlatma haritaları DM'de de çalışır. Mod seçmek için `il` veya `ülke` ekle.",
+    helpCommands: [
+      "**Oyun sırasında**",
+      "`!map` / `!harita` — yanlış tahminlerin haritası",
+      "Bölgeye yakınlaştır: `!europe`, `!asia`, `!seasia`, `!africa`, `!na`, `!sa`, `!au`",
+      "`!ss` — oyunun ekran görüntüsünü tekrar gönder",
+      ...trPlayerHelp,
+      "Mod seçmek için `il` veya `ülke` ekle (örneğin `!profil il`).",
+    ].join("\n"),
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -618,7 +638,7 @@ export const trMessages = {
     empty: "Henüz başarım açılmadı.",
     usage: "Kullanım: `!achievements` veya `!achievements list` (oyun kanalında veya DM'de).",
     dmUsage:
-      "DM'de `!achievements` veya `!achievements list` kullanabilirsin. Diğer komutlar oyun kanalında.",
+      "DM'de `!profil`, `!winmap`, `!startmap`, `!achievements` ve `!feedback <mesaj>` kullanabilirsin. Diğer komutlar oyun kanalında.",
     hiddenDescription: "Kazanılana kadar gizli.",
   },
   game: {
@@ -718,8 +738,13 @@ export const trMessages = {
         `Oyun kurucu: **${hosts}**`,
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
       ].join("\n"),
-    helpCommands:
-      "İl oyunu komutları: `!map` (Türkiye haritası), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [dönem]`, `!achievements`. İl adı veya plaka koduyla tahmin et. Diğer kanallarda veya DM'de il haritaları için `il` ekle (örneğin `!winmap il`). Diğer kanallarda il istatistikleri için `il` ekle (örneğin `!profile il`).",
+    helpCommands: [
+      "**İl oyunu** — il adı veya plaka koduyla tahmin et.",
+      "`!map` / `!tr` — yanlış tahmin edilen illerin Türkiye haritası",
+      "`!ss` — oyunun ekran görüntüsünü tekrar gönder",
+      ...trPlayerHelp,
+      "Diğer kanallarda veya DM'de il oyunu için `il` ekle (örneğin `!profil il`).",
+    ].join("\n"),
     startsState: (enabled) =>
       enabled ? "Yeni il oyunu başlatma **açık**." : "Yeni il oyunu başlatma **kapalı**.",
     startsClosed: (userId) => `<@${userId}> yeni il oyunu başlatma kapalı.`,

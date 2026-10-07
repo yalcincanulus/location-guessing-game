@@ -9,6 +9,20 @@ import {
 } from "./achievement-copy.ts";
 import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
 
+const enPlayerHelp = [
+  "**Player**",
+  "`!profile` — your profile card and points to the next tier",
+  "`!winmap` / `!startmap` — map of the places you won / started",
+  "`!achievements` — your achievements (`!achievements list`: full list)",
+  "**Rankings**",
+  "`!leaderboard [wins|started|hardest]` — all-time top 10 (default: points)",
+  "`!hardest` — most wrong guesses in a hosted game",
+  "`!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly` — current period standings",
+  "`!medals [period]` — medal point rankings (all-time without a period)",
+  "`!stats` — game-wide stats",
+  "**In DM:** `!profile`, `!winmap`, `!startmap`, `!achievements`, `!feedback <message>`",
+];
+
 export const enMessages = {
   locale: "en",
   filenames: {
@@ -162,8 +176,14 @@ export const enMessages = {
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
       ].join("\n");
     },
-    helpCommands:
-      "Commands: `!map`, `!harita`, `!europe`, `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [period]`, `!achievements` (also works in DM), `!feedback <message>` (DM only). Win and start maps also work in DM. Add `province` or `country` to select a map mode.",
+    helpCommands: [
+      "**During a game**",
+      "`!map` / `!harita` — map of the wrong guesses",
+      "Zoom to a region: `!europe`, `!asia`, `!seasia`, `!africa`, `!na`, `!sa`, `!au`",
+      "`!ss` — post the round's screenshot again",
+      ...enPlayerHelp,
+      "Add `province` or `country` to select a mode (for example `!profile province`).",
+    ].join("\n"),
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
   },
@@ -610,7 +630,7 @@ export const enMessages = {
     empty: "No achievements unlocked yet.",
     usage: "Usage: `!achievements` or `!achievements list` (works in the game channel or DM).",
     dmUsage:
-      "In DM you can use `!achievements` or `!achievements list`. Other commands belong in the game channel.",
+      "In DM you can use `!profile`, `!winmap`, `!startmap`, `!achievements`, and `!feedback <message>`. Other commands belong in the game channel.",
     hiddenDescription: "Hidden until earned.",
   },
   game: {
@@ -711,8 +731,13 @@ export const enMessages = {
         `Hosts: **${hosts}**`,
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
       ].join("\n"),
-    helpCommands:
-      "Province game commands: `!map` (Türkiye map), `!ss`, `!profile`, `!winmap`, `!startmap`, `!leaderboard`, `!stats`, `!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly`, `!medals [period]`, `!achievements`. Guess with a province name or plate code. In other channels or DM, add `il` to see province maps (for example `!winmap il`). In other channels, add `il` to see province stats (for example `!profile il`).",
+    helpCommands: [
+      "**Province game** — guess with a province name or plate code.",
+      "`!map` / `!tr` — Türkiye map of the wrong province guesses",
+      "`!ss` — post the round's screenshot again",
+      ...enPlayerHelp,
+      "In other channels or DM, add `il` for the province game (for example `!profile il`).",
+    ].join("\n"),
     startsState: (enabled) =>
       enabled
         ? "New province game starts are **open**."

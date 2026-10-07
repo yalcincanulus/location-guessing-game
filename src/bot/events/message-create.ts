@@ -45,6 +45,7 @@ import {
   handleCommand,
   handleAchievementsCommand,
   handlePlayerMapCommand,
+  handleProfileCommand,
   isCommandMessage,
 } from "../../commands/command-registry.ts";
 import { handleAdminCommand } from "../../commands/admin-command.ts";
@@ -874,6 +875,9 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
           return;
         }
         if (await handlePlayerMapCommand(message)) {
+          return;
+        }
+        if (await handleProfileCommand(message)) {
           return;
         }
         await message.reply(`${messages.achievements.dmUsage}\n${messages.playerMap.usage}`);

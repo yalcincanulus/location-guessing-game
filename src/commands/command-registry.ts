@@ -241,6 +241,41 @@ export const handlePlayerMapCommand = async (message: Message): Promise<boolean>
   return true;
 };
 
+const PROFILE_COMMANDS = ["profile", "profil"];
+
+/** Works in guild channels and DMs; DMs default to the country game. */
+export const handleProfileCommand = async (message: Message): Promise<boolean> => {
+  const parsed = await parseCommand(message);
+  if (!parsed || !PROFILE_COMMANDS.includes(parsed.command)) {
+    return false;
+  }
+  const { mode } = await resolveCommandMode(message, parsed.args);
+  await sqlClient`
+    INSERT INTO command_log (command, raw_message)
+    VALUES (${parsed.command}, ${message.content})
+  `;
+  try {
+    const card = await renderPlayerProfileCard(
+      message.author.id,
+      mode,
+      message.author.displayAvatarURL({ extension: "png", size: 256 }),
+    );
+    await message.reply(
+      card
+        ? {
+            files: [new AttachmentBuilder(card.buffer, { name: card.filename })],
+            allowedMentions: { repliedUser: false },
+          }
+        : messages.commands.noProfileYet,
+    );
+  } catch (error) {
+    logger.error("Profile card failed; replying with text", { error: String(error) });
+    const profile = await formatPlayerProfile(message.author.id, mode);
+    await message.reply(profile ? withModeLabel(mode, profile) : messages.commands.noProfileYet);
+  }
+  return true;
+};
+
 /** Works in guild channels and DMs. */
 export const handleAchievementsCommand = async (message: Message): Promise<boolean> => {
   const parsed = await parseCommand(message);
@@ -380,6 +415,10 @@ export const handleCommand = async (message: Message<true>) => {
     return handleAchievementsCommand(message);
   }
 
+  if (PROFILE_COMMANDS.includes(command)) {
+    return handleProfileCommand(message);
+  }
+
   await sqlClient`
     INSERT INTO command_log (command, raw_message)
     VALUES (${command}, ${message.content})
@@ -494,29 +533,6 @@ export const handleCommand = async (message: Message<true>) => {
     await message.channel.send({
       files: [new AttachmentBuilder(screenshot.buffer, { name: screenshot.name })],
     });
-    return true;
-  }
-
-  if (["profile", "profil"].includes(command)) {
-    try {
-      const card = await renderPlayerProfileCard(
-        message.author.id,
-        mode,
-        message.author.displayAvatarURL({ extension: "png", size: 256 }),
-      );
-      await message.reply(
-        card
-          ? {
-              files: [new AttachmentBuilder(card.buffer, { name: card.filename })],
-              allowedMentions: { repliedUser: false },
-            }
-          : messages.commands.noProfileYet,
-      );
-    } catch (error) {
-      logger.error("Profile card failed; replying with text", { error: String(error) });
-      const profile = await formatPlayerProfile(message.author.id, mode);
-      await message.reply(profile ? withModeLabel(mode, profile) : messages.commands.noProfileYet);
-    }
     return true;
   }
 
