@@ -2,6 +2,7 @@ import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import {
   geoDistance,
   geoGraticule10,
+  geoInterpolate,
   geoMercator,
   geoNaturalEarth1,
   geoOrthographic,
@@ -18,6 +19,7 @@ import {
   getPlayerNameStyle,
   getPlayerNameTier,
   LEGEND_NAME_STYLES,
+  MYTHIC_NAME_STYLES,
   type PlayerNameStyle,
 } from "./player-name-style.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
@@ -2340,7 +2342,1692 @@ const starAtlasAurora: BackgroundPainter = (context, width, height, details) => 
   drawWinLabels(context, wins, colorFor, { width, height });
 };
 
-type HeaderDesignTier = "explorer" | "legend";
+// Mythic (1000+) headers: denser, layered scenes that still put the player's most-won places first.
+const mythicWins = (details: HeaderDetails) =>
+  stampsFor(details)
+    .filter((stamp) => stamp.coordinates)
+    .slice(0, PASSPORT_SLOTS.length);
+
+/** Country globes turn to face the top win; province globes zoom in on Türkiye. */
+const facingGlobe = (
+  mode: GameMode,
+  stamps: PassportStamp[],
+  cx: number,
+  cy: number,
+  radius: number,
+) => {
+  const top = stamps[0]?.coordinates ?? [35, 39];
+  const facing: LonLat =
+    mode === "province" ? [35.2, 39] : [top[0], Math.max(-30, Math.min(30, top[1]))];
+  const projection = geoOrthographic()
+    .rotate([-facing[0], -facing[1]])
+    .translate([cx, cy])
+    .scale(radius * (mode === "province" ? 5 : 1))
+    .clipAngle(90);
+  const visible = (coordinates: LonLat) => geoDistance(coordinates, facing) < Math.PI / 2 - 0.05;
+  return { projection, top, visible };
+};
+
+/** Land (and provinces in province mode) inside a globe, as a dot screen clipped to the coast. */
+const drawGlobeLand = (
+  context: SKRSContext2D,
+  projection: ReturnType<typeof geoOrthographic>,
+  mode: GameMode,
+  [cx, cy, radius]: [number, number, number],
+  dot: string,
+  coast: string,
+) => {
+  const path = geoPath(projection, context as never);
+  context.save();
+  context.beginPath();
+  path((mode === "province" ? provinceCollection : land) as never);
+  context.clip();
+  context.fillStyle = dot;
+  for (let y = cy - radius; y <= cy + radius; y += 2.6) {
+    for (let x = cx - radius; x <= cx + radius; x += 2.6) {
+      context.fillRect(x, y, 1.4, 1.4);
+    }
+  }
+  context.restore();
+  context.beginPath();
+  path((mode === "province" ? provinceCollection : land) as never);
+  context.strokeStyle = coast;
+  context.lineWidth = 0.6;
+  context.stroke();
+};
+
+const pointOnEllipse = (
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  rotation: number,
+  angle: number,
+): [number, number] => {
+  const x = Math.cos(angle) * rx;
+  const y = Math.sin(angle) * ry;
+  return [
+    cx + x * Math.cos(rotation) - y * Math.sin(rotation),
+    cy + x * Math.sin(rotation) + y * Math.cos(rotation),
+  ];
+};
+
+/** A banded ring with tick marks; `half` draws only the back (top) or front (bottom) half. */
+const drawArmillaryRing = (
+  context: SKRSContext2D,
+  [cx, cy, rx, ry, rotation]: [number, number, number, number, number],
+  half: "back" | "front",
+  ticks: number,
+  labels = false,
+) => {
+  const [start, end] = half === "back" ? [Math.PI, Math.PI * 2] : [0, Math.PI];
+  const alpha = half === "back" ? "66" : "ee";
+  const band = context.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
+  band.addColorStop(0, `#fde68a${alpha}`);
+  band.addColorStop(0.5, `#b45309${alpha}`);
+  band.addColorStop(1, `#fef3c7${alpha}`);
+  context.save();
+  context.strokeStyle = band;
+  context.lineWidth = 3.4;
+  context.beginPath();
+  context.ellipse(cx, cy, rx, ry, rotation, start, end);
+  context.stroke();
+  context.strokeStyle = `#fffbeb${alpha}`;
+  context.lineWidth = 0.6;
+  for (const inset of [-2.4, 2.4]) {
+    context.beginPath();
+    context.ellipse(cx, cy, rx + inset, Math.max(1, ry + inset), rotation, start, end);
+    context.stroke();
+  }
+  context.strokeStyle = `#451a03${alpha}`;
+  context.lineWidth = 0.7;
+  context.fillStyle = `#fef3c7${alpha}`;
+  context.font = '6px "DejaVu Sans", Arial, sans-serif';
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (let index = 0; index < ticks; index++) {
+    const angle = start + ((end - start) * index) / ticks;
+    const [x0, y0] = pointOnEllipse(cx, cy, rx - 1.6, ry - 1.6, rotation, angle);
+    const [x1, y1] = pointOnEllipse(cx, cy, rx + 1.6, ry + 1.6, rotation, angle);
+    context.beginPath();
+    context.moveTo(x0, y0);
+    context.lineTo(x1, y1);
+    context.stroke();
+    if (labels && index % 3 === 0) {
+      const [lx, ly] = pointOnEllipse(cx, cy, rx + 9, ry + 7, rotation, angle);
+      context.fillText(`${Math.round((angle * 180) / Math.PI) % 360}°`, lx, ly);
+    }
+  }
+  context.restore();
+};
+
+/** A pointed flame from an astrolabe rete, aimed outward at `angle`. */
+const drawRetePointer = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  angle: number,
+  color: string,
+) => {
+  context.save();
+  context.translate(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+  context.rotate(angle + Math.PI / 2);
+  context.beginPath();
+  context.moveTo(0, -9);
+  context.quadraticCurveTo(4, -2, 0, 5);
+  context.quadraticCurveTo(-4, -2, 0, -9);
+  context.fillStyle = color;
+  context.fill();
+  context.restore();
+};
+
+/** Filigree corners: a scroll curl and a diamond, mirrored into each corner. */
+const drawFiligreeCorners = (
+  context: SKRSContext2D,
+  width: number,
+  height: number,
+  color: string,
+) => {
+  context.save();
+  context.strokeStyle = color;
+  context.fillStyle = color;
+  context.lineWidth = 1;
+  for (const [x, y, sx, sy] of [
+    [0, 0, 1, 1],
+    [width, 0, -1, 1],
+    [0, height, 1, -1],
+    [width, height, -1, -1],
+  ] as const) {
+    context.save();
+    context.translate(x, y);
+    context.scale(sx, sy);
+    context.beginPath();
+    context.moveTo(8, 34);
+    context.lineTo(8, 14);
+    context.quadraticCurveTo(8, 8, 14, 8);
+    context.lineTo(34, 8);
+    context.stroke();
+    for (const [curlX, curlY, rotate] of [
+      [40, 8, 0],
+      [8, 40, Math.PI / 2],
+    ] as const) {
+      context.save();
+      context.translate(curlX, curlY);
+      context.rotate(rotate);
+      context.beginPath();
+      context.arc(4, 4, 4, Math.PI, Math.PI * 2.6);
+      context.stroke();
+      context.restore();
+    }
+    context.beginPath();
+    context.moveTo(15, 10);
+    context.lineTo(20, 15);
+    context.lineTo(15, 20);
+    context.lineTo(10, 15);
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+  context.restore();
+};
+
+const armillary: BackgroundPainter = (context, width, height, details) => {
+  const mode = details.mode ?? "country";
+  fillGradient(context, width, height, ["#04050d", "#0c1430", "#140d24", "#06070f"]);
+  drawNebula(context, width, height, 101, ["#1e3a8a", "#78350f", "#4c1d95"], 16);
+  drawStarField(context, width, height, 260, 103, ["#ffffff", "#fde68a", "#bfdbfe"]);
+  const radius = Math.min(height * 0.33, 70);
+  const cx = width - radius * 2.5;
+  const cy = height / 2;
+  // An astrolabe plate behind the globe: rings, hour lines and a rete of star pointers.
+  context.save();
+  context.strokeStyle = "#f5c5421c";
+  context.lineWidth = 0.7;
+  for (let ring = radius * 1.4; ring < width * 0.6; ring += 16) {
+    context.beginPath();
+    context.arc(cx, cy, ring, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.beginPath();
+  for (let index = 0; index < 48; index++) {
+    const angle = (index * Math.PI) / 24;
+    context.moveTo(cx + Math.cos(angle) * radius * 1.4, cy + Math.sin(angle) * radius * 1.4);
+    context.lineTo(cx + Math.cos(angle) * width, cy + Math.sin(angle) * width);
+  }
+  context.stroke();
+  context.restore();
+  context.save();
+  context.strokeStyle = "#f5c54255";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.arc(cx - radius * 0.6, cy + radius * 0.2, radius * 3.1, 0, Math.PI * 2);
+  context.stroke();
+  for (let index = 0; index < 14; index++) {
+    drawRetePointer(
+      context,
+      cx - radius * 0.6,
+      cy + radius * 0.2,
+      radius * 3.1,
+      index * 0.45 + 0.2,
+      "#f5c54288",
+    );
+  }
+  context.restore();
+  const stamps = mythicWins(details);
+  const { projection, top, visible } = facingGlobe(mode, stamps, cx, cy, radius);
+  const rings: Array<[number, number, number, number, number]> = [
+    [cx, cy, radius * 2.15, radius * 0.5, -0.32],
+    [cx, cy, radius * 1.55, radius * 1.15, 0.9],
+    [cx, cy, radius * 1.85, radius * 0.32, 0.42],
+  ];
+  rings.forEach((ring, index) => drawArmillaryRing(context, ring, "back", 24, index === 0));
+  // The meridian ring stands upright and passes behind and in front of the globe.
+  drawArmillaryRing(context, [cx, cy, radius * 1.22, radius * 1.22, Math.PI / 2], "back", 36);
+  fillGlow(context, cx, cy, radius * 1.6, "#3b82f655", "#3b82f600");
+  context.save();
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.clip();
+  const ocean = context.createRadialGradient(
+    cx - radius * 0.35,
+    cy - radius * 0.4,
+    radius * 0.1,
+    cx,
+    cy,
+    radius,
+  );
+  ocean.addColorStop(0, "#1e3a8a");
+  ocean.addColorStop(1, "#050a1f");
+  context.fillStyle = ocean;
+  context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  context.beginPath();
+  geoPath(projection, context as never)(geoGraticule10());
+  context.strokeStyle = "#f5c54230";
+  context.lineWidth = 0.5;
+  context.stroke();
+  drawGlobeLand(context, projection, mode, [cx, cy, radius], "#fde68acc", "#f5c54299");
+  const path = geoPath(projection, context as never);
+  context.save();
+  context.shadowColor = "#fde68a";
+  context.shadowBlur = 6;
+  context.strokeStyle = "#fff7d6dd";
+  context.lineWidth = 1;
+  for (const stamp of stamps.slice(1)) {
+    context.beginPath();
+    path({ type: "LineString", coordinates: [top, stamp.coordinates!] } as never);
+    context.stroke();
+  }
+  context.restore();
+  const shade = context.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+  shade.addColorStop(0.45, "#00000000");
+  shade.addColorStop(1, "#000000b0");
+  context.fillStyle = shade;
+  context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  context.restore();
+  context.strokeStyle = "#fde68acc";
+  context.lineWidth = 1.2;
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.stroke();
+  const wins: PlacedWin[] = stamps.flatMap((stamp, rank) => {
+    if (!visible(stamp.coordinates!)) return [];
+    const [x, y] = projection(stamp.coordinates!)!;
+    return [{ stamp, x, y, rank }];
+  });
+  for (const win of wins.toReversed()) {
+    drawReticleStar(
+      context,
+      win.x,
+      win.y,
+      2.2 - win.rank * 0.2,
+      win.rank === 0 ? "#fff7d6" : "#fde68a",
+    );
+  }
+  rings.forEach((ring) => drawArmillaryRing(context, ring, "front", 24));
+  drawArmillaryRing(context, [cx, cy, radius * 1.22, radius * 1.22, Math.PI / 2], "front", 36);
+  // The axis pierces the poles, with a small sun on its upper end.
+  context.save();
+  context.strokeStyle = "#fde68a";
+  context.lineWidth = 1.6;
+  context.beginPath();
+  context.moveTo(cx - radius * 0.3, cy + radius * 1.6);
+  context.lineTo(cx + radius * 0.3, cy - radius * 1.6);
+  context.stroke();
+  context.restore();
+  drawFlare(context, cx + radius * 0.3, cy - radius * 1.6, 3, "#fff7d6");
+  // A ledger of every top win beside the sphere, including those on the far side.
+  drawWinLedger(context, cx - radius * 2.75, cy, stamps, ["#fff7d6", "#fde68a"], "#f5c542");
+  drawGoldFrame(context, width, height);
+  drawFiligreeCorners(context, width, height, "#f5c542cc");
+};
+
+/** Stacked "1 TR × 24" rows; the first row gets the brightest color. */
+const drawWinLedger = (
+  context: SKRSContext2D,
+  right: number,
+  centerY: number,
+  stamps: PassportStamp[],
+  [first, rest]: [string, string],
+  rule: string,
+  limit = 4,
+) => {
+  const rows = stamps.slice(0, limit);
+  const rowHeight = 15;
+  let y = centerY - ((rows.length - 1) * rowHeight) / 2;
+  context.save();
+  context.textBaseline = "middle";
+  context.textAlign = "right";
+  context.strokeStyle = `${rule}66`;
+  context.lineWidth = 0.6;
+  context.beginPath();
+  context.moveTo(right + 6, y - rowHeight * 0.7);
+  context.lineTo(right + 6, y + (rows.length - 0.3) * rowHeight);
+  context.stroke();
+  rows.forEach((stamp, rank) => {
+    context.fillStyle = rank === 0 ? first : `${rest}cc`;
+    context.font = `bold ${rank === 0 ? 11 : 9}px "DejaVu Sans", Arial, sans-serif`;
+    context.fillText(`${stamp.code} × ${stamp.count}`, right, y);
+    context.fillStyle = `${rule}aa`;
+    context.font = '7px "DejaVu Sans", Arial, sans-serif';
+    context.textAlign = "left";
+    context.fillText(["I", "II", "III", "IV", "V", "VI"][rank]!, right + 10, y);
+    context.textAlign = "right";
+    y += rowHeight;
+  });
+  context.restore();
+};
+
+/** A repeating gold band of half-palmettes between two rules, along the top and bottom edges. */
+const drawTezhipBorder = (context: SKRSContext2D, width: number, height: number) => {
+  for (const top of [3, height - 15]) {
+    const band = context.createLinearGradient(0, top, 0, top + 12);
+    band.addColorStop(0, "#0b1d4a");
+    band.addColorStop(1, "#071330");
+    context.fillStyle = band;
+    context.fillRect(0, top, width, 12);
+    context.strokeStyle = "#fcd34dcc";
+    context.lineWidth = 0.8;
+    context.beginPath();
+    context.moveTo(0, top);
+    context.lineTo(width, top);
+    context.moveTo(0, top + 12);
+    context.lineTo(width, top + 12);
+    context.stroke();
+    context.fillStyle = "#fcd34dbb";
+    for (let x = 6; x < width; x += 14) {
+      context.beginPath();
+      context.moveTo(x, top + 6);
+      context.quadraticCurveTo(x + 3.5, top + 1, x + 7, top + 6);
+      context.quadraticCurveTo(x + 3.5, top + 11, x, top + 6);
+      context.fill();
+      context.beginPath();
+      context.arc(x + 10.5, top + 6, 1.1, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+};
+
+/** A 32-point portolan rose with alternating gold and lapis points. */
+const drawPortolanRose = (context: SKRSContext2D, x: number, y: number, radius: number) => {
+  context.save();
+  context.translate(x, y);
+  fillGlow(context, 0, 0, radius * 1.6, "#fcd34d33", "#fcd34d00");
+  for (const [count, length, half, light, dark] of [
+    [32, 0.62, 0.05, "#fde68a99", "#a1620799"],
+    [16, 0.78, 0.08, "#bfdbfe", "#1d4ed8"],
+    [8, 1, 0.13, "#fffbeb", "#ca8a04"],
+  ] as const) {
+    for (let index = 0; index < count; index++) {
+      context.save();
+      context.rotate((index * Math.PI * 2) / count + (count === 32 ? Math.PI / 32 : 0));
+      for (const [side, color] of [
+        [1, light],
+        [-1, dark],
+      ] as const) {
+        context.beginPath();
+        context.moveTo(0, -radius * length);
+        context.lineTo(side * radius * half, -radius * half);
+        context.lineTo(0, 0);
+        context.closePath();
+        context.fillStyle = color;
+        context.fill();
+      }
+      context.restore();
+    }
+  }
+  context.strokeStyle = "#fcd34dcc";
+  context.lineWidth = 0.8;
+  for (const factor of [0.32, 1.08, 1.16]) {
+    context.beginPath();
+    context.arc(0, 0, radius * factor, 0, Math.PI * 2);
+    context.stroke();
+  }
+  // A fleur on the north point, as on old charts.
+  context.fillStyle = "#fcd34d";
+  context.beginPath();
+  context.moveTo(0, -radius * 1.42);
+  context.quadraticCurveTo(radius * 0.14, -radius * 1.25, 0, -radius * 1.12);
+  context.quadraticCurveTo(-radius * 0.14, -radius * 1.25, 0, -radius * 1.42);
+  context.fill();
+  context.restore();
+};
+
+/** A gilded eight-point medallion (two squares) holding the location code. */
+const drawMedallion = (
+  context: SKRSContext2D,
+  x: number,
+  y: number,
+  size: number,
+  stamp: PassportStamp,
+  rank: number,
+) => {
+  context.save();
+  context.translate(x, y);
+  context.shadowColor = "#fcd34d";
+  context.shadowBlur = rank === 0 ? 10 : 5;
+  for (const rotation of [0, Math.PI / 4]) {
+    context.save();
+    context.rotate(rotation);
+    const fill = context.createLinearGradient(-size, -size, size, size);
+    fill.addColorStop(0, "#fffbeb");
+    fill.addColorStop(0.45, "#fcd34d");
+    fill.addColorStop(1, "#a16207");
+    context.fillStyle = fill;
+    context.fillRect(-size * 0.72, -size * 0.72, size * 1.44, size * 1.44);
+    context.restore();
+  }
+  context.shadowBlur = 0;
+  context.fillStyle = rank === 0 ? "#7f1d1d" : "#0b1d4a";
+  context.beginPath();
+  context.arc(0, 0, size * 0.66, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#fffbeb";
+  context.lineWidth = 0.6;
+  context.stroke();
+  context.fillStyle = "#fde68a";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = `bold ${Math.round(size * 0.62)}px "DejaVu Sans", Arial, sans-serif`;
+  context.fillText(stamp.code, 0, -size * 0.08);
+  context.font = `${Math.round(size * 0.36)}px "DejaVu Sans", Arial, sans-serif`;
+  context.fillText(`× ${stamp.count}`, 0, size * 0.42);
+  context.restore();
+};
+
+const portolan: BackgroundPainter = (context, width, height, details) => {
+  const mode = details.mode ?? "country";
+  fillGradient(context, width, height, ["#06102a", "#0b1d4a", "#0a1838", "#050c22"]);
+  // Fine grain gives the lapis ground a painted, paper-like finish.
+  const grain = seededRandom(107);
+  context.fillStyle = "#fcd34d";
+  for (let index = 0; index < 1600; index++) {
+    context.globalAlpha = grain() * 0.08;
+    context.fillRect(grain() * width, grain() * height, 1, 1);
+  }
+  context.globalAlpha = 1;
+  const mapBounds: Bounds = [width * 0.44, 18, width * 0.55, height - 36];
+  const projection = fitShape(mode, mapBounds);
+  const path = geoPath(projection, context as never);
+  const roses: Array<[number, number, number]> = [
+    [width * 0.62, height * 0.5, Math.min(26, height * 0.17)],
+    [width * 0.9, height * 0.42, Math.min(20, height * 0.13)],
+  ];
+  // Rhumb lines fan out from each rose in gold, green and red, as on portolan charts.
+  context.save();
+  context.lineWidth = 0.5;
+  for (const [x, y] of roses) {
+    for (let index = 0; index < 32; index++) {
+      const angle = (index * Math.PI) / 16;
+      context.strokeStyle = ["#fcd34d40", "#34d39930", "#f8717130", "#34d39930"][index % 4]!;
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x + Math.cos(angle) * width, y + Math.sin(angle) * width);
+      context.stroke();
+    }
+  }
+  context.restore();
+  context.beginPath();
+  path(shapeFor(mode) as never);
+  context.fillStyle = "#fcd34d1c";
+  context.fill();
+  context.save();
+  context.shadowColor = "#fcd34d";
+  context.shadowBlur = 3;
+  context.strokeStyle = "#fcd34dbb";
+  context.lineWidth = 0.7;
+  context.stroke();
+  context.restore();
+  // Hatching along the coast, a hand-drawn detail.
+  context.save();
+  context.beginPath();
+  path(shapeFor(mode) as never);
+  context.clip();
+  context.strokeStyle = "#fcd34d22";
+  context.lineWidth = 0.5;
+  context.beginPath();
+  for (let offset = -height; offset < width; offset += 3) {
+    context.moveTo(offset, height);
+    context.lineTo(offset + height, 0);
+  }
+  context.stroke();
+  context.restore();
+  for (const [x, y, radius] of roses) drawPortolanRose(context, x, y, radius);
+  const stamps = mythicWins(details);
+  const points = stamps.flatMap((stamp, rank) => {
+    const point = projection(stamp.coordinates!);
+    return point ? [{ stamp, rank, x: point[0], y: point[1] }] : [];
+  });
+  // A dashed sailing route joins the wins in rank order.
+  context.save();
+  context.strokeStyle = "#fef3c7aa";
+  context.setLineDash([3, 3]);
+  context.lineWidth = 0.9;
+  context.beginPath();
+  points.forEach(({ x, y }, index) => {
+    if (index === 0) context.moveTo(x, y);
+    else context.lineTo(x, y);
+  });
+  context.stroke();
+  context.restore();
+  // Medallions hang in a row above or below their place, with a gold cord to the point.
+  // Left-to-right order keeps the cords from crossing.
+  const above = points.filter((point) => point.y > height / 2).toSorted((a, b) => a.x - b.x);
+  const below = points.filter((point) => point.y <= height / 2).toSorted((a, b) => a.x - b.x);
+  const placed = [above, below].flatMap((row, rowIndex) =>
+    row.map((point, index) => ({
+      point,
+      mx: mapBounds[0] + 20 + ((mapBounds[2] - 40) / row.length) * (index + 0.5),
+      my: rowIndex === 0 ? 32 : height - 32,
+    })),
+  );
+  placed.forEach(({ point, mx, my }) => {
+    const size = point.rank === 0 ? 15 : 11.5;
+    context.strokeStyle = "#fcd34d88";
+    context.lineWidth = 0.7;
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+    context.quadraticCurveTo(point.x, my, mx, my);
+    context.stroke();
+    context.fillStyle = "#fffbeb";
+    context.beginPath();
+    context.arc(point.x, point.y, point.rank === 0 ? 2.6 : 1.8, 0, Math.PI * 2);
+    context.fill();
+    drawMedallion(context, mx, my, size, point.stamp, point.rank);
+  });
+  drawTezhipBorder(context, width, height);
+  drawFiligreeCorners(context, width, height, "#fcd34d");
+};
+
+/** The black hole's disk, lensed ring and jets, centered on (cx, cy). */
+const drawBlackHole = (context: SKRSContext2D, cx: number, cy: number, radius: number) => {
+  const tilt = -0.12;
+  // Relativistic jets.
+  for (const direction of [-1, 1]) {
+    const jet = context.createLinearGradient(cx, cy, cx, cy + direction * radius * 6);
+    jet.addColorStop(0, "#93c5fdaa");
+    jet.addColorStop(1, "#93c5fd00");
+    context.fillStyle = jet;
+    context.beginPath();
+    context.moveTo(cx - radius * 0.15, cy);
+    context.lineTo(cx - radius * 0.7, cy + direction * radius * 6);
+    context.lineTo(cx + radius * 0.7, cy + direction * radius * 6);
+    context.lineTo(cx + radius * 0.15, cy);
+    context.fill();
+  }
+  fillGlow(context, cx, cy, radius * 5, "#fb923c40", "#fb923c00");
+  const disk = (front: boolean) => {
+    context.save();
+    context.globalCompositeOperation = "lighter";
+    for (let ring = 0; ring < 26; ring++) {
+      const t = ring / 25;
+      const rx = radius * (1.5 + t * 3.2);
+      const ry = rx * 0.2;
+      const gradient = context.createLinearGradient(cx - rx, cy, cx + rx, cy);
+      // Doppler beaming: the approaching (left) side is brighter.
+      const alpha = Math.round((1 - t) ** 1.5 * 0x70 + 0x08)
+        .toString(16)
+        .padStart(2, "0");
+      const hot = t < 0.25 ? "#fff7ed" : t < 0.6 ? "#fdba74" : "#e11d48";
+      gradient.addColorStop(0, `${hot}${alpha}`);
+      gradient.addColorStop(0.5, `${hot}${alpha}`);
+      gradient.addColorStop(1, `${hot}22`);
+      context.strokeStyle = gradient;
+      context.lineWidth = 1.4;
+      context.beginPath();
+      context.ellipse(cx, cy, rx, ry, tilt, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2);
+      context.stroke();
+    }
+    context.restore();
+  };
+  disk(false);
+  // The far side of the disk, bent over the top and under the bottom of the shadow.
+  context.save();
+  context.globalCompositeOperation = "lighter";
+  for (let ring = 0; ring < 10; ring++) {
+    const r = radius * (1.18 + ring * 0.07);
+    context.strokeStyle = `#fed7aa${Math.round(0x60 - ring * 5)
+      .toString(16)
+      .padStart(2, "0")}`;
+    context.lineWidth = 1.2;
+    context.beginPath();
+    context.ellipse(cx, cy, r, r * 0.92, tilt, Math.PI * 1.05, Math.PI * 1.95);
+    context.stroke();
+    context.beginPath();
+    context.ellipse(cx, cy, r * 0.96, r * 0.7, tilt, Math.PI * 0.1, Math.PI * 0.9);
+    context.stroke();
+  }
+  context.restore();
+  context.fillStyle = "#000000";
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.fill();
+  context.save();
+  context.shadowColor = "#fff7ed";
+  context.shadowBlur = 8;
+  context.strokeStyle = "#fff7ed";
+  context.lineWidth = 1.2;
+  context.beginPath();
+  context.arc(cx, cy, radius * 1.04, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+  disk(true);
+};
+
+const eventHorizon: BackgroundPainter = (context, width, height, details) => {
+  fillGradient(context, width, height, ["#020108", "#0d0418", "#05010c"]);
+  drawNebula(context, width, height, 113, ["#7e22ce", "#be123c", "#c2410c", "#1d4ed8"], 22);
+  const radius = Math.min(height * 0.15, 28);
+  const cx = width * 0.8;
+  const cy = height * 0.5;
+  // Stars near the hole smear into arcs around it.
+  const random = seededRandom(127);
+  context.save();
+  for (let index = 0; index < 420; index++) {
+    const angle = random() * Math.PI * 2;
+    const distance = radius * (1.6 + random() ** 0.6 * 30);
+    const x = cx + Math.cos(angle) * distance;
+    const y = cy + Math.sin(angle) * distance * 0.8;
+    if (x < -5 || x > width + 5 || y < -5 || y > height + 5) continue;
+    const smear = Math.min(0.5, (radius * 4) / distance) * 0.9;
+    context.globalAlpha = 0.25 + random() * 0.7;
+    context.strokeStyle = ["#ffffff", "#fde68a", "#c4b5fd", "#93c5fd"][index % 4]!;
+    context.lineWidth = 0.4 + random() ** 3 * 1.2;
+    context.beginPath();
+    context.ellipse(cx, cy, distance, distance * 0.8, 0, angle, angle + 0.012 + smear);
+    context.stroke();
+  }
+  context.restore();
+  drawStarField(context, width * 0.55, height, 120, 131, ["#ffffff", "#c4b5fd"]);
+  const stamps = mythicWins(details);
+  // Wins orbit the hole: the top win on the closest, brightest orbit.
+  const wins: PlacedWin[] = stamps.map((stamp, rank) => {
+    const rx = radius * (5.2 + rank * 1.55);
+    const ry = rx * 0.3;
+    const angle = Math.PI * (0.9 + rank * 0.62);
+    context.strokeStyle = rank === 0 ? "#fde68a88" : "#c4b5fd44";
+    context.lineWidth = rank === 0 ? 1 : 0.7;
+    context.setLineDash(rank === 0 ? [] : [2, 3]);
+    context.beginPath();
+    context.ellipse(cx, cy, rx, ry, -0.12, 0, Math.PI * 2);
+    context.stroke();
+    context.setLineDash([]);
+    const [x, y] = pointOnEllipse(cx, cy, rx, ry, -0.12, angle);
+    return { stamp, x, y, rank };
+  });
+  drawBlackHole(context, cx, cy, radius);
+  const colorFor = (rank: number) => (rank === 0 ? "#fde68a" : "#e9d5ff");
+  for (const win of wins.toReversed()) {
+    const size = 3.4 - win.rank * 0.35;
+    fillGlow(context, win.x, win.y, size * 4, `${colorFor(win.rank)}66`, `${colorFor(win.rank)}00`);
+    const body = context.createRadialGradient(
+      win.x - size * 0.4,
+      win.y - size * 0.4,
+      0.2,
+      win.x,
+      win.y,
+      size,
+    );
+    body.addColorStop(0, "#ffffff");
+    body.addColorStop(1, win.rank === 0 ? "#f59e0b" : "#8b5cf6");
+    context.fillStyle = body;
+    context.beginPath();
+    context.arc(win.x, win.y, size, 0, Math.PI * 2);
+    context.fill();
+    if (win.rank === 0) drawFlare(context, win.x, win.y, 3, "#fff7ed");
+  }
+  drawWinLabels(context, wins, colorFor, { width, height }, 8);
+  drawShootingStar(context, width * 0.6, height * 0.2, 60, 0.3);
+};
+
+const HOLO_CYAN = "#22d3ee";
+const HOLO_PINK = "#f472b6";
+const MONO = '"DejaVu Sans Mono", monospace';
+
+const drawHexGrid = (context: SKRSContext2D, width: number, height: number, size: number) => {
+  context.save();
+  context.strokeStyle = `${HOLO_CYAN}14`;
+  context.lineWidth = 0.6;
+  const w = size * Math.sqrt(3);
+  context.beginPath();
+  for (let row = -1; row * size * 1.5 < height + size; row++) {
+    for (let column = -1; column * w < width + w; column++) {
+      const x = column * w + (row % 2 ? w / 2 : 0);
+      const y = row * size * 1.5;
+      for (let corner = 0; corner <= 6; corner++) {
+        const angle = Math.PI / 6 + (corner * Math.PI) / 3;
+        const px = x + Math.cos(angle) * size;
+        const py = y + Math.sin(angle) * size;
+        if (corner === 0) context.moveTo(px, py);
+        else context.lineTo(px, py);
+      }
+    }
+  }
+  context.stroke();
+  context.restore();
+};
+
+const drawBrackets = (
+  context: SKRSContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  arm: number,
+  color: string,
+) => {
+  context.strokeStyle = color;
+  context.lineWidth = 1.2;
+  context.beginPath();
+  for (const [cx, cy, sx, sy] of [
+    [x, y, 1, 1],
+    [x + width, y, -1, 1],
+    [x, y + height, 1, -1],
+    [x + width, y + height, -1, -1],
+  ] as const) {
+    context.moveTo(cx + sx * arm, cy);
+    context.lineTo(cx, cy);
+    context.lineTo(cx, cy + sy * arm);
+  }
+  context.stroke();
+};
+
+const holoCommand: BackgroundPainter = (context, width, height, details) => {
+  const mode = details.mode ?? "country";
+  fillGradient(context, width, height, ["#01040b", "#031427", "#071028"]);
+  drawHexGrid(context, width, height, 9);
+  fillGlow(context, width * 0.82, height * 0.5, 240, "#0891b233", "#0891b200");
+  fillGlow(context, width * 0.6, height * 0.1, 160, "#db277722", "#db277700");
+  const radius = Math.min(height * 0.4, 70);
+  const cx = width - radius * 1.9;
+  const cy = height / 2;
+  const stamps = mythicWins(details);
+  const { projection, top, visible } = facingGlobe(mode, stamps, cx, cy, radius);
+  const path = geoPath(projection, context as never);
+  // Radar sweep behind the globe.
+  const sweep = context.createConicGradient(-Math.PI / 2, cx, cy);
+  sweep.addColorStop(0, `${HOLO_CYAN}55`);
+  sweep.addColorStop(0.18, `${HOLO_CYAN}00`);
+  sweep.addColorStop(1, `${HOLO_CYAN}00`);
+  context.fillStyle = sweep;
+  context.beginPath();
+  context.arc(cx, cy, radius * 1.75, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = `${HOLO_CYAN}44`;
+  context.lineWidth = 0.7;
+  for (const factor of [1.2, 1.45, 1.75]) {
+    context.setLineDash(factor === 1.45 ? [4, 4] : []);
+    context.beginPath();
+    context.arc(cx, cy, radius * factor, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.setLineDash([]);
+  context.beginPath();
+  for (let index = 0; index < 72; index++) {
+    const angle = (index * Math.PI) / 36;
+    const inner = radius * (index % 6 === 0 ? 1.62 : 1.69);
+    context.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+    context.lineTo(cx + Math.cos(angle) * radius * 1.75, cy + Math.sin(angle) * radius * 1.75);
+  }
+  context.stroke();
+  fillGlow(context, cx, cy, radius * 1.15, "#0e749066", "#0e749000");
+  context.save();
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.clip();
+  context.fillStyle = "#021a2acc";
+  context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  context.beginPath();
+  path(geoGraticule10());
+  context.strokeStyle = `${HOLO_CYAN}33`;
+  context.lineWidth = 0.5;
+  context.stroke();
+  drawGlobeLand(context, projection, mode, [cx, cy, radius], `${HOLO_CYAN}bb`, `${HOLO_CYAN}ee`);
+  context.restore();
+  context.save();
+  context.shadowColor = HOLO_CYAN;
+  context.shadowBlur = 10;
+  context.strokeStyle = `${HOLO_CYAN}cc`;
+  context.lineWidth = 1.2;
+  context.beginPath();
+  context.arc(cx, cy, radius, 0, Math.PI * 2);
+  context.stroke();
+  context.restore();
+  // Flight arcs rise off the surface from the top win to every other visible win.
+  context.save();
+  context.shadowColor = HOLO_PINK;
+  context.shadowBlur = 6;
+  context.lineWidth = 1.1;
+  for (const stamp of stamps.slice(1)) {
+    const interpolate = geoInterpolate(top, stamp.coordinates!);
+    context.strokeStyle = `${HOLO_PINK}dd`;
+    context.beginPath();
+    let drawing = false;
+    for (let step = 0; step <= 40; step++) {
+      const t = step / 40;
+      const point = interpolate(t);
+      if (!visible(point)) {
+        drawing = false;
+        continue;
+      }
+      const [px, py] = projection(point)!;
+      const lift = 1 + Math.sin(t * Math.PI) * 0.22;
+      const x = cx + (px - cx) * lift;
+      const y = cy + (py - cy) * lift;
+      if (drawing) context.lineTo(x, y);
+      else context.moveTo(x, y);
+      drawing = true;
+    }
+    context.stroke();
+  }
+  context.restore();
+  const wins: PlacedWin[] = stamps.flatMap((stamp, rank) => {
+    if (!visible(stamp.coordinates!)) return [];
+    const [x, y] = projection(stamp.coordinates!)!;
+    return [{ stamp, x, y, rank }];
+  });
+  for (const win of wins) {
+    const color = win.rank === 0 ? "#fde047" : HOLO_CYAN;
+    const box = win.rank === 0 ? 7 : 4.5;
+    drawBrackets(context, win.x - box, win.y - box, box * 2, box * 2, box * 0.6, color);
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(win.x, win.y, 1.6, 0, Math.PI * 2);
+    context.fill();
+  }
+  // Readouts: a target lock on the top win and a bar chart of the top wins.
+  const panelX = cx - radius * 1.9 - 150;
+  context.save();
+  context.font = `9px ${MONO}`;
+  context.textBaseline = "middle";
+  const first = stamps[0];
+  if (first) {
+    const [lon, lat] = first.coordinates!;
+    context.fillStyle = "#fde047";
+    context.font = `bold 10px ${MONO}`;
+    context.fillText(`TARGET LOCK · ${first.code}`, panelX, height * 0.2);
+    context.fillStyle = `${HOLO_CYAN}aa`;
+    context.font = `8px ${MONO}`;
+    context.fillText(
+      `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? "N" : "S"} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? "E" : "W"}`,
+      panelX,
+      height * 0.2 + 12,
+    );
+  }
+  const most = Math.max(1, ...stamps.map((stamp) => stamp.count));
+  stamps.slice(0, 5).forEach((stamp, rank) => {
+    const y = height * 0.42 + rank * 11;
+    context.fillStyle = `${HOLO_CYAN}cc`;
+    context.font = `8px ${MONO}`;
+    context.fillText(stamp.code.padEnd(3), panelX, y);
+    context.fillStyle = `${HOLO_CYAN}22`;
+    context.fillRect(panelX + 22, y - 3, 90, 6);
+    context.fillStyle = rank === 0 ? "#fde047" : rank % 2 ? HOLO_PINK : HOLO_CYAN;
+    context.fillRect(panelX + 22, y - 3, (90 * stamp.count) / most, 6);
+    context.fillStyle = "#e0f2fe";
+    context.fillText(String(stamp.count), panelX + 118, y);
+  });
+  context.restore();
+  drawBrackets(context, panelX - 8, height * 0.1, 160, height * 0.8, 8, `${HOLO_CYAN}88`);
+  drawBrackets(context, 4, 4, width - 8, height - 8, 14, `${HOLO_CYAN}aa`);
+  // Scanlines over everything.
+  context.fillStyle = "#00000033";
+  for (let y = 0; y < height; y += 3) context.fillRect(0, y, width, 1);
+};
+
+// Holo Command · Prime: the HUD concept with a larger hologram and many more instrument layers.
+const HOLO_AMBER = "#fde047";
+
+/** Faint columns of hex digits, brighter at the head of each stream. */
+const drawDataRain = (context: SKRSContext2D, left: number, width: number, height: number) => {
+  const random = seededRandom(151);
+  context.save();
+  context.font = `7px ${MONO}`;
+  context.textAlign = "center";
+  for (let x = left; x < width; x += 11) {
+    if (random() < 0.35) continue;
+    const head = random() * height * 1.3;
+    const length = 6 + Math.floor(random() * 14);
+    for (let index = 0; index < length; index++) {
+      const y = head - index * 8;
+      if (y < -8 || y > height + 8) continue;
+      context.globalAlpha = index === 0 ? 0.55 : 0.28 * (1 - index / length);
+      context.fillStyle = index === 0 ? "#e0f2fe" : HOLO_CYAN;
+      context.fillText(
+        Math.floor(random() * 16)
+          .toString(16)
+          .toUpperCase(),
+        x,
+        y,
+      );
+    }
+  }
+  context.restore();
+};
+
+/** Right-angled circuit traces that end in small pads. */
+const drawCircuitTraces = (context: SKRSContext2D, left: number, width: number, height: number) => {
+  const random = seededRandom(157);
+  context.save();
+  context.strokeStyle = `${HOLO_CYAN}30`;
+  context.fillStyle = `${HOLO_CYAN}55`;
+  context.lineWidth = 0.8;
+  for (let trace = 0; trace < 22; trace++) {
+    let x = left + random() * (width - left);
+    let y = random() * height;
+    context.beginPath();
+    context.moveTo(x, y);
+    for (let turn = 0; turn < 3; turn++) {
+      if (turn % 2 === 0) x += (random() - 0.5) * 140;
+      else y += (random() - 0.5) * 70;
+      context.lineTo(x, y);
+    }
+    context.stroke();
+    context.beginPath();
+    context.arc(x, y, 1.6, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
+};
+
+/** Strokes the parts of an arc between `top` and `bottom`, so rings break cleanly at the edges. */
+const strokeArcWithin = (
+  context: SKRSContext2D,
+  [cx, cy, radius]: [number, number, number],
+  start: number,
+  end: number,
+  [top, bottom]: [number, number],
+) => {
+  context.beginPath();
+  let drawing = false;
+  const steps = Math.max(8, Math.ceil(((end - start) * radius) / 2));
+  for (let step = 0; step <= steps; step++) {
+    const angle = start + ((end - start) * step) / steps;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    if (y < top || y > bottom) {
+      drawing = false;
+      continue;
+    }
+    if (drawing) context.lineTo(x, y);
+    else context.moveTo(x, y);
+    drawing = true;
+  }
+  context.stroke();
+};
+
+/** Segmented, dashed and ticked rings around a hologram, with degree labels, kept inside `height`. */
+const drawHoloRings = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  height: number,
+) => {
+  const bounds: [number, number] = [9, height - 9];
+  const inside = (y: number) => y >= bounds[0] && y <= bounds[1];
+  context.save();
+  context.lineCap = "round";
+  // Thick segments at two radii, cyan and pink, like a rotating gimbal.
+  for (const [factor, color, segments, width] of [
+    [1.1, HOLO_CYAN, 7, 3],
+    [1.18, HOLO_PINK, 4, 1.6],
+  ] as const) {
+    context.strokeStyle = `${color}aa`;
+    context.lineWidth = width;
+    context.shadowColor = color;
+    context.shadowBlur = 6;
+    for (let index = 0; index < segments; index++) {
+      const start = (index * Math.PI * 2) / segments + factor;
+      strokeArcWithin(
+        context,
+        [cx, cy, radius * factor],
+        start,
+        start + (Math.PI * 2) / segments / 1.8,
+        bounds,
+      );
+    }
+  }
+  context.shadowBlur = 0;
+  context.strokeStyle = `${HOLO_CYAN}55`;
+  context.lineWidth = 0.7;
+  context.setLineDash([2, 4]);
+  strokeArcWithin(context, [cx, cy, radius * 1.27], 0, Math.PI * 2, bounds);
+  context.setLineDash([]);
+  context.beginPath();
+  for (let index = 0; index < 120; index++) {
+    const angle = (index * Math.PI) / 60;
+    const inner = radius * (index % 10 === 0 ? 1.33 : 1.37);
+    const outer = radius * 1.4;
+    if (!inside(cy + Math.sin(angle) * outer)) continue;
+    context.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+    context.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+  }
+  context.stroke();
+  // End caps where the outer rings meet the edges, like brackets on a scope.
+  context.strokeStyle = `${HOLO_CYAN}aa`;
+  context.lineWidth = 1;
+  for (const factor of [1.27, 1.4]) {
+    const r = radius * factor;
+    for (const y of bounds) {
+      const dy = y - cy;
+      if (Math.abs(dy) >= r) continue;
+      const dx = Math.sqrt(r * r - dy * dy);
+      for (const side of [-1, 1]) {
+        context.beginPath();
+        context.moveTo(cx + side * dx - 3, y);
+        context.lineTo(cx + side * dx + 3, y);
+        context.stroke();
+      }
+    }
+  }
+  context.fillStyle = `${HOLO_CYAN}99`;
+  context.font = `6px ${MONO}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (let degrees = 0; degrees < 360; degrees += 30) {
+    const angle = (degrees * Math.PI) / 180 - Math.PI / 2;
+    const y = cy + Math.sin(angle) * radius * 1.5;
+    if (!inside(y)) continue;
+    context.fillText(String(degrees).padStart(3, "0"), cx + Math.cos(angle) * radius * 1.5, y);
+  }
+  context.restore();
+};
+
+/** A light cone from an emitter below the hologram, as if it is projected. */
+const drawProjector = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  bottom: number,
+) => {
+  const beam = context.createLinearGradient(0, bottom, 0, cy);
+  beam.addColorStop(0, `${HOLO_CYAN}55`);
+  beam.addColorStop(1, `${HOLO_CYAN}00`);
+  context.fillStyle = beam;
+  context.beginPath();
+  context.moveTo(cx - radius * 0.25, bottom);
+  context.lineTo(cx - radius * 1.05, cy);
+  context.lineTo(cx + radius * 1.05, cy);
+  context.lineTo(cx + radius * 0.25, bottom);
+  context.fill();
+  context.strokeStyle = `${HOLO_CYAN}cc`;
+  context.lineWidth = 1;
+  for (const factor of [0.3, 0.45]) {
+    context.beginPath();
+    context.ellipse(cx, bottom - 2, radius * factor, radius * factor * 0.18, 0, 0, Math.PI * 2);
+    context.stroke();
+  }
+};
+
+/** Satellites on tilted orbits; `half` draws the orbit's back or front so the globe sits between. */
+const drawSatelliteOrbits = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  half: "back" | "front",
+) => {
+  const [start, end] = half === "back" ? [Math.PI, Math.PI * 2] : [0, Math.PI];
+  for (const [tilt, phase, color] of [
+    [-0.42, 0.9, HOLO_CYAN],
+    [0.36, 2.2, HOLO_PINK],
+  ] as const) {
+    const rx = radius * 1.32;
+    const ry = radius * 0.34;
+    context.strokeStyle = `${color}${half === "back" ? "44" : "bb"}`;
+    context.lineWidth = 0.9;
+    context.beginPath();
+    context.ellipse(cx, cy, rx, ry, tilt, start, end);
+    context.stroke();
+    const angle = half === "front" ? phase : phase + Math.PI;
+    if (angle % (Math.PI * 2) < start || angle % (Math.PI * 2) > end) continue;
+    const [sx, sy] = pointOnEllipse(cx, cy, rx, ry, tilt, angle);
+    context.save();
+    context.translate(sx, sy);
+    context.rotate(tilt);
+    context.fillStyle = color;
+    context.fillRect(-1.6, -1.6, 3.2, 3.2);
+    context.fillStyle = `${color}99`;
+    context.fillRect(-7, -1, 4.6, 2);
+    context.fillRect(2.4, -1, 4.6, 2);
+    context.restore();
+    fillGlow(context, sx, sy, 6, `${color}88`, `${color}00`);
+  }
+};
+
+/** A boxed readout: target lock, coordinates, a bar chart and a signal trace. */
+const drawHoloPanel = (
+  context: SKRSContext2D,
+  [x, y, width, height]: Bounds,
+  stamps: PassportStamp[],
+) => {
+  context.save();
+  const fill = context.createLinearGradient(x, y, x + width, y + height);
+  fill.addColorStop(0, "#04203a99");
+  fill.addColorStop(1, "#0a0f2a55");
+  context.fillStyle = fill;
+  context.fillRect(x, y, width, height);
+  drawBrackets(context, x, y, width, height, 7, `${HOLO_CYAN}cc`);
+  context.textBaseline = "middle";
+  const first = stamps[0];
+  const pad = 8;
+  if (first) {
+    const [lon, lat] = first.coordinates!;
+    context.fillStyle = HOLO_AMBER;
+    context.font = `bold 9px ${MONO}`;
+    context.fillText(`◎ TARGET LOCK · ${first.code}`, x + pad, y + 11);
+    context.fillStyle = `${HOLO_CYAN}aa`;
+    context.font = `7px ${MONO}`;
+    context.fillText(
+      `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}  ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? "E" : "W"}  ×${first.count}`,
+      x + pad,
+      y + 21,
+    );
+  }
+  const rows = stamps.slice(0, Math.max(2, Math.min(6, Math.floor((height - 46) / 10))));
+  const most = Math.max(1, ...rows.map((stamp) => stamp.count));
+  const barWidth = width - pad * 2 - 44;
+  rows.forEach((stamp, rank) => {
+    const rowY = y + 33 + rank * 10;
+    context.fillStyle = `${HOLO_CYAN}cc`;
+    context.font = `7px ${MONO}`;
+    context.fillText(stamp.code, x + pad, rowY);
+    context.fillStyle = `${HOLO_CYAN}1a`;
+    context.fillRect(x + pad + 18, rowY - 2.5, barWidth, 5);
+    // Segmented bars read as instrument meters.
+    context.fillStyle = rank === 0 ? HOLO_AMBER : rank % 2 ? HOLO_PINK : HOLO_CYAN;
+    const filled = (barWidth * stamp.count) / most;
+    for (let segment = 0; segment < filled; segment += 4) {
+      context.fillRect(x + pad + 18 + segment, rowY - 2.5, Math.min(3, filled - segment), 5);
+    }
+    context.fillStyle = "#e0f2fe";
+    context.fillText(String(stamp.count), x + pad + 22 + barWidth, rowY);
+  });
+  // A signal trace along the bottom.
+  const traceY = y + height - 9;
+  context.strokeStyle = `${HOLO_PINK}cc`;
+  context.lineWidth = 0.8;
+  context.beginPath();
+  for (let step = 0; step <= width - pad * 2; step += 2) {
+    const t = step / (width - pad * 2);
+    const value = Math.sin(t * 31) * 0.5 + Math.sin(t * 87) * 0.3 + Math.sin(t * 13) * 0.2;
+    if (step === 0) context.moveTo(x + pad + step, traceY + value * 4);
+    else context.lineTo(x + pad + step, traceY + value * 4);
+  }
+  context.stroke();
+  context.restore();
+};
+
+/** Vertical gauges and status lines for empty space between the name and the hologram. */
+const drawHoloTelemetry = (
+  context: SKRSContext2D,
+  x: number,
+  height: number,
+  stamps: PassportStamp[],
+) => {
+  context.save();
+  context.font = `7px ${MONO}`;
+  context.textBaseline = "middle";
+  const lines = [
+    "SYS ▸ CİHANGİR NODE",
+    `UPLINK ▸ ${stamps.length}/6 TARGETS`,
+    "GRID ▸ SYNCED",
+    `PEAK ▸ ${stamps[0]?.code ?? "--"}`,
+  ];
+  lines.forEach((line, index) => {
+    context.fillStyle = index === 0 ? `${HOLO_PINK}cc` : `${HOLO_CYAN}88`;
+    context.fillText(line, x, height * 0.22 + index * 11);
+  });
+  for (let gauge = 0; gauge < 4; gauge++) {
+    const gx = x + gauge * 12;
+    const level = [0.85, 0.6, 0.72, 0.4][gauge]!;
+    const top = height * 0.58;
+    const bottom = height * 0.86;
+    context.fillStyle = `${HOLO_CYAN}1a`;
+    context.fillRect(gx, top, 6, bottom - top);
+    for (let y = bottom - 3; y > bottom - (bottom - top) * level; y -= 3) {
+      context.fillStyle = gauge === 0 ? HOLO_AMBER : HOLO_CYAN;
+      context.globalAlpha = 0.8;
+      context.fillRect(gx, y, 6, 2);
+    }
+    context.globalAlpha = 1;
+  }
+  context.restore();
+};
+
+/** A lifted arc between two screen points, bulging away from (cx, cy). */
+const drawLiftedArc = (
+  context: SKRSContext2D,
+  [x0, y0]: [number, number],
+  [x1, y1]: [number, number],
+  lift: number,
+  color: string,
+) => {
+  const mx = (x0 + x1) / 2;
+  const my = Math.min(y0, y1) - lift - Math.abs(x1 - x0) * 0.15;
+  context.strokeStyle = color;
+  context.beginPath();
+  context.moveTo(x0, y0);
+  context.quadraticCurveTo(mx, my, x1, y1);
+  context.stroke();
+};
+
+const holoTargets = (context: SKRSContext2D, wins: PlacedWin[]) => {
+  for (const win of wins) {
+    const color = win.rank === 0 ? HOLO_AMBER : HOLO_CYAN;
+    const box = win.rank === 0 ? 8 : 5;
+    drawBrackets(context, win.x - box, win.y - box, box * 2, box * 2, box * 0.6, color);
+    if (win.rank === 0) {
+      context.strokeStyle = `${HOLO_AMBER}aa`;
+      context.lineWidth = 0.8;
+      for (const ring of [12, 17]) {
+        context.beginPath();
+        context.arc(win.x, win.y, ring, 0, Math.PI * 2);
+        context.stroke();
+      }
+      context.beginPath();
+      context.moveTo(win.x - 22, win.y);
+      context.lineTo(win.x - 13, win.y);
+      context.moveTo(win.x + 13, win.y);
+      context.lineTo(win.x + 22, win.y);
+      context.moveTo(win.x, win.y - 22);
+      context.lineTo(win.x, win.y - 13);
+      context.moveTo(win.x, win.y + 13);
+      context.lineTo(win.x, win.y + 22);
+      context.stroke();
+    }
+    fillGlow(context, win.x, win.y, 5, `${color}cc`, `${color}00`);
+  }
+};
+
+const holoCommandPrime: BackgroundPainter = (context, width, height, details) => {
+  const mode = details.mode ?? "country";
+  fillGradient(context, width, height, ["#01030a", "#03132a", "#0a0a26", "#020617"]);
+  drawHexGrid(context, width, height, 9);
+  drawDataRain(context, width * 0.42, width, height);
+  drawCircuitTraces(context, width * 0.4, width, height);
+  fillGlow(context, width * 0.8, height * 0.5, 280, "#0891b244", "#0891b200");
+  fillGlow(context, width * 0.58, height * 0.05, 180, "#db277730", "#db277700");
+  fillGlow(context, width * 0.98, height * 1.05, 160, "#7c3aed30", "#7c3aed00");
+  const stamps = mythicWins(details);
+  const radius = Math.min(height * 0.47, width * 0.085, 96);
+  const cx = width - radius * 1.62;
+  const cy = height / 2;
+  let hologramLeft: number;
+  if (mode === "country") {
+    hologramLeft = cx - radius * 1.55;
+    const { projection, top, visible } = facingGlobe(mode, stamps, cx, cy, radius);
+    drawProjector(context, cx, cy, radius, height);
+    drawHoloRings(context, cx, cy, radius, height);
+    drawSatelliteOrbits(context, cx, cy, radius, "back");
+    fillGlow(context, cx, cy, radius * 1.25, "#06b6d455", "#06b6d400");
+    context.save();
+    context.beginPath();
+    context.arc(cx, cy, radius, 0, Math.PI * 2);
+    context.clip();
+    const ocean = context.createRadialGradient(
+      cx - radius * 0.3,
+      cy - radius * 0.35,
+      2,
+      cx,
+      cy,
+      radius,
+    );
+    ocean.addColorStop(0, "#0b3a5acc");
+    ocean.addColorStop(1, "#020a18ee");
+    context.fillStyle = ocean;
+    context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    context.beginPath();
+    geoPath(projection, context as never)(geoGraticule10());
+    context.strokeStyle = `${HOLO_CYAN}38`;
+    context.lineWidth = 0.5;
+    context.stroke();
+    drawGlobeLand(context, projection, mode, [cx, cy, radius], `${HOLO_CYAN}cc`, "#a5f3fcee");
+    // A bright scan band across the globe.
+    const band = context.createLinearGradient(0, cy - radius * 0.3, 0, cy - radius * 0.1);
+    band.addColorStop(0, `${HOLO_CYAN}00`);
+    band.addColorStop(0.5, `${HOLO_CYAN}40`);
+    band.addColorStop(1, `${HOLO_CYAN}00`);
+    context.fillStyle = band;
+    context.fillRect(cx - radius, cy - radius * 0.3, radius * 2, radius * 0.2);
+    const rim = context.createRadialGradient(cx, cy, radius * 0.7, cx, cy, radius);
+    rim.addColorStop(0, "#00000000");
+    rim.addColorStop(1, `${HOLO_CYAN}55`);
+    context.fillStyle = rim;
+    context.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    context.restore();
+    context.save();
+    context.shadowColor = HOLO_CYAN;
+    context.shadowBlur = 12;
+    context.strokeStyle = "#a5f3fcdd";
+    context.lineWidth = 1.3;
+    context.beginPath();
+    context.arc(cx, cy, radius, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+    context.save();
+    context.shadowColor = HOLO_PINK;
+    context.shadowBlur = 6;
+    context.lineWidth = 1.2;
+    context.strokeStyle = `${HOLO_PINK}ee`;
+    for (const stamp of stamps.slice(1)) {
+      const interpolate = geoInterpolate(top, stamp.coordinates!);
+      context.beginPath();
+      let drawing = false;
+      for (let step = 0; step <= 48; step++) {
+        const t = step / 48;
+        const point = interpolate(t);
+        if (!visible(point)) {
+          drawing = false;
+          continue;
+        }
+        const [px, py] = projection(point)!;
+        const lift = 1 + Math.sin(t * Math.PI) * 0.25;
+        const x = cx + (px - cx) * lift;
+        const y = cy + (py - cy) * lift;
+        if (drawing) context.lineTo(x, y);
+        else context.moveTo(x, y);
+        drawing = true;
+      }
+      context.stroke();
+    }
+    context.restore();
+    const wins: PlacedWin[] = stamps.flatMap((stamp, rank) => {
+      if (!visible(stamp.coordinates!)) return [];
+      const [x, y] = projection(stamp.coordinates!)!;
+      return [{ stamp, x, y, rank }];
+    });
+    drawSatelliteOrbits(context, cx, cy, radius, "front");
+    holoTargets(context, wins);
+    drawWinLabels(
+      context,
+      wins,
+      (rank) => (rank === 0 ? HOLO_AMBER : "#a5f3fc"),
+      { width, height },
+      10,
+    );
+  } else {
+    // Türkiye fills a wide holo table; a small globe beside it shows where it sits.
+    const miniRadius = Math.min(height * 0.2, 30);
+    const miniX = width - miniRadius - 18;
+    const miniY = height - miniRadius - 14;
+    const tableBounds: Bounds = [
+      width * 0.55,
+      10,
+      miniX - miniRadius - 16 - width * 0.55,
+      height - 20,
+    ];
+    hologramLeft = tableBounds[0];
+    // A perspective floor grid under the table.
+    context.save();
+    context.strokeStyle = `${HOLO_CYAN}26`;
+    context.lineWidth = 0.6;
+    const horizon = height * 0.35;
+    const vanishX = tableBounds[0] + tableBounds[2] / 2;
+    context.beginPath();
+    for (let index = -14; index <= 14; index++) {
+      context.moveTo(vanishX + index * 6, horizon);
+      context.lineTo(vanishX + index * 70, height);
+    }
+    for (let row = 1; row < 8; row++) {
+      const y = horizon + (height - horizon) * (row / 8) ** 1.6;
+      context.moveTo(tableBounds[0] - 40, y);
+      context.lineTo(tableBounds[0] + tableBounds[2] + 40, y);
+    }
+    context.stroke();
+    context.restore();
+    const dotMap = createDotMap(mode, tableBounds, 2.6, 1.25);
+    fillGlow(context, vanishX, height / 2, tableBounds[2] * 0.6, "#06b6d433", "#06b6d400");
+    drawDotMap(context, dotMap, 163, [HOLO_CYAN, "#a5f3fc", "#67e8f9"], [0.6, 1.25]);
+    const wins = placeWins(dotMap, details);
+    context.save();
+    context.shadowColor = HOLO_PINK;
+    context.shadowBlur = 6;
+    context.lineWidth = 1.1;
+    const first = wins[0];
+    for (const win of wins.slice(1)) {
+      if (first) drawLiftedArc(context, [first.x, first.y], [win.x, win.y], 14, `${HOLO_PINK}dd`);
+    }
+    context.restore();
+    // Pillars of light rise from each win.
+    for (const win of wins) {
+      const pillar = context.createLinearGradient(win.x, win.y, win.x, win.y - 26 + win.rank * 2);
+      pillar.addColorStop(0, `${win.rank === 0 ? HOLO_AMBER : HOLO_CYAN}cc`);
+      pillar.addColorStop(1, `${HOLO_CYAN}00`);
+      context.fillStyle = pillar;
+      context.fillRect(win.x - 1, win.y - 26 + win.rank * 2, 2, 26 - win.rank * 2);
+    }
+    holoTargets(context, wins);
+    drawWinLabels(
+      context,
+      wins,
+      (rank) => (rank === 0 ? HOLO_AMBER : "#a5f3fc"),
+      { width, height },
+      10,
+    );
+    const { projection } = facingGlobe(
+      "country",
+      [{ code: "TR", name: "", count: 0, coordinates: [35, 39] }],
+      miniX,
+      miniY,
+      miniRadius,
+    );
+    context.save();
+    context.beginPath();
+    context.arc(miniX, miniY, miniRadius, 0, Math.PI * 2);
+    context.clip();
+    context.fillStyle = "#021a2acc";
+    context.fillRect(miniX - miniRadius, miniY - miniRadius, miniRadius * 2, miniRadius * 2);
+    drawGlobeLand(
+      context,
+      projection,
+      "country",
+      [miniX, miniY, miniRadius],
+      `${HOLO_CYAN}aa`,
+      `${HOLO_CYAN}cc`,
+    );
+    context.restore();
+    context.strokeStyle = `${HOLO_CYAN}cc`;
+    context.lineWidth = 1;
+    context.beginPath();
+    context.arc(miniX, miniY, miniRadius, 0, Math.PI * 2);
+    context.stroke();
+    drawBrackets(context, miniX - 6, miniY - 6, 12, 12, 4, HOLO_AMBER);
+    // A dashed leader from Türkiye on the globe to its eastern tip on the table.
+    const tip = dotMap.project([44.6, 39.4]);
+    if (tip) {
+      context.save();
+      context.strokeStyle = `${HOLO_AMBER}aa`;
+      context.lineWidth = 0.8;
+      context.setLineDash([3, 2]);
+      context.beginPath();
+      context.moveTo(miniX, miniY - 6);
+      context.lineTo(miniX, tip[1]);
+      context.lineTo(tip[0] + 4, tip[1]);
+      context.stroke();
+      context.setLineDash([]);
+      context.fillStyle = HOLO_AMBER;
+      for (const [x, y] of [
+        [miniX, miniY - 6],
+        [tip[0] + 4, tip[1]],
+      ] as const) {
+        context.beginPath();
+        context.arc(x, y, 1.6, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.font = `bold 7px ${MONO}`;
+      context.textAlign = "right";
+      context.fillText("TR", miniX - 4, tip[1] - 4);
+      context.restore();
+    }
+  }
+  // Fill the gap left of the hologram with a readout panel and, when there is room, telemetry.
+  // The panel narrows rather than reaching into the name area.
+  const panelRight = hologramLeft - 14;
+  const panelLeft = Math.max(panelRight - 168, width * 0.565);
+  if (panelRight - panelLeft >= 132) {
+    drawHoloPanel(
+      context,
+      [panelLeft, height * 0.12, panelRight - panelLeft, height * 0.76],
+      stamps,
+    );
+    if (panelLeft - 120 > width * 0.52) drawHoloTelemetry(context, panelLeft - 110, height, stamps);
+  }
+  drawBrackets(context, 4, 4, width - 8, height - 8, 16, `${HOLO_CYAN}bb`);
+  // A tick ruler along the bottom and scanlines over everything.
+  context.fillStyle = `${HOLO_CYAN}55`;
+  for (let x = width * 0.45; x < width - 20; x += 8) {
+    context.fillRect(x, height - (x % 40 < 8 ? 7 : 4), 0.8, x % 40 < 8 ? 7 : 4);
+  }
+  context.fillStyle = "#00000030";
+  for (let y = 0; y < height; y += 3) context.fillRect(0, y, width, 1);
+};
+
+/** A faceted gem on a gold bezel: ruby for the top win, then sapphire, emerald and amethyst. */
+const JEWELS = ["#e11d48", "#2563eb", "#059669", "#9333ea", "#0891b2", "#d97706"] as const;
+const drawJewel = (context: SKRSContext2D, x: number, y: number, size: number, color: string) => {
+  fillGlow(context, x, y, size * 3.2, `${color}88`, `${color}00`);
+  context.fillStyle = "#f5c542";
+  context.beginPath();
+  for (let index = 0; index < 12; index++) {
+    const angle = (index * Math.PI) / 6;
+    const radius = size * (index % 2 ? 1.2 : 1.42);
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (index === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.closePath();
+  context.fill();
+  const gem = context.createRadialGradient(x - size * 0.3, y - size * 0.4, 0, x, y, size);
+  gem.addColorStop(0, "#ffffff");
+  gem.addColorStop(0.35, color);
+  gem.addColorStop(1, "#1c0207");
+  context.fillStyle = gem;
+  context.beginPath();
+  for (let index = 0; index < 8; index++) {
+    const angle = Math.PI / 8 + (index * Math.PI) / 4;
+    const px = x + Math.cos(angle) * size;
+    const py = y + Math.sin(angle) * size;
+    if (index === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.closePath();
+  context.fill();
+  context.strokeStyle = "#ffffff66";
+  context.lineWidth = 0.5;
+  context.beginPath();
+  for (let index = 0; index < 8; index++) {
+    const angle = Math.PI / 8 + (index * Math.PI) / 4;
+    context.moveTo(x + Math.cos(angle) * size * 0.45, y + Math.sin(angle) * size * 0.45);
+    context.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
+  }
+  context.stroke();
+};
+
+const drawCrown = (context: SKRSContext2D, x: number, y: number, size: number) => {
+  const crown = context.createLinearGradient(0, y - size, 0, y);
+  crown.addColorStop(0, "#fff4c2");
+  crown.addColorStop(0.6, "#f5c542");
+  crown.addColorStop(1, "#b45309");
+  context.save();
+  context.shadowColor = "#f5c542";
+  context.shadowBlur = 10;
+  context.fillStyle = crown;
+  context.beginPath();
+  context.moveTo(x - size, y);
+  context.lineTo(x - size, y - size * 0.25);
+  context.lineTo(x - size * 1.1, y - size * 0.9);
+  context.lineTo(x - size * 0.5, y - size * 0.45);
+  context.lineTo(x, y - size * 1.15);
+  context.lineTo(x + size * 0.5, y - size * 0.45);
+  context.lineTo(x + size * 1.1, y - size * 0.9);
+  context.lineTo(x + size, y - size * 0.25);
+  context.lineTo(x + size, y);
+  context.closePath();
+  context.fill();
+  context.restore();
+  for (const [dx, dy, color] of [
+    [0, -1.15, "#e11d48"],
+    [-1.1, -0.9, "#2563eb"],
+    [1.1, -0.9, "#2563eb"],
+  ] as const) {
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(x + dx * size, y + dy * size, size * 0.14, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.fillStyle = "#e11d48";
+  context.fillRect(x - size * 0.15, y - size * 0.2, size * 0.3, size * 0.16);
+};
+
+const solarThrone: BackgroundPainter = (context, width, height, details) => {
+  const mode = details.mode ?? "country";
+  fillGradient(context, width, height, ["#12030a", "#3b0714", "#2a0610", "#0d0206"]);
+  const sunX = width * 0.74;
+  const sunY = height * 0.5;
+  // Alternating gold rays from a sun behind the map.
+  context.save();
+  context.globalCompositeOperation = "screen";
+  for (let index = 0; index < 48; index++) {
+    const angle = (index * Math.PI) / 24;
+    const spread = index % 2 ? 0.025 : 0.05;
+    const ray = context.createRadialGradient(sunX, sunY, 0, sunX, sunY, width * 0.5);
+    ray.addColorStop(0, index % 2 ? "#f5c54233" : "#f5c54255");
+    ray.addColorStop(1, "#f5c54200");
+    context.fillStyle = ray;
+    context.beginPath();
+    context.moveTo(sunX, sunY);
+    context.arc(sunX, sunY, width * 0.5, angle - spread, angle + spread);
+    context.closePath();
+    context.fill();
+  }
+  context.restore();
+  fillGlow(context, sunX, sunY, height * 0.9, "#f59e0b55", "#f59e0b00");
+  // A faint damask of four-petal motifs.
+  context.save();
+  context.fillStyle = "#f5c54212";
+  for (let row = 0; row * 22 < height + 22; row++) {
+    for (let column = 0; column * 30 < width + 30; column++) {
+      const x = column * 30 + (row % 2 ? 15 : 0);
+      const y = row * 22;
+      for (let petal = 0; petal < 4; petal++) {
+        context.beginPath();
+        context.ellipse(x, y, 1.8, 5, (petal * Math.PI) / 2, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+  }
+  context.restore();
+  const dotMap = createDotMap(
+    mode,
+    STAR_ATLAS_BOUNDS(width, height),
+    3.2,
+    STAR_ATLAS_STRETCH[mode],
+  );
+  drawDotMap(context, dotMap, 137, ["#fde68a", "#f5c542", "#fbbf24"], [0.7, 1.5]);
+  const wins = placeWins(dotMap, details);
+  context.save();
+  context.strokeStyle = "#fde68a99";
+  context.lineWidth = 0.9;
+  context.shadowColor = "#f5c542";
+  context.shadowBlur = 6;
+  const first = wins[0];
+  for (const win of wins.slice(1)) {
+    if (!first) break;
+    context.beginPath();
+    context.moveTo(first.x, first.y);
+    context.quadraticCurveTo((first.x + win.x) / 2, Math.min(first.y, win.y) - 30, win.x, win.y);
+    context.stroke();
+  }
+  context.restore();
+  for (const win of wins.toReversed()) {
+    drawJewel(context, win.x, win.y, 4.6 - win.rank * 0.4, JEWELS[win.rank % JEWELS.length]!);
+  }
+  if (first) {
+    drawLaurel(context, first.x, first.y, 15, 1, "#f5c542cc");
+    drawLaurel(context, first.x, first.y, 15, -1, "#f5c542cc");
+    drawCrown(context, first.x, first.y - 18, 8);
+  }
+  drawWinLabels(
+    context,
+    wins,
+    (rank) => (rank === 0 ? "#fff4c2" : "#fde68a"),
+    { width, height },
+    rank0Gap(wins),
+  );
+  drawGoldFrame(context, width, height);
+  drawFiligreeCorners(context, width, height, "#f5c542");
+};
+
+/** The laurel and crown around the top win need wider label spacing. */
+const rank0Gap = (wins: PlacedWin[]) => (wins.length ? 20 : 9);
+
+type HeaderDesignTier = "explorer" | "legend" | "mythic";
+
+const HEADER_TIER_ORDER: HeaderDesignTier[] = ["explorer", "legend", "mythic"];
 
 type HeaderDesignSpec = {
   name: string;
@@ -2433,6 +4120,48 @@ const designs = {
     draw: celestialStamps,
     nameStyle: LEGEND_NAME_STYLES.celestial,
   },
+  armillary: {
+    name: "Armillary",
+    tier: "mythic",
+    draw: armillary,
+    nameStyle: MYTHIC_NAME_STYLES.astrolabe,
+    scrimEnd: 0.5,
+  },
+  portolan: {
+    name: "Illuminated Portolan",
+    tier: "mythic",
+    draw: portolan,
+    nameStyle: MYTHIC_NAME_STYLES.illuminated,
+    scrimEnd: 0.5,
+  },
+  eventHorizon: {
+    name: "Event Horizon",
+    tier: "mythic",
+    draw: eventHorizon,
+    nameStyle: MYTHIC_NAME_STYLES.supernova,
+    scrimEnd: 0.5,
+  },
+  holoCommand: {
+    name: "Holo Command",
+    tier: "mythic",
+    draw: holoCommand,
+    nameStyle: MYTHIC_NAME_STYLES.hologram,
+    scrimEnd: 0.5,
+  },
+  holoCommandPrime: {
+    name: "Holo Command · Prime",
+    tier: "mythic",
+    draw: holoCommandPrime,
+    nameStyle: MYTHIC_NAME_STYLES.moltenGold,
+    scrimEnd: 0.5,
+  },
+  solarThrone: {
+    name: "Solar Throne",
+    tier: "mythic",
+    draw: solarThrone,
+    nameStyle: MYTHIC_NAME_STYLES.imperial,
+    scrimEnd: 0.5,
+  },
 } satisfies Record<string, HeaderDesignSpec>;
 
 export type PlayerMapHeaderDesign = keyof typeof designs;
@@ -2443,18 +4172,22 @@ export const PLAYER_MAP_HEADER_DESIGNS: Record<PlayerMapHeaderDesign, HeaderDesi
 export const activePlayerMapHeaderDesigns: Record<HeaderDesignTier, PlayerMapHeaderDesign> = {
   explorer: "passport",
   legend: "starAtlasObservatory",
+  mythic: "holoCommandPrime",
 };
 
-/** Explorer (200+) and legend (500+) players get a background; `requested` overrides it for previews. */
+/** Explorer (200+), legend (500+) and mythic (1000+) players get a background; `requested` overrides it for previews. */
 export const getPlayerMapHeaderDesign = (
   medals: MapMedalCounts,
   requested?: PlayerMapHeaderDesign,
 ): PlayerMapHeaderDesign => {
   const tier = getPlayerNameTier(medals);
-  if (tier !== "explorer" && tier !== "legend") return "plain";
+  if (tier !== "explorer" && tier !== "legend" && tier !== "mythic") return "plain";
   const requestedTier = requested ? PLAYER_MAP_HEADER_DESIGNS[requested].tier : undefined;
-  // Explorers cannot use legend backgrounds, even in previews.
-  if (requested && (tier === "legend" || requestedTier !== "legend")) {
+  // Players cannot use a higher tier's backgrounds, even in previews.
+  if (
+    requested &&
+    HEADER_TIER_ORDER.indexOf(requestedTier ?? "explorer") <= HEADER_TIER_ORDER.indexOf(tier)
+  ) {
     return requested;
   }
   return activePlayerMapHeaderDesigns[tier];

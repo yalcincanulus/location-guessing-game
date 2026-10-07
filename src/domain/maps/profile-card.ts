@@ -214,23 +214,38 @@ const drawTierLine = (card: CardContext, x: number, y: number) => {
   context.restore();
 };
 
-const drawMedals = (card: CardContext, x: number, baseline: number, size = 24) => {
+/** Medal icons and counts; large counts shrink the text and gaps to stay within `maxWidth`. */
+const drawMedals = (
+  card: CardContext,
+  x: number,
+  baseline: number,
+  size = 24,
+  maxWidth = Number.POSITIVE_INFINITY,
+) => {
   const { context, input, format } = card;
-  context.save();
-  context.font = font(size, "bold");
-  context.fillStyle = "#f1f5f9";
-  let cursor = x * ui;
-  for (const [rank, count, color] of [
+  const medals = [
     [1, input.medals.gold, "#fbbf24"],
     [2, input.medals.silver, "#cbd5e1"],
     [3, input.medals.bronze, "#c08457"],
-  ] as const) {
+  ] as const;
+  const texts = medals.map(([, count]) => format(count));
+  context.save();
+  let gap = 22;
+  const widthAt = (fontSize: number) => {
+    context.font = font(fontSize, "bold");
+    const textWidth = texts.reduce((sum, text) => sum + context.measureText(text).width / ui, 0);
+    return medals.length * 34 + textWidth + gap * (medals.length - 1);
+  };
+  while (widthAt(size) > maxWidth && gap > 12) gap -= 2;
+  while (widthAt(size) > maxWidth && size > 14) size -= 1;
+  context.font = font(size, "bold");
+  let cursor = x * ui;
+  medals.forEach(([rank, , color], index) => {
     drawMedalIcon(context, cursor, baseline * ui, rank, color);
     context.fillStyle = "#f1f5f9";
-    const text = format(count);
-    context.fillText(text, cursor + 34 * ui, baseline * ui);
-    cursor += 34 * ui + context.measureText(text).width + 22 * ui;
-  }
+    context.fillText(texts[index]!, cursor + 34 * ui, baseline * ui);
+    cursor += 34 * ui + context.measureText(texts[index]!).width + gap * ui;
+  });
   context.restore();
 };
 
@@ -595,7 +610,7 @@ const bannerLayout: CardLayout = {
       648 * ui,
       242 * ui,
     );
-    drawMedals(card, 648, 296);
+    drawMedals(card, 648, 296, 24, 252);
     context.fillStyle = "#cbd5e1";
     context.font = font(15);
     context.fillText(
@@ -634,7 +649,7 @@ const immersiveLayout: CardLayout = {
     drawAvatar(card, 98, 104, 58);
     drawName(card, 40, 222, 330);
     drawTierLine(card, 40, 240);
-    drawMedals(card, 40, 318, 22);
+    drawMedals(card, 40, 318, 22, 330);
     context.fillStyle = "#cbd5e1";
     context.font = font(14);
     context.fillText(

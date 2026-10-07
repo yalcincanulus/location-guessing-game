@@ -15,7 +15,7 @@ const designs = Object.keys(PLAYER_MAP_HEADER_DESIGNS).filter(
   (design) => design !== "plain",
 ) as PlayerMapHeaderDesign[];
 
-const designsForTier = (tier: "explorer" | "legend") =>
+const designsForTier = (tier: "explorer" | "legend" | "mythic") =>
   designs.filter((design) => PLAYER_MAP_HEADER_DESIGNS[design].tier === tier);
 
 describe("player map headers", () => {
@@ -36,12 +36,29 @@ describe("player map headers", () => {
     expect(getPlayerMapHeaderDesign({ gold: 100, silver: 100, bronze: 0 }, design)).toBe(design);
   });
 
+  test.each(designsForTier("mythic"))("%s is available at 1000 medal points", (design) => {
+    expect(getPlayerMapHeaderDesign({ gold: 50, silver: 24, bronze: 1 }, design)).toBe("plain");
+    expect(getPlayerMapHeaderDesign({ gold: 333, silver: 0, bronze: 0 }, design)).toBe(
+      activePlayerMapHeaderDesigns.legend,
+    );
+    expect(getPlayerMapHeaderDesign({ gold: 333, silver: 0, bronze: 1 }, design)).toBe(design);
+  });
+
+  test("mythic players may still preview lower tier designs", () => {
+    const mythic = { gold: 400, silver: 0, bronze: 0 };
+    expect(getPlayerMapHeaderDesign(mythic, "passport")).toBe("passport");
+    expect(getPlayerMapHeaderDesign(mythic, "starAtlasObservatory")).toBe("starAtlasObservatory");
+  });
+
   test("uses the selected design for each tier when no preview override is supplied", () => {
     expect(getPlayerMapHeaderDesign({ gold: 70, silver: 0, bronze: 0 })).toBe(
       activePlayerMapHeaderDesigns.explorer,
     );
     expect(getPlayerMapHeaderDesign({ gold: 167, silver: 0, bronze: 0 })).toBe(
       activePlayerMapHeaderDesigns.legend,
+    );
+    expect(getPlayerMapHeaderDesign({ gold: 334, silver: 0, bronze: 0 })).toBe(
+      activePlayerMapHeaderDesigns.mythic,
     );
   });
 
@@ -53,6 +70,19 @@ describe("player map headers", () => {
       );
     }
     expect(getPlayerMapNameStyle(legend, "atlas")).toBe(PLAYER_NAME_STYLES.legend);
+  });
+
+  test("mythic backgrounds bring their own name style", () => {
+    const mythic = { gold: 400, silver: 0, bronze: 0 };
+    for (const design of designsForTier("mythic")) {
+      expect(getPlayerMapNameStyle(mythic, design)).toBe(
+        PLAYER_MAP_HEADER_DESIGNS[design].nameStyle!,
+      );
+    }
+    expect(getPlayerMapNameStyle(mythic, "atlas")).toBe(PLAYER_NAME_STYLES.mythic);
+    expect(PLAYER_NAME_STYLES.mythic).toBe(
+      PLAYER_MAP_HEADER_DESIGNS[activePlayerMapHeaderDesigns.mythic].nameStyle!,
+    );
   });
 
   const cases: Array<Pick<RenderPlayerMapOptions, "mode" | "kind" | "locationCodes">> = [
@@ -67,7 +97,8 @@ describe("player map headers", () => {
           ...options,
           headerDesign,
           playerName: "Şanlıurfa Çağrı ".repeat(20),
-          medals: { gold: 180, silver: 140, bronze: 80 },
+          // Mythic medal points unlock every design.
+          medals: { gold: 300, silver: 140, bronze: 80 },
           gameCount: 42,
           generatedAt: new Date("2026-10-07T10:20:00Z"),
         });

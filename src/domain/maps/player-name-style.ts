@@ -1,12 +1,19 @@
-import type { SKRSContext2D } from "@napi-rs/canvas";
+import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import { MEDAL_POINTS } from "../awards/periods.ts";
 import type { MapMedalCounts } from "./map-header.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 
-export type PlayerNameTier = "white" | "gold" | "rose" | "platinum" | "explorer" | "legend";
+export type PlayerNameTier =
+  | "white"
+  | "gold"
+  | "rose"
+  | "platinum"
+  | "explorer"
+  | "legend"
+  | "mythic";
 
 export type PlayerNameEmblem = {
-  shape: "crown" | "star" | "gem";
+  shape: "crown" | "star" | "gem" | "sun" | "compass";
   fill: string;
   shine: string;
 };
@@ -33,6 +40,14 @@ export type PlayerNameStyle = {
   glints?: number;
   /** A darker copy below the name gives raised lettering. */
   extrude?: string;
+  /** Stacked glows behind the letters, innermost first. */
+  aura?: readonly string[];
+  /** Colors for the sparkles after the name, in order; without them they use `highlight`. */
+  sparkleColors?: readonly string[];
+  /** Thin dark lines across the letters, like a projected hologram. */
+  scanlines?: string;
+  /** Offset copies in two colors to the left and right, like a hologram. */
+  chromatic?: readonly [left: string, right: string];
   emblem?: PlayerNameEmblem;
 };
 
@@ -207,6 +222,331 @@ export const LEGEND_NAME_STYLES = {
 
 export type LegendNameStyle = keyof typeof LEGEND_NAME_STYLES;
 
+/** The Holo Command · Prime lettering effects (hologram fringes, scanlines, aura) in any colors. */
+const holoNameStyle = ({
+  sheen,
+  sheenDirection,
+  glow,
+  aura,
+  emblem,
+  rim,
+  accent,
+  overrides,
+}: {
+  sheen: readonly string[];
+  sheenDirection?: PlayerNameStyle["sheenDirection"];
+  /** Glow and aura colors without alpha. */
+  glow: string;
+  aura: string;
+  emblem: string;
+  rim?: readonly string[];
+  /** The avatar ring and tier chip color; a color near the middle of the gradient by default. */
+  accent?: string;
+  /** Any other lettering option, such as the emblem, sparkle color or scanlines. */
+  overrides?: Partial<PlayerNameStyle>;
+}): PlayerNameStyle => ({
+  color: accent ?? sheen[Math.floor((sheen.length - 1) / 2)]!,
+  highlight: "#fffbeb",
+  shade: sheen.at(-1)!,
+  glow: `${glow}aa`,
+  glowBlur: 14,
+  sparkles: 4,
+  sheen,
+  sheenDirection,
+  // Vertical chrome bands keep their hard reflection line without a top gloss.
+  gloss: sheenDirection !== "vertical",
+  outline: "#0a0414",
+  rim: rim ?? [sheen[0]!, "#22d3ee", sheen[0]!],
+  shimmer: "#ffffff",
+  glints: 3,
+  chromatic: ["#00e5ff", "#ff2bd6"],
+  scanlines: "#0a041438",
+  aura: [`${aura}88`, "#22d3ee55"],
+  emblem: { shape: "gem", fill: emblem, shine: "#fef9c3" },
+  ...overrides,
+});
+
+/** Each mythic header design selects one of these; keep every option for later changes. */
+export const MYTHIC_NAME_STYLES = {
+  astrolabe: {
+    color: "#f5c542",
+    highlight: "#fffbea",
+    shade: "#92400e",
+    glow: "#f5c542aa",
+    glowBlur: 14,
+    sparkles: 4,
+    sheen: ["#fffbea", "#fde68a", "#f5c542", "#92400e", "#fbbf24", "#fff7d6"],
+    sheenDirection: "vertical",
+    gloss: false,
+    outline: "#050816",
+    rim: ["#fffbea", "#b45309", "#fffbea", "#b45309"],
+    shimmer: "#ffffff",
+    glints: 3,
+    aura: ["#f5c54288", "#3b82f666"],
+    emblem: { shape: "sun", fill: "#f5c542", shine: "#fffbea" },
+  },
+  illuminated: {
+    color: "#fcd34d",
+    highlight: "#fffbeb",
+    shade: "#a16207",
+    glow: "#fcd34d88",
+    glowBlur: 10,
+    sparkles: 4,
+    sheen: ["#fffbeb", "#fcd34d", "#d97706", "#fde68a", "#ca8a04"],
+    sheenDirection: "vertical",
+    gloss: false,
+    outline: "#071330",
+    rim: ["#bfdbfe", "#1d4ed8", "#bfdbfe"],
+    extrude: "#0b1d4a",
+    shimmer: "#ffffff",
+    glints: 2,
+    emblem: { shape: "compass", fill: "#fcd34d", shine: "#fffbeb" },
+  },
+  supernova: {
+    color: "#fdba74",
+    highlight: "#ffffff",
+    shade: "#c026d3",
+    glow: "#fb923ccc",
+    glowBlur: 16,
+    sparkles: 4,
+    sheen: ["#ffffff", "#fef3c7", "#fdba74", "#f97316", "#e11d48", "#c026d3"],
+    outline: "#0a0210",
+    rim: ["#ffffff", "#fb923c", "#a855f7"],
+    shimmer: "#ffffff",
+    glints: 2,
+    aura: ["#fb923caa", "#a855f766"],
+    emblem: { shape: "sun", fill: "#fb923c", shine: "#ffffff" },
+  },
+  hologram: {
+    color: "#67e8f9",
+    highlight: "#ffffff",
+    shade: "#e879f9",
+    glow: "#22d3eeaa",
+    glowBlur: 12,
+    sparkles: 4,
+    sheen: ["#a5f3fc", "#ffffff", "#67e8f9", "#818cf8", "#e879f9", "#a5f3fc"],
+    sheenDirection: "diagonal",
+    outline: "#020817",
+    rim: ["#67e8f9", "#ffffff", "#e879f9"],
+    shimmer: "#ffffff",
+    glints: 3,
+    chromatic: ["#ff2bd6", "#00e5ff"],
+    emblem: { shape: "gem", fill: "#67e8f9", shine: "#ffffff" },
+  },
+  // Holo Command · Prime: sunrise plasma, away from the mint-to-violet legend lettering.
+  plasma: holoNameStyle({
+    sheen: ["#fef08a", "#fbbf24", "#fb923c", "#f43f5e", "#ec4899", "#f0abfc"],
+    glow: "#f472b6",
+    aura: "#f472b6",
+    emblem: "#fb923c",
+  }),
+  // More Holo Command · Prime gradients; every one is kept so the active one can change later.
+  solarFlare: holoNameStyle({
+    sheen: ["#ffffff", "#fef08a", "#fbbf24", "#f97316", "#dc2626", "#991b1b"],
+    glow: "#f97316",
+    aura: "#ef4444",
+    emblem: "#fbbf24",
+  }),
+  acid: holoNameStyle({
+    sheen: ["#f7fee7", "#d9f99d", "#a3e635", "#facc15", "#fb923c"],
+    glow: "#a3e635",
+    aura: "#84cc16",
+    emblem: "#a3e635",
+  }),
+  spectrum: holoNameStyle({
+    sheen: ["#f87171", "#fb923c", "#facc15", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"],
+    glow: "#ffffff",
+    aura: "#facc15",
+    emblem: "#38bdf8",
+  }),
+  iceFire: holoNameStyle({
+    sheen: ["#67e8f9", "#e0f2fe", "#ffffff", "#fdba74", "#f97316", "#e11d48"],
+    glow: "#fb923c",
+    aura: "#22d3ee",
+    emblem: "#fdba74",
+    accent: "#fdba74",
+  }),
+  crimsonChrome: holoNameStyle({
+    sheen: ["#fff1f2", "#fda4af", "#e11d48", "#4c0519", "#fb7185", "#ffe4e6"],
+    sheenDirection: "vertical",
+    glow: "#e11d48",
+    aura: "#fb7185",
+    emblem: "#fb7185",
+  }),
+  goldChrome: holoNameStyle({
+    sheen: ["#fffbeb", "#fde68a", "#f59e0b", "#78350f", "#fbbf24", "#fef3c7"],
+    sheenDirection: "vertical",
+    glow: "#f59e0b",
+    aura: "#fbbf24",
+    emblem: "#fbbf24",
+    rim: ["#f472b6", "#22d3ee", "#a3e635", "#f472b6"],
+  }),
+  royalNeon: holoNameStyle({
+    sheen: ["#fde047", "#fb7185", "#e879f9", "#a855f7", "#6366f1"],
+    sheenDirection: "diagonal",
+    glow: "#e879f9",
+    aura: "#a855f7",
+    emblem: "#e879f9",
+  }),
+  // Royal Neon with the yellow swapped for cyan or teal.
+  royalNeonCyan: holoNameStyle({
+    sheen: ["#67e8f9", "#fb7185", "#e879f9", "#a855f7", "#6366f1"],
+    sheenDirection: "diagonal",
+    glow: "#e879f9",
+    aura: "#a855f7",
+    emblem: "#e879f9",
+  }),
+  royalNeonTeal: holoNameStyle({
+    sheen: ["#5eead4", "#fb7185", "#e879f9", "#a855f7", "#6366f1"],
+    sheenDirection: "diagonal",
+    glow: "#e879f9",
+    aura: "#a855f7",
+    emblem: "#e879f9",
+  }),
+  /** Two cyan stops give the cyan end more room before it turns coral. */
+  royalNeonIce: holoNameStyle({
+    sheen: ["#cffafe", "#22d3ee", "#fb7185", "#e879f9", "#a855f7", "#6366f1"],
+    sheenDirection: "diagonal",
+    glow: "#e879f9",
+    aura: "#a855f7",
+    emblem: "#e879f9",
+    accent: "#e879f9",
+  }),
+  royalNeonLagoon: holoNameStyle({
+    sheen: ["#2dd4bf", "#22d3ee", "#f472b6", "#d946ef", "#8b5cf6"],
+    sheenDirection: "diagonal",
+    glow: "#d946ef",
+    aura: "#2dd4bf",
+    emblem: "#2dd4bf",
+    accent: "#f472b6",
+  }),
+  // Gold and yellow Holo Command · Prime options, each with a different finish.
+  /** Lemon to deep amber, left to right, with the cyan holo rim. */
+  neonGold: holoNameStyle({
+    sheen: ["#fffbeb", "#fef08a", "#facc15", "#f59e0b", "#ea580c"],
+    glow: "#f59e0b",
+    aura: "#facc15",
+    emblem: "#facc15",
+  }),
+  /** Light and dark gold alternate along the name, like poured metal. */
+  moltenGold: holoNameStyle({
+    sheen: ["#fff7d6", "#fde68a", "#f59e0b", "#b45309", "#f59e0b", "#fde68a", "#fff7d6"],
+    glow: "#f97316",
+    aura: "#f97316",
+    emblem: "#f59e0b",
+    rim: ["#fde68a", "#f97316", "#fde68a"],
+    accent: "#f59e0b",
+    overrides: {
+      emblem: { shape: "crown", fill: "#f59e0b", shine: "#fff7d6" },
+      // One more sparkle than the legend tier, all in gold.
+      sparkles: 5,
+      sparkleColors: ["#fbbf24"],
+    },
+  }),
+  /** Bright, nearly white yellow with extra glints and no scanlines. */
+  sunbeam: holoNameStyle({
+    sheen: ["#ffffff", "#fef9c3", "#fde047", "#eab308", "#fef08a", "#ffffff"],
+    sheenDirection: "diagonal",
+    glow: "#fde047",
+    aura: "#fde047",
+    emblem: "#fde047",
+    rim: ["#ffffff", "#fde047", "#ffffff"],
+    accent: "#fde047",
+    overrides: {
+      glints: 5,
+      scanlines: undefined,
+      emblem: { shape: "star", fill: "#fde047", shine: "#ffffff" },
+    },
+  }),
+  /** Deep amber glass with a glossy top. */
+  honeyGlass: holoNameStyle({
+    sheen: ["#fef3c7", "#fcd34d", "#f59e0b", "#b45309", "#78350f"],
+    sheenDirection: "vertical",
+    glow: "#f59e0b",
+    aura: "#d97706",
+    emblem: "#f59e0b",
+    rim: ["#fde68a", "#b45309", "#fde68a"],
+    accent: "#fbbf24",
+    overrides: { gloss: true, outline: "#1c0a02" },
+  }),
+  /** Gold lettering charged with cyan: cyan rim, aura, glints and sparkles. */
+  electricGold: holoNameStyle({
+    sheen: ["#fef08a", "#facc15", "#fffbeb", "#facc15", "#ca8a04"],
+    glow: "#22d3ee",
+    aura: "#22d3ee",
+    emblem: "#facc15",
+    rim: ["#a5f3fc", "#22d3ee", "#a5f3fc"],
+    accent: "#facc15",
+    overrides: { highlight: "#a5f3fc", glints: 4 },
+  }),
+  /** Soft champagne gold fading into rose gold, with a crown. */
+  champagne: holoNameStyle({
+    sheen: ["#fffbeb", "#fef3c7", "#fde68a", "#fbcfe8", "#fda4af"],
+    glow: "#fda4af",
+    aura: "#fde68a",
+    emblem: "#fde68a",
+    rim: ["#fffbeb", "#fda4af", "#fffbeb"],
+    accent: "#fde68a",
+    overrides: {
+      emblem: { shape: "crown", fill: "#fde68a", shine: "#fffbeb" },
+    },
+  }),
+  /** Gold with a near-black band through the middle. */
+  blackGold: holoNameStyle({
+    sheen: ["#fef9c3", "#fde047", "#facc15", "#eab308", "#422006", "#ca8a04", "#fde047", "#fef9c3"],
+    sheenDirection: "vertical",
+    glow: "#facc15",
+    aura: "#ca8a04",
+    emblem: "#facc15",
+    rim: ["#fde047", "#a16207", "#fde047"],
+    accent: "#facc15",
+  }),
+  /** Gold with a crimson rim and red aura, and a crown. */
+  gildedRuby: holoNameStyle({
+    sheen: ["#fff4c2", "#fcd34d", "#f59e0b", "#fcd34d", "#fff4c2"],
+    glow: "#dc2626",
+    aura: "#dc2626",
+    emblem: "#f5c542",
+    rim: ["#fecaca", "#dc2626", "#fecaca"],
+    overrides: {
+      emblem: { shape: "crown", fill: "#f5c542", shine: "#fff4c2" },
+    },
+  }),
+  synthSun: holoNameStyle({
+    sheen: ["#fde047", "#fb923c", "#f43f5e", "#c026d3", "#4f46e5"],
+    sheenDirection: "vertical",
+    glow: "#f43f5e",
+    aura: "#c026d3",
+    emblem: "#f43f5e",
+  }),
+  cherryBlossom: holoNameStyle({
+    sheen: ["#ffffff", "#fce7f3", "#f9a8d4", "#f472b6", "#fda4af", "#fff1f2"],
+    glow: "#f472b6",
+    aura: "#f9a8d4",
+    emblem: "#f9a8d4",
+  }),
+  imperial: {
+    color: "#f5c542",
+    highlight: "#fff4c2",
+    shade: "#9a3412",
+    glow: "#f59e0baa",
+    glowBlur: 14,
+    sparkles: 4,
+    sheen: ["#fff4c2", "#f5c542", "#c8891e", "#fff1b8", "#d97706"],
+    sheenDirection: "vertical",
+    gloss: false,
+    outline: "#1c0207",
+    rim: ["#fecaca", "#b91c1c", "#fecaca"],
+    extrude: "#5b0a14",
+    shimmer: "#ffffff",
+    glints: 3,
+    aura: ["#f59e0b88", "#dc262666"],
+    emblem: { shape: "crown", fill: "#f5c542", shine: "#fff4c2" },
+  },
+} satisfies Record<string, PlayerNameStyle>;
+
+export type MythicNameStyle = keyof typeof MYTHIC_NAME_STYLES;
+
 export const PLAYER_NAME_STYLES: Record<PlayerNameTier, PlayerNameStyle> = {
   white: {
     color: "#f1f5f9",
@@ -245,6 +585,8 @@ export const PLAYER_NAME_STYLES: Record<PlayerNameTier, PlayerNameStyle> = {
   },
   // Legend headers supply their own style; this matches the active one for any other background.
   legend: LEGEND_NAME_STYLES.borealis,
+  // Mythic headers supply their own style; this matches the active one for any other background.
+  mythic: MYTHIC_NAME_STYLES.moltenGold,
 };
 
 /** Medal points within the selected game mode, as on `!profile`. */
@@ -261,6 +603,7 @@ export const PLAYER_NAME_TIER_THRESHOLDS: ReadonlyArray<[PlayerNameTier, number]
   ["platinum", 120],
   ["explorer", 200],
   ["legend", 500],
+  ["mythic", 1000],
 ];
 
 /** Thresholds use medal points, not medal counts. */
@@ -306,6 +649,16 @@ const EMBLEM_SHAPES: Record<PlayerNameEmblem["shape"], Array<[number, number]>> 
     [13, 26],
     [0, 12],
   ],
+  sun: Array.from({ length: 24 }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI) / 12;
+    const radius = index % 2 === 0 ? 13 : 8;
+    return [13 + Math.cos(angle) * radius, 14 + Math.sin(angle) * radius] as [number, number];
+  }),
+  compass: Array.from({ length: 16 }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI) / 8;
+    const radius = index % 4 === 0 ? 13 : index % 2 === 0 ? 8 : 3.5;
+    return [13 + Math.cos(angle) * radius, 14 + Math.sin(angle) * radius] as [number, number];
+  }),
 };
 
 const drawEmblem = (
@@ -341,6 +694,14 @@ const drawEmblem = (
   if (emblem.shape === "crown") {
     context.moveTo(x, top + 21 * ui);
     context.lineTo(x + 26 * ui, top + 21 * ui);
+  } else if (emblem.shape === "sun" || emblem.shape === "compass") {
+    context.arc(
+      x + 13 * ui,
+      top + 14 * ui,
+      (emblem.shape === "sun" ? 5 : 2.5) * ui,
+      0,
+      Math.PI * 2,
+    );
   } else if (emblem.shape === "gem") {
     context.moveTo(x, top + 12 * ui);
     context.lineTo(x + 26 * ui, top + 12 * ui);
@@ -379,6 +740,23 @@ export const drawStyledPlayerName = (
   if (style.sparkles === 0) {
     context.fillStyle = style.color;
   } else {
+    style.aura?.forEach((color, index) => {
+      context.save();
+      context.shadowColor = color;
+      context.shadowBlur = (10 + index * 12) * ui;
+      context.fillStyle = color;
+      context.fillText(name, x, baseline);
+      context.restore();
+    });
+    if (style.chromatic) {
+      context.save();
+      context.globalAlpha = 0.7;
+      style.chromatic.forEach((color, index) => {
+        context.fillStyle = color;
+        context.fillText(name, x + (index === 0 ? -2.5 : 2.5) * ui, baseline);
+      });
+      context.restore();
+    }
     if (style.extrude) {
       context.fillStyle = style.extrude;
       for (let depth = 1; depth <= 3; depth++) {
@@ -426,6 +804,17 @@ export const drawStyledPlayerName = (
     gloss.addColorStop(0.5, `${style.highlight}00`);
     context.shadowBlur = 0;
     context.fillStyle = gloss;
+    context.fillText(name, x, baseline);
+  }
+
+  if (style.scanlines) {
+    // A repeating 1-in-3 line pattern only shows where the letters are drawn.
+    const tile = createCanvas(1, 3 * ui);
+    const tileContext = tile.getContext("2d");
+    tileContext.fillStyle = style.scanlines;
+    tileContext.fillRect(0, 0, 1, ui);
+    context.shadowBlur = 0;
+    context.fillStyle = context.createPattern(tile, "repeat")!;
     context.fillText(name, x, baseline);
   }
 
@@ -477,7 +866,19 @@ export const drawStyledPlayerName = (
     const cy = baseline - (index % 2 === 0 ? 16 : 22) * ui;
     const radius = (4 + style.sparkles - index) * ui;
     const inset = radius * 0.22;
-    context.globalAlpha = 1 - index * 0.12;
+    const color = style.sparkleColors?.[index % style.sparkleColors.length];
+    // Colored sparkles fade less so the last ones keep their color.
+    context.globalAlpha = 1 - index * (color ? 0.06 : 0.12);
+    if (color) {
+      // Colored sparkles keep a white-hot center and glow in their own color.
+      const fill = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      fill.addColorStop(0, "#ffffff");
+      fill.addColorStop(0.35, color);
+      fill.addColorStop(1, color);
+      context.fillStyle = fill;
+      context.shadowColor = color;
+      context.shadowBlur = 6 * ui;
+    }
     context.beginPath();
     context.moveTo(cx, cy - radius);
     context.lineTo(cx + inset, cy - inset);

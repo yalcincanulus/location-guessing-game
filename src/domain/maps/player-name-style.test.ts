@@ -15,7 +15,9 @@ describe("player name medal point tiers", () => {
     [{ gold: 50, silver: 25, bronze: 0 }, "explorer"],
     [{ gold: 133, silver: 49, bronze: 2 }, "explorer"],
     [{ gold: 100, silver: 100, bronze: 0 }, "legend"],
-    [{ gold: 1000, silver: 0, bronze: 0 }, "legend"],
+    [{ gold: 333, silver: 0, bronze: 0 }, "legend"],
+    [{ gold: 333, silver: 0, bronze: 1 }, "mythic"],
+    [{ gold: 1000, silver: 0, bronze: 0 }, "mythic"],
   ];
   test.each(cases)("selects %j medals as %s", (medals, tier) => {
     expect(getPlayerNameStyle(medals)).toBe(PLAYER_NAME_STYLES[tier]);

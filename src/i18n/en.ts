@@ -48,6 +48,7 @@ export const enMessages = {
       platinum: "Voyager",
       explorer: "Explorer",
       legend: "Legend",
+      mythic: "World Conqueror",
     },
     mode: (mode) => (mode === "province" ? "Province game" : "Country game"),
     points: "Points",

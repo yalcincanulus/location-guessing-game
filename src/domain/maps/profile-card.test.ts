@@ -55,9 +55,9 @@ describe("profile card", () => {
 
   test("every tile style gives a different card", () => {
     const styles = Object.keys(PROFILE_TILE_STYLES) as ProfileTileStyle[];
-    const legend = tierInputs.at(-1)!.input;
+    const topTier = tierInputs.at(-1)!.input;
     const hashes = new Set(
-      styles.map((style) => Bun.hash(renderProfileCard(legend, "banner", style).buffer)),
+      styles.map((style) => Bun.hash(renderProfileCard(topTier, "banner", style).buffer)),
     );
     expect(hashes.size).toBe(styles.length);
   });

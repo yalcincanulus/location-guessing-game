@@ -49,6 +49,7 @@ export const trMessages = {
       platinum: "Seyyah",
       explorer: "Kâşif",
       legend: "Efsane",
+      mythic: "Cihangir",
     },
     mode: (mode) => (mode === "province" ? "İl oyunu" : "Ülke oyunu"),
     points: "Puan",

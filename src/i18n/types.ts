@@ -96,7 +96,10 @@ export type BotMessages = {
     location: string;
   };
   profileCard: {
-    tierNames: Record<"white" | "gold" | "rose" | "platinum" | "explorer" | "legend", string>;
+    tierNames: Record<
+      "white" | "gold" | "rose" | "platinum" | "explorer" | "legend" | "mythic",
+      string
+    >;
     mode: (mode: MessageGameMode) => string;
     points: string;
     wins: string;
