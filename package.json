@@ -16,6 +16,7 @@
     "sim:achievements:cleanup": "bun run scripts/achievements/run-cleanup.ts",
     "sim:achievements:existing": "bun run scripts/achievements/report-existing.ts",
     "preview:player-maps": "bun run scripts/maps/preview-player-map-headers.ts",
+    "preview:profile-cards": "bun run scripts/maps/preview-profile-cards.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
