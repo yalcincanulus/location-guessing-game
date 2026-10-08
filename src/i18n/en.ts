@@ -68,6 +68,21 @@ export const enMessages = {
       seasonal: "Seasonal",
       yearly: "Yearly",
     },
+    periodTitle: (periodType, periodKey) => {
+      if (periodType === "yearly") return periodKey;
+      const [year, part] = periodKey.split("-") as [string, string];
+      if (periodType === "monthly") {
+        return new Intl.DateTimeFormat("en-GB", {
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(Date.UTC(Number(year), Number(part) - 1, 1)));
+      }
+      // Winter runs December to February, so it is named after both years.
+      if (part === "winter") return `Winter ${year}–${String(Number(year) + 1).slice(2)}`;
+      const seasons: Record<string, string> = { spring: "Spring", summer: "Summer", fall: "Fall" };
+      return `${seasons[part] ?? part} ${year}`;
+    },
     nextTier: (tierName, missing) => `Next tier: ${tierName} · ${missing} points to go`,
     topTier: "Highest tier",
   },

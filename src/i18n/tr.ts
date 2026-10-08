@@ -69,6 +69,25 @@ export const trMessages = {
       seasonal: "Mevsimlik",
       yearly: "Yıllık",
     },
+    periodTitle: (periodType, periodKey) => {
+      if (periodType === "yearly") return periodKey;
+      const [year, part] = periodKey.split("-") as [string, string];
+      if (periodType === "monthly") {
+        return new Intl.DateTimeFormat("tr-TR", {
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(Date.UTC(Number(year), Number(part) - 1, 1)));
+      }
+      // Winter runs December to February, so it is named after both years.
+      if (part === "winter") return `Kış ${year}-${String(Number(year) + 1).slice(2)}`;
+      const seasons: Record<string, string> = {
+        spring: "İlkbahar",
+        summer: "Yaz",
+        fall: "Sonbahar",
+      };
+      return `${seasons[part] ?? part} ${year}`;
+    },
     nextTier: (tierName, missing) => `Sonraki seviye: ${tierName} · ${missing} puan kaldı`,
     topTier: "En yüksek seviye",
   },

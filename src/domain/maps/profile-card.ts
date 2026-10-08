@@ -1,6 +1,11 @@
 import { createCanvas, type Image, type SKRSContext2D } from "@napi-rs/canvas";
 import type { GameMode } from "../game/game-mode.ts";
-import { PERIOD_TYPES, type PeriodType } from "../awards/periods.ts";
+import {
+  PERIOD_TYPES,
+  type GoldPeriod,
+  type PeriodType,
+  type TitlePeriodType,
+} from "../awards/periods.ts";
 import { messages } from "../../i18n/messages.ts";
 import { drawMedalIcon, type MapMedalCounts } from "./map-header.ts";
 import {
@@ -38,6 +43,8 @@ export type ProfileCardInput = {
   achievementsUnlocked: number;
   /** Gold medals won per award period type. */
   periodWins: Record<PeriodType, number>;
+  /** Monthly, seasonal and yearly periods won with gold, newest first, for the plaques. */
+  goldPeriods: GoldPeriod[];
   /** Most-won locations, most wins first, for backgrounds that show them. */
   stamps?: PassportStamp[];
 };
@@ -50,6 +57,7 @@ type CardContext = {
   format: (value: number) => string;
   percent: (ratio: number) => string;
   tileStyle: ProfileTileStyle;
+  monthlyStarStyle: ProfileMonthlyStarStyle;
 };
 
 /** Every layout stays here so the active one can change with a one-line edit. */
@@ -609,6 +617,425 @@ const drawPeriodIcon = (
 
 const GOLD = "#fbbf24";
 
+type LaurelColors = { light: string; dark: string; stem: string };
+
+const LAUREL: Record<"yearly" | "seasonal", LaurelColors> = {
+  yearly: { light: "#e6cf8f", dark: "#b08d3e", stem: "#cfb06a" },
+  seasonal: { light: "#a8cdb9", dark: "#5b8c75", stem: "#8db8a3" },
+};
+
+/** How far a stem runs on past its lowest leaves, so the two branches cross at the bottom. */
+const STEM_TAIL = 0.42;
+
+/**
+ * One laurel branch along a circle around (cx, cy), from angle `from` to `to` (radians,
+ * canvas orientation), leaves in pairs pointing toward `to` and shrinking to its tip. The
+ * stem runs under the leaves and on `STEM_TAIL` past `from` as a bare end.
+ */
+const drawLaurelBranch = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  from: number,
+  to: number,
+  leaf: number,
+  colors: LaurelColors,
+) => {
+  const direction = Math.sign(to - from);
+  const steps = Math.max(2, Math.round((Math.abs(to - from) * radius) / (leaf * 0.9)));
+  context.save();
+  // The bare tail bends outward past the bottom, so the two branches' tails cross in an X.
+  const point = (angle: number, distance: number): [number, number] => [
+    (cx + Math.cos(angle) * distance) * ui,
+    (cy + Math.sin(angle) * distance) * ui,
+  ];
+  context.strokeStyle = colors.stem;
+  context.lineWidth = Math.max(1, leaf * 0.16) * ui;
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(...point(from - direction * STEM_TAIL, radius + leaf * 0.55));
+  context.quadraticCurveTo(
+    ...point(from - direction * STEM_TAIL * 0.45, radius + leaf * 0.1),
+    ...point(from, radius),
+  );
+  context.arc(cx * ui, cy * ui, radius * ui, from, to, direction < 0);
+  context.stroke();
+  for (let step = 0; step <= steps; step++) {
+    const angle = from + ((to - from) * step) / steps;
+    const size = leaf * (1 - (0.4 * step) / steps);
+    const tangent = angle + (direction * Math.PI) / 2;
+    for (const side of [1, -1]) {
+      // Outer leaves tilt outward, inner ones inward, both swept toward the tip.
+      const tilt = tangent - side * direction * 0.55;
+      const baseX = cx + Math.cos(angle) * radius;
+      const baseY = cy + Math.sin(angle) * radius;
+      context.save();
+      context.translate(
+        (baseX + Math.cos(tilt) * size * 0.5) * ui,
+        (baseY + Math.sin(tilt) * size * 0.5) * ui,
+      );
+      context.rotate(tilt);
+      context.beginPath();
+      context.ellipse(0, 0, size * 0.55 * ui, size * 0.22 * ui, 0, 0, Math.PI * 2);
+      context.fillStyle = side === 1 ? colors.light : colors.dark;
+      context.fill();
+      context.restore();
+    }
+  }
+  context.restore();
+};
+
+/** Two laurel branches rising from the bottom of a circle; `reach` 1 meets at the top. */
+const drawWreath = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  reach: number,
+  leaf: number,
+  colors: LaurelColors,
+) => {
+  const bottom = Math.PI / 2;
+  const gap = 0.22;
+  const sweep = (Math.PI - gap) * reach;
+  drawLaurelBranch(context, cx, cy, radius, bottom + gap, bottom + gap + sweep, leaf, colors);
+  drawLaurelBranch(context, cx, cy, radius, bottom - gap, bottom - gap - sweep, leaf, colors);
+};
+
+const starPath = (context: SKRSContext2D, cx: number, cy: number, outer: number) => {
+  context.beginPath();
+  for (let point = 0; point < 10; point++) {
+    const angle = -Math.PI / 2 + (point * Math.PI) / 5;
+    const r = point % 2 === 0 ? outer : outer * 0.45;
+    context.lineTo((cx + Math.cos(angle) * r) * ui, (cy + Math.sin(angle) * r) * ui);
+  }
+  context.closePath();
+};
+
+const drawStar = (context: SKRSContext2D, cx: number, cy: number, outer: number) => {
+  starPath(context, cx, cy, outer);
+  context.fill();
+};
+
+/** Tapered rays between `inner` and `outer` radius, fading outward. */
+const drawSunburst = (
+  context: SKRSContext2D,
+  cx: number,
+  cy: number,
+  inner: number,
+  outer: number,
+  color: string,
+) => {
+  context.save();
+  const glow = context.createRadialGradient(
+    cx * ui,
+    cy * ui,
+    inner * ui,
+    cx * ui,
+    cy * ui,
+    outer * ui,
+  );
+  glow.addColorStop(0, `${color}80`);
+  glow.addColorStop(1, `${color}00`);
+  context.fillStyle = glow;
+  const rays = 16;
+  for (let ray = 0; ray < rays; ray++) {
+    const angle = (ray * Math.PI * 2) / rays;
+    const reach = ray % 2 === 0 ? outer : inner + (outer - inner) * 0.6;
+    const half = Math.PI / rays / 1.6;
+    context.beginPath();
+    context.moveTo(
+      (cx + Math.cos(angle - half) * inner) * ui,
+      (cy + Math.sin(angle - half) * inner) * ui,
+    );
+    context.lineTo((cx + Math.cos(angle) * reach) * ui, (cy + Math.sin(angle) * reach) * ui);
+    context.lineTo(
+      (cx + Math.cos(angle + half) * inner) * ui,
+      (cy + Math.sin(angle + half) * inner) * ui,
+    );
+    context.closePath();
+    context.fill();
+  }
+  context.restore();
+};
+
+const STAR_GOLD = "#e3c56f";
+
+/** A point on the circle above the avatar, `offset` star spacings from the top. */
+const arcPoint = (
+  cx: number,
+  cy: number,
+  arcRadius: number,
+  offset: number,
+  spacing: number,
+): [number, number] => [
+  cx + Math.cos(-Math.PI / 2 + offset * spacing) * arcRadius,
+  cy + Math.sin(-Math.PI / 2 + offset * spacing) * arcRadius,
+];
+
+/**
+ * Ways to show the monthly gold count as stars above the avatar. Both draw one star per
+ * gold up to five; they differ past five. Every option stays here for later changes.
+ */
+type MonthlyStarStyle = {
+  name: string;
+  draw: (card: CardContext, cx: number, cy: number, arcRadius: number, radius: number) => void;
+};
+
+/**
+ * Up to five monthly stars whose finish grows with the count: past five, golds are dealt
+ * round the stars from the middle out, so a star's `level` is how many golds it stands for
+ * (capped at four, reached at twenty golds). `decorate` draws the finish behind each star.
+ */
+const drawLevelledStars = (
+  card: CardContext,
+  cx: number,
+  cy: number,
+  arcRadius: number,
+  radius: number,
+  decorate: (context: SKRSContext2D, sx: number, sy: number, star: number, level: number) => void,
+) => {
+  const { context, input } = card;
+  const monthly = input.periodWins.monthly;
+  const slots = Math.min(monthly, 5);
+  // Middle first, then alternating outward, so extra finishes stay symmetric.
+  const offsets = Array.from({ length: slots }, (_, slot) => slot - (slots - 1) / 2).sort(
+    (a, b) => Math.abs(a) - Math.abs(b) || a - b,
+  );
+  const star = radius * 0.1;
+  // Finished stars need more room: spread them by the widest finish in the row.
+  const topLevel = Math.min(Math.ceil(monthly / 5), 4);
+  const spacing = [0.24, 0.29, 0.34, 0.34][topLevel - 1]!;
+  context.save();
+  context.lineWidth = ui;
+  offsets.forEach((offset, index) => {
+    const level = Math.min(Math.ceil((monthly - index) / 5), 4);
+    const [sx, sy] = arcPoint(cx, cy, arcRadius, offset, spacing);
+    decorate(context, sx, sy, star, level);
+    context.fillStyle = level >= 4 ? "#3b2a0a" : STAR_GOLD;
+    drawStar(context, sx, sy, star);
+  });
+  context.restore();
+};
+
+export const MONTHLY_STAR_STYLES = {
+  /** Past five, the middle star becomes a gold medallion with the count, between four stars. */
+  medallion: {
+    name: "Numbered medallion",
+    draw: (card, cx, cy, arcRadius, radius) => {
+      const { context, input } = card;
+      const monthly = input.periodWins.monthly;
+      const spacing = 0.24;
+      context.save();
+      context.fillStyle = STAR_GOLD;
+      if (monthly <= 5) {
+        for (let star = 0; star < monthly; star++) {
+          const offset = star - (monthly - 1) / 2;
+          drawStar(context, ...arcPoint(cx, cy, arcRadius, offset, spacing), radius * 0.1);
+        }
+        context.restore();
+        return;
+      }
+      // Stars step aside to leave room for the medallion in the middle.
+      for (const offset of [-2.4, -1.4, 1.4, 2.4]) {
+        drawStar(context, ...arcPoint(cx, cy, arcRadius, offset, spacing), radius * 0.1);
+      }
+      const [mx, my] = arcPoint(cx, cy, arcRadius, 0, spacing);
+      const medallion = radius * 0.17;
+      context.beginPath();
+      context.arc(mx * ui, my * ui, medallion * ui, 0, Math.PI * 2);
+      context.fill();
+      context.strokeStyle = "#0b1120";
+      context.lineWidth = ui;
+      context.beginPath();
+      context.arc(mx * ui, my * ui, (medallion - 2) * ui, 0, Math.PI * 2);
+      context.stroke();
+      const label = card.format(monthly);
+      context.fillStyle = "#3b2a0a";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      setFittingFont(context, label, medallion * 1.05, "bold", medallion * 1.5 * ui);
+      context.fillText(label, mx * ui, (my + 0.5) * ui);
+      context.restore();
+    },
+  },
+  /**
+   * Never more than five stars; past five, each extra gold adds a ring round a star: a ring,
+   * then a second ring, then a gold backing disc (four golds on one star).
+   */
+  rings: {
+    name: "Ringed stars",
+    draw: (card, cx, cy, arcRadius, radius) =>
+      drawLevelledStars(card, cx, cy, arcRadius, radius, (context, sx, sy, star, level) => {
+        if (level >= 4) {
+          context.beginPath();
+          context.arc(sx * ui, sy * ui, star * 1.4 * ui, 0, Math.PI * 2);
+          context.fillStyle = `${STAR_GOLD}cc`;
+          context.fill();
+        }
+        for (let ring = 1; ring <= Math.min(level - 1, 2); ring++) {
+          context.beginPath();
+          context.arc(sx * ui, sy * ui, star * (1.4 + 0.3 * ring) * ui, 0, Math.PI * 2);
+          context.strokeStyle = `${STAR_GOLD}${ring === 1 ? "b3" : "73"}`;
+          context.stroke();
+        }
+      }),
+  },
+  /**
+   * Like `rings`, but the finishes are star-shaped: an outline star round the star, then a
+   * second, then the inner outline filled gold behind a dark star (four golds on one star).
+   */
+  outlines: {
+    name: "Outlined stars",
+    draw: (card, cx, cy, arcRadius, radius) =>
+      drawLevelledStars(card, cx, cy, arcRadius, radius, (context, sx, sy, star, level) => {
+        if (level >= 4) {
+          starPath(context, sx, sy, star * 1.65);
+          context.fillStyle = `${STAR_GOLD}cc`;
+          context.fill();
+        }
+        for (let outline = 1; outline <= Math.min(level - 1, 2); outline++) {
+          starPath(context, sx, sy, star * (1.3 + 0.35 * outline));
+          context.lineJoin = "round";
+          context.strokeStyle = `${STAR_GOLD}${outline === 1 ? "b3" : "73"}`;
+          context.stroke();
+        }
+      }),
+  },
+} satisfies Record<string, MonthlyStarStyle>;
+
+export type ProfileMonthlyStarStyle = keyof typeof MONTHLY_STAR_STYLES;
+
+export const activeMonthlyStarStyle: ProfileMonthlyStarStyle = "outlines";
+
+/**
+ * Honours around the avatar for rare golds: a gold laurel wreath for a yearly gold, shorter
+ * green sprigs for a seasonal one, and stars for monthly golds on top (see
+ * `MONTHLY_STAR_STYLES`). Muted tones and no glow, so they sit with the tier styling rather
+ * than over it.
+ */
+const drawAvatarHonours = (card: CardContext, cx: number, cy: number, radius: number) => {
+  const { context, input } = card;
+  const { monthly, seasonal, yearly } = input.periodWins;
+  const wreathRadius = radius + 13;
+  context.save();
+  if (yearly > 0 || seasonal > 0) {
+    context.globalAlpha = 0.85;
+    // The yearly wreath stops short of the top to leave room for the monthly stars.
+    drawWreath(
+      context,
+      cx,
+      cy,
+      wreathRadius,
+      yearly > 0 ? 0.7 : 0.45,
+      radius * 0.22,
+      yearly > 0 ? LAUREL.yearly : LAUREL.seasonal,
+    );
+    context.globalAlpha = 1;
+  }
+  if (monthly > 0) {
+    MONTHLY_STAR_STYLES[card.monthlyStarStyle].draw(card, cx, cy, wreathRadius, radius);
+  }
+  context.restore();
+};
+
+/** Rarest first: every yearly gold, then seasonal, then monthly, each newest first. */
+const PLAQUE_ORDER: TitlePeriodType[] = ["yearly", "seasonal", "monthly"];
+
+/**
+ * Engraved plaques naming each monthly, seasonal and yearly period the player took gold
+ * in. They fill `maxWidth` over up to `rows` rows; the rest collapse into a "+N" plaque.
+ */
+const drawPlaques = (card: CardContext, x: number, y: number, maxWidth: number, rows = 1) => {
+  const { context, input } = card;
+  const plaques = PLAQUE_ORDER.flatMap((periodType) =>
+    input.goldPeriods.filter((period) => period.periodType === periodType),
+  );
+  if (plaques.length === 0) return;
+  const height = 24;
+  const gap = 8;
+  context.save();
+  context.font = font(12, "bold");
+  const widths = plaques.map(
+    ({ periodType, periodKey }) =>
+      context.measureText(messages.profileCard.periodTitle(periodType, periodKey)).width / ui + 38,
+  );
+  const moreWidth = (count: number) => context.measureText(`+${count}`).width / ui + 18;
+
+  // Lay out row by row; once a plaque does not fit, keep room for the "+N" plaque.
+  const placed: Array<{ index: number; left: number; top: number }> = [];
+  let row = 0;
+  let cursor = x;
+  for (const [index, width] of widths.entries()) {
+    const remaining = plaques.length - index - 1;
+    const reserve = row === rows - 1 && remaining > 0 ? moreWidth(remaining) + gap : 0;
+    if (cursor + width + reserve > x + maxWidth) {
+      if (row === rows - 1 || cursor === x) break;
+      row += 1;
+      cursor = x;
+      if (
+        cursor + width + (row === rows - 1 && remaining > 0 ? moreWidth(remaining) + gap : 0) >
+        x + maxWidth
+      )
+        break;
+    }
+    placed.push({ index, left: cursor, top: y + row * (height + 6) });
+    cursor += width + gap;
+  }
+
+  for (const { index, left, top } of placed) {
+    const { periodType, periodKey } = plaques[index]!;
+    const width = widths[index]!;
+    const color = PERIOD_COLORS[periodType];
+    const yearly = periodType === "yearly";
+    // Quiet plates: a dark fill with a thin period-coloured border; yearly ones in soft gold.
+    const border = yearly ? "#d4b264" : `${color}99`;
+    roundRect(context, left, top, width, height, 5);
+    context.fillStyle = "#0b1120cc";
+    context.fill();
+    context.strokeStyle = border;
+    context.lineWidth = ui;
+    context.stroke();
+    // A second inset line reads as an engraved border.
+    roundRect(context, left + 2.5, top + 2.5, width - 5, height - 5, 3);
+    context.strokeStyle = yearly ? "#d4b26433" : `${color}33`;
+    context.lineWidth = ui;
+    context.stroke();
+    drawPeriodIcon(
+      context,
+      periodType,
+      left + 15,
+      top + height / 2,
+      yearly ? "#d4b264" : `${color}cc`,
+      0.6,
+    );
+    context.fillStyle = yearly ? "#ecd9a4" : "#e2e8f0";
+    context.textBaseline = "middle";
+    context.fillText(
+      messages.profileCard.periodTitle(periodType, periodKey),
+      (left + 27) * ui,
+      (top + height / 2 + 0.5) * ui,
+    );
+  }
+
+  const hidden = plaques.length - placed.length;
+  if (hidden > 0 && placed.length > 0) {
+    const last = placed.at(-1)!;
+    const left = last.left + widths[last.index]! + gap;
+    roundRect(context, left, last.top, moreWidth(hidden), height, 5);
+    context.fillStyle = "#0b1120e6";
+    context.fill();
+    context.strokeStyle = "#94a3b8";
+    context.lineWidth = ui;
+    context.stroke();
+    context.fillStyle = "#cbd5e1";
+    context.textBaseline = "middle";
+    context.fillText(`+${hidden}`, (left + 9) * ui, (last.top + height / 2 + 0.5) * ui);
+  }
+  context.restore();
+};
+
 /**
  * Period wins as small gold medals, the period glyph stamped where the rank number goes and
  * the ribbon in the period colour. With `goldMedal` (the centre bottom of the gold count's
@@ -652,6 +1079,7 @@ const drawPeriodWins = (
     const cx = centers[index]!;
     const ribbon = PERIOD_COLORS[periodType];
     const top = y + 8;
+    if (periodType === "yearly") drawSunburst(context, cx, y + 28, 14, 20, GOLD);
     for (const [points, fill] of [
       [
         [
@@ -679,23 +1107,37 @@ const drawPeriodWins = (
       context.fill();
     }
     const cy = y + 28;
+    // Rarer periods get a richer medal: a double rim, then a laurel, then soft rays.
+    const discRadius = { daily: 11, weekly: 11, monthly: 11.5, seasonal: 12, yearly: 13 }[
+      periodType
+    ];
+    if (periodType === "seasonal") {
+      drawWreath(context, cx, cy, discRadius + 4, 0.55, 5, LAUREL.seasonal);
+    }
     const disc = context.createRadialGradient(
       (cx - 3) * ui,
       (cy - 4) * ui,
       0,
       cx * ui,
       cy * ui,
-      11 * ui,
+      discRadius * ui,
     );
     disc.addColorStop(0, "#fde68a");
     disc.addColorStop(1, GOLD);
     context.beginPath();
-    context.arc(cx * ui, cy * ui, 11 * ui, 0, Math.PI * 2);
+    context.arc(cx * ui, cy * ui, discRadius * ui, 0, Math.PI * 2);
     context.fillStyle = disc;
     context.fill();
     context.strokeStyle = "#ffffff66";
     context.lineWidth = ui;
     context.stroke();
+    if (periodType === "monthly") {
+      context.beginPath();
+      context.arc(cx * ui, cy * ui, (discRadius + 2.5) * ui, 0, Math.PI * 2);
+      context.strokeStyle = `${GOLD}99`;
+      context.lineWidth = ui;
+      context.stroke();
+    }
     drawPeriodIcon(context, periodType, cx, cy, "#78350f", 0.62);
 
     const value = format(input.periodWins[periodType]);
@@ -789,8 +1231,10 @@ const bannerLayout: CardLayout = {
     context.fillStyle = fade;
     context.fillRect(0, 130 * ui, CARD_WIDTH * ui, (bannerHeight - 130) * ui);
     drawAvatar(card, 100, 118, 58);
+    drawAvatarHonours(card, 100, 118, 58);
     drawName(card, 182, 116, 420);
     drawTierLine(card, 184, 134);
+    drawPlaques(card, 184, 166, 520);
 
     const tile = (column: number, row: number): [number, number, number, number] => [
       40 + column * 194,
@@ -887,6 +1331,8 @@ const immersiveLayout: CardLayout = {
     context.fillRect(0, 0, CARD_WIDTH * ui, 476 * ui);
 
     drawAvatar(card, 98, 104, 58);
+    drawAvatarHonours(card, 98, 104, 58);
+    drawPlaques(card, 182, 50, 196, 3);
     drawName(card, 40, 222, 330);
     drawTierLine(card, 40, 240);
     if (hasPeriodWins(input)) {
@@ -980,9 +1426,11 @@ const heroLayout: CardLayout = {
     context.fillStyle = "#ffffff1a";
     context.fillRect(0, 236 * ui, CARD_WIDTH * ui, ui);
     drawAvatar(card, 112, 118, 70);
+    drawAvatarHonours(card, 112, 118, 70);
     drawName(card, 210, 112, 400);
     drawTierLine(card, 212, 130);
     drawCaption(card, messages.profileCard.mode(input.mode), 212, 172, "left");
+    drawPlaques(card, 350, 172, 440);
 
     const columns: Array<[string, string]> = [
       [format(input.points), messages.profileCard.points],
@@ -1076,6 +1524,7 @@ export const renderProfileCard = (
   input: ProfileCardInput,
   layoutName: ProfileCardLayout = activeProfileCardLayout,
   tileStyle: ProfileTileStyle = activeProfileTileStyle,
+  monthlyStarStyle: ProfileMonthlyStarStyle = activeMonthlyStarStyle,
 ) => {
   const layout = PROFILE_CARD_LAYOUTS[layoutName];
   const height = layout.height;
@@ -1097,6 +1546,7 @@ export const renderProfileCard = (
         ratio,
       ),
     tileStyle,
+    monthlyStarStyle,
   });
   return { buffer: canvas.toBuffer("image/png"), filename: `profile-${input.mode}.png` };
 };

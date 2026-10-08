@@ -39,6 +39,31 @@ for (const mode of ["country", "province"] as const) {
     const participated = 18 + points;
     const wins = Math.round(participated * 0.45);
     const medals = medalsFor(points);
+    // Daily golds are by far the most common; yearly ones the rarest.
+    const periodWins = {
+      daily: Math.round(medals.gold * 0.7),
+      weekly: Math.round(medals.gold * 0.18),
+      monthly: Math.round(medals.gold * 0.08),
+      seasonal: Math.round(medals.gold * 0.03),
+      yearly: Math.round(medals.gold * 0.01),
+    };
+    // One named period per gold, counting back from autumn 2026.
+    const seasons = ["summer", "spring", "winter", "fall"];
+    const goldPeriods = [
+      ...Array.from({ length: periodWins.monthly }, (_, back) => {
+        const month = new Date(Date.UTC(2026, 8 - back, 1));
+        const key = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, "0")}`;
+        return { periodType: "monthly" as const, periodKey: key };
+      }),
+      ...Array.from({ length: periodWins.seasonal }, (_, back) => ({
+        periodType: "seasonal" as const,
+        periodKey: `${2026 - Math.floor((back + 2) / 4)}-${seasons[back % 4]}`,
+      })),
+      ...Array.from({ length: periodWins.yearly }, (_, back) => ({
+        periodType: "yearly" as const,
+        periodKey: String(2025 - back),
+      })),
+    ];
     const card = renderProfileCard({
       mode,
       playerName: "Çağrı",
@@ -50,14 +75,8 @@ for (const mode of ["country", "province"] as const) {
       gmMultiplier: 1.25,
       medals,
       achievementsUnlocked: 3 + index * 4,
-      // Daily golds are by far the most common; yearly ones the rarest.
-      periodWins: {
-        daily: Math.round(medals.gold * 0.7),
-        weekly: Math.round(medals.gold * 0.18),
-        monthly: Math.round(medals.gold * 0.08),
-        seasonal: Math.round(medals.gold * 0.03),
-        yearly: Math.round(medals.gold * 0.01),
-      },
+      periodWins,
+      goldPeriods,
       stamps: STAMPS[mode],
     });
     const file = resolve(output, `${mode}-${index + 1}-${tier}.png`);

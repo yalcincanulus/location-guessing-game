@@ -2,7 +2,9 @@ import { sqlClient } from "../db/client.ts";
 import {
   AWARD_CATEGORIES,
   assignMedals,
+  TITLE_PERIOD_TYPES,
   type AwardCategory,
+  type GoldPeriod,
   type MedalAssignment,
   type PeriodType,
   type PeriodWindow,
@@ -286,6 +288,31 @@ export const getMedalLeaderboard = async (
     gold: Number(row.gold),
     silver: Number(row.silver),
     bronze: Number(row.bronze),
+  }));
+};
+
+/**
+ * Every monthly, seasonal and yearly period the player took gold in, newest first. Golds in
+ * several categories of one period count once.
+ */
+export const getPlayerGoldPeriods = async (
+  discordUserId: string,
+  mode: GameMode = "country",
+): Promise<GoldPeriod[]> => {
+  const t = tablesFor(mode);
+  const rows = await sqlClient`
+    SELECT DISTINCT ap.period_type, ap.period_key, ap.starts_at
+    FROM ${sqlClient(t.periodAward)} pa
+    JOIN ${sqlClient(t.awardPeriod)} ap ON ap.id = pa.award_period_id
+    JOIN player p ON p.id = pa.player_id
+    WHERE p.discord_user_id = ${discordUserId}
+      AND pa.medal = 'gold'
+      AND ap.period_type IN ${sqlClient(TITLE_PERIOD_TYPES)}
+    ORDER BY ap.starts_at DESC
+  `;
+  return rows.map((row) => ({
+    periodType: row.period_type as GoldPeriod["periodType"],
+    periodKey: row.period_key as string,
   }));
 };
 

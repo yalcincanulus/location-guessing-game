@@ -4,6 +4,7 @@ import { toPassportStamps } from "../domain/maps/player-map-renderer.ts";
 import { renderProfileCard } from "../domain/maps/profile-card.ts";
 import { messages } from "../i18n/messages.ts";
 import { countPlayerUnlocksByDiscordId } from "../repositories/achievements-repository.ts";
+import { getPlayerGoldPeriods } from "../repositories/awards-repository.ts";
 import { getPlayerProfile } from "../repositories/core-repository.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { logger } from "../util/logger.ts";
@@ -67,10 +68,11 @@ export const renderPlayerProfileCard = async (
   mode: GameMode,
   avatarUrl?: string,
 ) => {
-  const [profile, achievementsUnlocked, wins, avatar] = await Promise.all([
+  const [profile, achievementsUnlocked, wins, goldPeriods, avatar] = await Promise.all([
     getPlayerProfile(discordUserId, mode),
     countPlayerUnlocksByDiscordId(discordUserId, mode),
     getPlayerMapHistory(discordUserId, "wins", mode),
+    getPlayerGoldPeriods(discordUserId, mode),
     loadAvatar(avatarUrl),
   ]);
   if (!profile) {
@@ -94,6 +96,7 @@ export const renderPlayerProfileCard = async (
     },
     achievementsUnlocked,
     periodWins: periodWinsOf(profile),
+    goldPeriods,
     stamps: toPassportStamps(mode, wins.topLocations),
   });
 };

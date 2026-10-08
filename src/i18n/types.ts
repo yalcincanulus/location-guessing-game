@@ -114,6 +114,11 @@ export type BotMessages = {
     achievements: (count: string) => string;
     /** Short period name, for example "Daily". */
     periodNames: Record<AwardPeriodType, string>;
+    /** Plaque text naming one period, from its `award_period` key: "September 2026", "Summer 2026", "2026". */
+    periodTitle: (
+      periodType: Extract<AwardPeriodType, "monthly" | "seasonal" | "yearly">,
+      periodKey: string,
+    ) => string;
     nextTier: (tierName: string, missing: string) => string;
     topTier: string;
   };

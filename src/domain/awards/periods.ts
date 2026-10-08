@@ -40,6 +40,13 @@ export const MEDAL_EMOJI: Record<Medal, string> = {
 export const AWARD_CATEGORIES: AwardCategory[] = ["points", "wins", "started", "hardest"];
 export const PERIOD_TYPES: PeriodType[] = ["daily", "weekly", "monthly", "seasonal", "yearly"];
 
+/** Periods rare enough that the profile card names each gold won in them. */
+export type TitlePeriodType = Extract<PeriodType, "monthly" | "seasonal" | "yearly">;
+export const TITLE_PERIOD_TYPES: TitlePeriodType[] = ["monthly", "seasonal", "yearly"];
+
+/** One period a player took gold in, any category; `periodKey` as in `award_period`. */
+export type GoldPeriod = { periodType: TitlePeriodType; periodKey: string };
+
 /** Command words (normalized, English and Turkish) for each period type. */
 export const PERIOD_ALIASES: Record<string, PeriodType> = {
   daily: "daily",
