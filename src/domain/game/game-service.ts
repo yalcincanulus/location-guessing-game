@@ -147,7 +147,9 @@ export const startGame = async ({
   const rules = await loadRules();
   const guildId = await upsertGuild(guildChannel.guild);
   const channelId = await upsertChannel(guildChannel, guildId);
-  const player = await upsertPlayer(gameMaster);
+  // Starts can come from DMs, so look up the server nickname in the game's guild.
+  const member = await guildChannel.guild.members.fetch(gameMaster.id).catch(() => null);
+  const player = await upsertPlayer(gameMaster, member?.displayName);
   await ensurePlayerStat(player.id, mode);
   const isTestGame = isTestChannel(guildChannel.id, rules);
 

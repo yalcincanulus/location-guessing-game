@@ -325,6 +325,7 @@ const cancelCommand = async (message: Message, ctx: GameChannelContext, reason: 
     status: "cancelled",
     reason,
     cancelledBy: message.author,
+    displayName: message.member?.displayName,
     mode: ctx.mode,
   });
 

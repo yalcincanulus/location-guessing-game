@@ -9,6 +9,10 @@ export type DbPlayer = {
   displayName: string;
 };
 
+/**
+ * `displayName` is the player's server nickname. Without it, the global Discord name is used
+ * only for new players, so callers that lack a guild member keep the stored server name.
+ */
 export const upsertPlayer = async (user: User, displayName?: string): Promise<DbPlayer> => {
   const discordCreatedAt = discordSnowflakeToDate(user.id) ?? null;
   const rows = await sqlClient`
@@ -16,7 +20,7 @@ export const upsertPlayer = async (user: User, displayName?: string): Promise<Db
     VALUES (${user.id}, ${displayName ?? user.displayName ?? user.username}, ${discordCreatedAt}, now(), now())
     ON CONFLICT (discord_user_id)
     DO UPDATE SET
-      display_name = EXCLUDED.display_name,
+      display_name = COALESCE(${displayName ?? null}::text, player.display_name),
       discord_created_at = COALESCE(player.discord_created_at, EXCLUDED.discord_created_at),
       last_seen_at = now(),
       updated_at = now()

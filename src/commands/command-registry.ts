@@ -298,7 +298,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
   if (sub === "list" || sub === "liste") {
     const owned = new Set<string>();
     try {
-      const player = await upsertPlayer(message.author);
+      const player = await upsertPlayer(message.author, message.member?.displayName);
       const unlocks = await getPlayerUnlocks(player.id, mode);
       for (const unlock of unlocks) {
         owned.add(unlock.achievementId);
@@ -324,7 +324,7 @@ export const handleAchievementsCommand = async (message: Message): Promise<boole
     return true;
   }
 
-  const player = await upsertPlayer(message.author);
+  const player = await upsertPlayer(message.author, message.member?.displayName);
   const unlocks = await getPlayerUnlocks(player.id, mode);
   if (unlocks.length === 0) {
     await message.reply(withModeLabel(mode, messages.achievements.empty));
