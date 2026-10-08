@@ -344,8 +344,8 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
   const isRepeat = !isCorrect && (await hasWrongCountry(state.gameId, parsed.code));
   const now = Date.now();
 
-  // Test games and repeat guesses do not consume the consecutive-guess limit.
-  if (!state.isTest && !isRepeat) {
+  // Repeat guesses do not consume the consecutive-guess limit.
+  if (!isRepeat) {
     const streakRaw = await redis.get(keys.guessStreaks(state.gameId));
     const streaks = streakRaw ? (JSON.parse(streakRaw) as Record<string, GuessStreakState>) : {};
 
