@@ -25,7 +25,6 @@ export type GameStatsMessageInput = {
   distinctCountries: number | string;
   topCountryName: string | null;
   topCountryGames: number | string;
-  medianSolveSeconds: number | null;
   oneshotGames: number | string;
   hosts: number | string;
   participations: number | string;
@@ -38,7 +37,6 @@ export type ProvinceStatsMessageInput = {
   distinctProvinces: number | string;
   topProvinceName: string | null;
   topProvinceGames: number | string;
-  medianSolveSeconds: number | null;
   oneshotGames: number | string;
   hosts: number | string;
   participations: number | string;
@@ -121,6 +119,39 @@ export type BotMessages = {
     ) => string;
     nextTier: (tierName: string, missing: string) => string;
     topTier: string;
+  };
+  statsCard: {
+    title: string;
+    /** Label under the active-day count, for example "days active". */
+    daysActive: string;
+    activeSince: (date: Date) => string;
+    noGamesYet: string;
+    games: string;
+    guesses: string;
+    players: string;
+    hosts: string;
+    guessesPerGame: string;
+    playersPerGame: string;
+    oneshotGames: string;
+    locations: (mode: MessageGameMode) => string;
+    pointsAwarded: string;
+    achievements: string;
+    longestGame: string;
+    busiestDay: string;
+    mostWrongGuess: string;
+    topLocations: (mode: MessageGameMode) => string;
+    monthlyGames: string;
+    hourlyGames: string;
+    /** Busiest start hour, for example "Peak 20:00". */
+    peakHour: (hour: string) => string;
+    topWinner: string;
+    topHost: string;
+    guessCount: (count: string) => string;
+    gameCount: (count: string) => string;
+    /** Short month name for a YYYY-MM key, for chart labels. */
+    monthLabel: (month: string) => string;
+    /** A YYYY-MM-DD day, for example "9 Jul 2026". */
+    dayLabel: (day: string) => string;
   };
   playerMap: {
     title: (kind: PlayerMapKind, mode: MessageGameMode) => string;

@@ -7,7 +7,7 @@ import {
   provinceAchievementDescriptionsEn,
   provinceAchievementNamesEn,
 } from "./achievement-copy.ts";
-import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
+import { formatPerGame } from "./stats-format.ts";
 
 const enPlayerHelp = [
   "**Player**",
@@ -85,6 +85,50 @@ export const enMessages = {
     },
     nextTier: (tierName, missing) => `Next tier: ${tierName} · ${missing} points to go`,
     topTier: "Highest tier",
+  },
+  statsCard: {
+    title: "Server Stats",
+    daysActive: "days active",
+    activeSince: (date) =>
+      `since ${new Intl.DateTimeFormat("en-US", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Istanbul",
+      }).format(date)}`,
+    noGamesYet: "No games yet",
+    games: "Games played",
+    guesses: "Total guesses",
+    players: "Players",
+    hosts: "Hosts",
+    guessesPerGame: "Guesses per game",
+    playersPerGame: "Players per game",
+    oneshotGames: "Solved in one guess",
+    locations: (mode) => (mode === "province" ? "Provinces seen" : "Countries seen"),
+    pointsAwarded: "Points awarded",
+    achievements: "Achievements unlocked",
+    longestGame: "Longest game",
+    busiestDay: "Busiest day",
+    mostWrongGuess: "Most common wrong guess",
+    topLocations: (mode) => (mode === "province" ? "Top provinces" : "Top countries"),
+    monthlyGames: "Games per month",
+    hourlyGames: "Games by hour",
+    peakHour: (hour) => `Peak ${hour}`,
+    topWinner: "Most wins",
+    topHost: "Most hosted",
+    guessCount: (count) => `${count} guesses`,
+    gameCount: (count) => `${count} games`,
+    monthLabel: (month) =>
+      new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(
+        new Date(`${month}-01T00:00:00Z`),
+      ),
+    dayLabel: (day) =>
+      new Intl.DateTimeFormat("en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${day}T00:00:00Z`)),
   },
   playerMap: {
     title: (kind, mode) =>
@@ -192,7 +236,6 @@ export const enMessages = {
       distinctCountries,
       topCountryName,
       topCountryGames,
-      medianSolveSeconds,
       oneshotGames,
       hosts,
       participations,
@@ -208,7 +251,6 @@ export const enMessages = {
         `Guesses per game: **${formatPerGame(totalGuesses, completedGames, "en")}**`,
         `Distinct countries: **${distinctCountries}**`,
         topCountry,
-        `Median time: **${formatMedianDuration(medianSolveSeconds, "en")}**`,
         `Solved on the first guess: **${oneshotGames}**`,
         `Hosts: **${hosts}**`,
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,
@@ -749,7 +791,6 @@ export const enMessages = {
       distinctProvinces,
       topProvinceName,
       topProvinceGames,
-      medianSolveSeconds,
       oneshotGames,
       hosts,
       participations,
@@ -764,7 +805,6 @@ export const enMessages = {
         topProvinceName == null
           ? "Most common province: **—**"
           : `Most common province: **${topProvinceName}** (${topProvinceGames})`,
-        `Median time: **${formatMedianDuration(medianSolveSeconds, "en")}**`,
         `Solved on the first guess: **${oneshotGames}**`,
         `Hosts: **${hosts}**`,
         `Players per game: **${formatPerGame(participations, completedGames, "en")}**`,

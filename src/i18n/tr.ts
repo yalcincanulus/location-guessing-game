@@ -7,7 +7,7 @@ import {
   provinceAchievementDescriptionsTr,
   provinceAchievementNamesTr,
 } from "./achievement-copy.ts";
-import { formatMedianDuration, formatPerGame } from "./stats-format.ts";
+import { formatPerGame } from "./stats-format.ts";
 
 const trPlayerHelp = [
   "**Oyuncu**",
@@ -90,6 +90,50 @@ export const trMessages = {
     },
     nextTier: (tierName, missing) => `Sonraki seviye: ${tierName} · ${missing} puan kaldı`,
     topTier: "En yüksek seviye",
+  },
+  statsCard: {
+    title: "Sunucu İstatistikleri",
+    daysActive: "gündür aktif",
+    activeSince: (date) =>
+      `${new Intl.DateTimeFormat("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Istanbul",
+      }).format(date)} tarihinden beri`,
+    noGamesYet: "Henüz oyun yok",
+    games: "Tamamlanan oyun",
+    guesses: "Toplam tahmin",
+    players: "Oyuncu",
+    hosts: "Oyun kurucu",
+    guessesPerGame: "Oyun başına tahmin",
+    playersPerGame: "Oyun başına oyuncu",
+    oneshotGames: "Tek tahminde biten",
+    locations: (mode) => (mode === "province" ? "Farklı il" : "Farklı ülke"),
+    pointsAwarded: "Dağıtılan puan",
+    achievements: "Açılan başarım",
+    longestGame: "En uzun oyun",
+    busiestDay: "En yoğun gün",
+    mostWrongGuess: "En sık yanlış tahmin",
+    topLocations: (mode) => (mode === "province" ? "En çok çıkan iller" : "En çok çıkan ülkeler"),
+    monthlyGames: "Aylık oyunlar",
+    hourlyGames: "Saate göre oyunlar",
+    peakHour: (hour) => `En yoğun ${hour}`,
+    topWinner: "En çok kazanan",
+    topHost: "En çok oyun kuran",
+    guessCount: (count) => `${count} tahmin`,
+    gameCount: (count) => `${count} oyun`,
+    monthLabel: (month) =>
+      new Intl.DateTimeFormat("tr-TR", { month: "short", timeZone: "UTC" }).format(
+        new Date(`${month}-01T00:00:00Z`),
+      ),
+    dayLabel: (day) =>
+      new Intl.DateTimeFormat("tr-TR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${day}T00:00:00Z`)),
   },
   playerMap: {
     title: (kind, mode) =>
@@ -202,7 +246,6 @@ export const trMessages = {
       distinctCountries,
       topCountryName,
       topCountryGames,
-      medianSolveSeconds,
       oneshotGames,
       hosts,
       participations,
@@ -218,7 +261,6 @@ export const trMessages = {
         `Oyun başına tahmin: **${formatPerGame(totalGuesses, completedGames, "tr")}**`,
         `Farklı ülke: **${distinctCountries}**`,
         topCountry,
-        `Ortanca süre: **${formatMedianDuration(medianSolveSeconds, "tr")}**`,
         `Tek tahminde biten: **${oneshotGames}**`,
         `Oyun kurucu: **${hosts}**`,
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,
@@ -760,7 +802,6 @@ export const trMessages = {
       distinctProvinces,
       topProvinceName,
       topProvinceGames,
-      medianSolveSeconds,
       oneshotGames,
       hosts,
       participations,
@@ -775,7 +816,6 @@ export const trMessages = {
         topProvinceName == null
           ? "En çok çıkan il: **—**"
           : `En çok çıkan il: **${topProvinceName}** (${topProvinceGames})`,
-        `Ortanca süre: **${formatMedianDuration(medianSolveSeconds, "tr")}**`,
         `Tek tahminde biten: **${oneshotGames}**`,
         `Oyun kurucu: **${hosts}**`,
         `Oyun başına oyuncu: **${formatPerGame(participations, completedGames, "tr")}**`,

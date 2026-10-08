@@ -12,7 +12,6 @@ import {
 } from "../domain/game/active-game-state.ts";
 import { modeForChannel, tablesFor, takeModeArg, type GameMode } from "../domain/game/game-mode.ts";
 import { renderProvinceMap, TURKEY_MAP_VIEWPORT } from "../domain/maps/province-map-renderer.ts";
-import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 import { loadGameScreenshot } from "../domain/game/load-screenshot.ts";
 import { prepareGameScreenshot } from "../domain/game/prepare-screenshot.ts";
 import { logger } from "../util/logger.ts";
@@ -33,11 +32,13 @@ import {
   getPlayStreak,
   getPlayerStatSnapshot,
 } from "../domain/achievements/metrics.ts";
-import { getCountryDisplayName } from "../domain/countries/normalize-country-guess.ts";
 import { sqlClient } from "../db/client.ts";
 import { handleTestCommand } from "./test-command.ts";
 import { messages } from "../i18n/messages.ts";
 import { formatPlayerProfile, renderPlayerProfileCard } from "./player-profile.ts";
+import { formatServerStats } from "./server-stats.ts";
+import { getServerStats } from "../repositories/server-stats-repository.ts";
+import { renderStatsCard } from "../domain/maps/stats-card.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 
@@ -112,89 +113,6 @@ const replyChunked = async (message: Message, lines: string[]) => {
   if (chunk) {
     await message.reply(chunk);
   }
-};
-
-const getProvinceGameStats = async () => {
-  const rows = await sqlClient`
-    WITH completed AS (
-      SELECT *
-      FROM province_game
-      WHERE status = 'completed'
-    ),
-    province_counts AS (
-      SELECT target_province_code AS province_code, COUNT(*)::int AS games
-      FROM completed
-      GROUP BY 1
-    )
-    SELECT
-      (SELECT COUNT(*)::int FROM completed) AS completed_games,
-      COALESCE(SUM(total_guess_count), 0)::int AS total_guesses,
-      (
-        SELECT COUNT(*)::int
-        FROM province_player_stat
-        WHERE games_started > 0 OR total_guesses > 0
-      ) AS total_players,
-      (SELECT COUNT(*)::int FROM province_counts) AS distinct_provinces,
-      (
-        SELECT province_code
-        FROM province_counts
-        ORDER BY games DESC, province_code ASC
-        LIMIT 1
-      ) AS top_province_code,
-      (
-        SELECT games
-        FROM province_counts
-        ORDER BY games DESC, province_code ASC
-        LIMIT 1
-      ) AS top_province_games,
-      (
-        SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY solve_seconds)
-        FROM (
-          SELECT EXTRACT(EPOCH FROM (
-            COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
-          )) AS solve_seconds
-          FROM completed g
-          JOIN province_guess wg ON wg.id = g.winning_guess_id
-        ) solves
-        WHERE solve_seconds >= 0
-      ) AS median_solve_seconds,
-      (
-        SELECT COUNT(*)::int
-        FROM completed
-        WHERE unique_wrong_province_count = 0
-      ) AS oneshot_games,
-      (
-        SELECT COUNT(DISTINCT game_master_player_id)::int
-        FROM completed
-      ) AS hosts,
-      (
-        SELECT COUNT(*)::int
-        FROM (
-          SELECT g.id, gs.player_id
-          FROM completed g
-          JOIN province_guess gs ON gs.game_id = g.id
-          WHERE gs.is_rate_limited = false
-          GROUP BY g.id, gs.player_id
-        ) participants
-      ) AS participations
-    FROM province_game
-  `;
-  const row = rows[0];
-  const medianRaw = row?.median_solve_seconds;
-  const medianSolveSeconds = medianRaw == null ? null : Number(medianRaw);
-  const topProvinceCode = row?.top_province_code == null ? null : String(row.top_province_code);
-  return {
-    completedGames: row?.completed_games ?? 0,
-    totalGuesses: row?.total_guesses ?? 0,
-    totalPlayers: row?.total_players ?? 0,
-    distinctProvinces: row?.distinct_provinces ?? 0,
-    topProvinceName: topProvinceCode == null ? null : getProvinceName(topProvinceCode),
-    topProvinceGames: row?.top_province_games ?? 0,
-    medianSolveSeconds: Number.isFinite(medianSolveSeconds) ? medianSolveSeconds : null,
-    oneshotGames: row?.oneshot_games ?? 0,
-    hosts: row?.hosts ?? 0,
-    participations: row?.participations ?? 0,
-  };
 };
 
 /** Works in guild channels and DMs. */
@@ -608,94 +526,18 @@ export const handleCommand = async (message: Message<true>) => {
     return true;
   }
 
-  if (["stats", "istatistik"].includes(command) && mode === "province") {
-    await message.reply(messages.province.stats(await getProvinceGameStats()));
-    return true;
-  }
-
   if (["stats", "istatistik"].includes(command)) {
-    const rows = await sqlClient`
-      WITH completed AS (
-        SELECT *
-        FROM game
-        WHERE status = 'completed'
-      ),
-      country_counts AS (
-        SELECT
-          COALESCE(l.manual_country_code, l.country_code) AS country_code,
-          COUNT(*)::int AS games
-        FROM completed g
-        JOIN location l ON l.id = g.location_id
-        GROUP BY 1
-      )
-      SELECT
-        (SELECT COUNT(*)::int FROM completed) AS completed_games,
-        COALESCE(SUM(total_guess_count), 0)::int AS total_guesses,
-        (SELECT COUNT(*)::int FROM player) AS total_players,
-        (SELECT COUNT(*)::int FROM country_counts) AS distinct_countries,
-        (
-          SELECT country_code
-          FROM country_counts
-          ORDER BY games DESC, country_code ASC
-          LIMIT 1
-        ) AS top_country_code,
-        (
-          SELECT games
-          FROM country_counts
-          ORDER BY games DESC, country_code ASC
-          LIMIT 1
-        ) AS top_country_games,
-        (
-          SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY solve_seconds)
-          FROM (
-            SELECT EXTRACT(EPOCH FROM (
-              COALESCE(wg.sent_at, wg.created_at) - COALESCE(g.announced_at, g.started_at)
-            )) AS solve_seconds
-            FROM completed g
-            JOIN guess wg ON wg.id = g.winning_guess_id
-          ) solves
-          WHERE solve_seconds >= 0
-        ) AS median_solve_seconds,
-        (
-          SELECT COUNT(*)::int
-          FROM completed
-          WHERE unique_wrong_country_count = 0
-        ) AS oneshot_games,
-        (
-          SELECT COUNT(DISTINCT game_master_player_id)::int
-          FROM completed
-        ) AS hosts,
-        (
-          SELECT COUNT(*)::int
-          FROM (
-            SELECT g.id, gs.player_id
-            FROM completed g
-            JOIN guess gs ON gs.game_id = g.id
-            WHERE gs.is_rate_limited = false
-            GROUP BY g.id, gs.player_id
-          ) participants
-        ) AS participations
-      FROM game
-    `;
-    const row = rows[0];
-    const medianRaw = row?.median_solve_seconds;
-    const medianSolveSeconds = medianRaw == null ? null : Number(medianRaw);
-    const topCountryCode = row?.top_country_code == null ? null : String(row.top_country_code);
-    await message.reply(
-      messages.commands.stats({
-        completedGames: row?.completed_games ?? 0,
-        totalGuesses: row?.total_guesses ?? 0,
-        totalPlayers: row?.total_players ?? 0,
-        distinctCountries: row?.distinct_countries ?? 0,
-        topCountryName:
-          topCountryCode == null ? null : getCountryDisplayName(topCountryCode, messages.locale),
-        topCountryGames: row?.top_country_games ?? 0,
-        medianSolveSeconds: Number.isFinite(medianSolveSeconds) ? medianSolveSeconds : null,
-        oneshotGames: row?.oneshot_games ?? 0,
-        hosts: row?.hosts ?? 0,
-        participations: row?.participations ?? 0,
-      }),
-    );
+    const stats = await getServerStats(mode);
+    try {
+      const card = renderStatsCard(stats);
+      await message.reply({
+        files: [new AttachmentBuilder(card.buffer, { name: card.filename })],
+        allowedMentions: { repliedUser: false },
+      });
+    } catch (error) {
+      logger.error("Stats card failed; replying with text", { error: String(error) });
+      await message.reply(formatServerStats(stats));
+    }
     return true;
   }
 
