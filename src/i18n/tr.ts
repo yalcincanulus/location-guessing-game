@@ -1,4 +1,4 @@
-import type { BotMessages } from "./types.ts";
+import type { AwardPeriodType, BotMessages } from "./types.ts";
 import {
   achievementCopy,
   achievementDescriptionsTr,
@@ -62,6 +62,13 @@ export const trMessages = {
     medals: "Madalyalar",
     medalPoints: (points) => `${points} madalya puanı`,
     achievements: (count) => `${count} başarım açıldı`,
+    periodNames: {
+      daily: "Günlük",
+      weekly: "Haftalık",
+      monthly: "Aylık",
+      seasonal: "Mevsimlik",
+      yearly: "Yıllık",
+    },
     nextTier: (tierName, missing) => `Sonraki seviye: ${tierName} · ${missing} puan kaldı`,
     topTier: "En yüksek seviye",
   },
@@ -141,8 +148,21 @@ export const trMessages = {
       silver,
       bronze,
       achievementsUnlocked,
-    }) =>
-      [
+      periodWins,
+    }) => {
+      const periodLabels = {
+        daily: "günlük",
+        weekly: "haftalık",
+        monthly: "aylık",
+        seasonal: "mevsimlik",
+        yearly: "yıllık",
+      } as const;
+      // Periods without a win are left out; no wins at all drops the line.
+      const periodLine = (Object.keys(periodLabels) as AwardPeriodType[])
+        .filter((periodType) => periodWins[periodType] > 0)
+        .map((periodType) => `${periodLabels[periodType]} **${periodWins[periodType]}**`)
+        .join(" · ");
+      return [
         `**${displayName}**`,
         `Puan: **${points}**`,
         `Galibiyet: **${wins}** / Katılım: **${participated}** (${winRate}%)`,
@@ -150,8 +170,10 @@ export const trMessages = {
         `Tahmin: **${guesses}**`,
         `Oyun kurucu çarpanı: **${gmMultiplier.toFixed(2)}x**`,
         `Madalyalar: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** puan)`,
+        ...(periodLine ? [`Dönem birincilikleri: ${periodLine}`] : []),
         `Başarımlar: **${achievementsUnlocked}** açıldı`,
-      ].join("\n"),
+      ].join("\n");
+    },
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "Henüz liderlik verisi yok.",
     stats: ({

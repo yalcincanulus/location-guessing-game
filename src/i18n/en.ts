@@ -1,4 +1,4 @@
-import type { BotMessages } from "./types.ts";
+import type { AwardPeriodType, BotMessages } from "./types.ts";
 import {
   achievementCopy,
   achievementDescriptionsEn,
@@ -61,6 +61,13 @@ export const enMessages = {
     medals: "Medals",
     medalPoints: (points) => `${points} medal points`,
     achievements: (count) => `${count} achievements unlocked`,
+    periodNames: {
+      daily: "Daily",
+      weekly: "Weekly",
+      monthly: "Monthly",
+      seasonal: "Seasonal",
+      yearly: "Yearly",
+    },
     nextTier: (tierName, missing) => `Next tier: ${tierName} · ${missing} points to go`,
     topTier: "Highest tier",
   },
@@ -135,8 +142,21 @@ export const enMessages = {
       silver,
       bronze,
       achievementsUnlocked,
-    }) =>
-      [
+      periodWins,
+    }) => {
+      const periodLabels = {
+        daily: "daily",
+        weekly: "weekly",
+        monthly: "monthly",
+        seasonal: "seasonal",
+        yearly: "yearly",
+      } as const;
+      // Periods without a win are left out; no wins at all drops the line.
+      const periodLine = (Object.keys(periodLabels) as AwardPeriodType[])
+        .filter((periodType) => periodWins[periodType] > 0)
+        .map((periodType) => `${periodLabels[periodType]} **${periodWins[periodType]}**`)
+        .join(" · ");
+      return [
         `**${displayName}**`,
         `Points: **${points}**`,
         `Wins: **${wins}** / Participated: **${participated}** (${winRate}%)`,
@@ -144,8 +164,10 @@ export const enMessages = {
         `Guesses: **${guesses}**`,
         `GM multiplier: **${gmMultiplier.toFixed(2)}x**`,
         `Medals: 🥇**${gold}** 🥈**${silver}** 🥉**${bronze}** (**${medalPoints}** pts)`,
+        ...(periodLine ? [`Period wins: ${periodLine}`] : []),
         `Achievements: **${achievementsUnlocked}** unlocked`,
-      ].join("\n"),
+      ].join("\n");
+    },
     leaderboardRow: (rank, displayName, value) => `${rank}. ${displayName}: **${value}**`,
     noLeaderboardData: "No leaderboard data yet.",
     stats: ({

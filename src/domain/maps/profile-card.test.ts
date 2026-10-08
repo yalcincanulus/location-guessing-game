@@ -22,6 +22,7 @@ const baseInput: ProfileCardInput = {
   gmMultiplier: 2.1,
   medals: { gold: 0, silver: 0, bronze: 0 },
   achievementsUnlocked: 91,
+  periodWins: { daily: 1234, weekly: 87, monthly: 21, seasonal: 6, yearly: 2 },
   stamps: [
     { code: "TR", name: "TÜRKİYE", count: 31, coordinates: [35.4, 39.1] },
     { code: "BR", name: "BREZİLYA", count: 12, coordinates: [-52, -10.5] },
@@ -70,6 +71,7 @@ describe("profile card", () => {
       wins: 0,
       participated: 0,
       stamps: [],
+      periodWins: { daily: 0, weekly: 0, monthly: 0, seasonal: 0, yearly: 0 },
     });
     await decode(card.buffer);
     expect(card.filename).toBe("profile-province.png");

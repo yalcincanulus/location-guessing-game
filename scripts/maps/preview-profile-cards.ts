@@ -38,6 +38,7 @@ for (const mode of ["country", "province"] as const) {
     // Games grow with tier so the top tiers show four-digit stats.
     const participated = 18 + points;
     const wins = Math.round(participated * 0.45);
+    const medals = medalsFor(points);
     const card = renderProfileCard({
       mode,
       playerName: "Çağrı",
@@ -47,8 +48,16 @@ for (const mode of ["country", "province"] as const) {
       gamesStarted: Math.round(participated / 4),
       guesses: participated * 6,
       gmMultiplier: 1.25,
-      medals: medalsFor(points),
+      medals,
       achievementsUnlocked: 3 + index * 4,
+      // Daily golds are by far the most common; yearly ones the rarest.
+      periodWins: {
+        daily: Math.round(medals.gold * 0.7),
+        weekly: Math.round(medals.gold * 0.18),
+        monthly: Math.round(medals.gold * 0.08),
+        seasonal: Math.round(medals.gold * 0.03),
+        yearly: Math.round(medals.gold * 0.01),
+      },
       stamps: STAMPS[mode],
     });
     const file = resolve(output, `${mode}-${index + 1}-${tier}.png`);

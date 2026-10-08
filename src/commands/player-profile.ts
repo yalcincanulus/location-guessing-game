@@ -8,6 +8,15 @@ import { getPlayerProfile } from "../repositories/core-repository.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { logger } from "../util/logger.ts";
 
+/** Gold medals per period type, from a `getPlayerProfile` row. */
+const periodWinsOf = (profile: Record<string, unknown>) => ({
+  daily: Number(profile.daily_wins ?? 0),
+  weekly: Number(profile.weekly_wins ?? 0),
+  monthly: Number(profile.monthly_wins ?? 0),
+  seasonal: Number(profile.seasonal_wins ?? 0),
+  yearly: Number(profile.yearly_wins ?? 0),
+});
+
 /** The text profile, used when the card cannot be rendered. Undefined if the player is unknown. */
 export const formatPlayerProfile = async (discordUserId: string, mode: GameMode) => {
   const [profile, achievementsUnlocked] = await Promise.all([
@@ -35,6 +44,7 @@ export const formatPlayerProfile = async (discordUserId: string, mode: GameMode)
     silver: Number(profile.silver ?? 0),
     bronze: Number(profile.bronze ?? 0),
     achievementsUnlocked,
+    periodWins: periodWinsOf(profile),
   });
 };
 
@@ -83,6 +93,7 @@ export const renderPlayerProfileCard = async (
       bronze: Number(profile.bronze ?? 0),
     },
     achievementsUnlocked,
+    periodWins: periodWinsOf(profile),
     stamps: toPassportStamps(mode, wins.topLocations),
   });
 };

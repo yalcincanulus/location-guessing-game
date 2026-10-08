@@ -38,6 +38,7 @@ export const MEDAL_EMOJI: Record<Medal, string> = {
 };
 
 export const AWARD_CATEGORIES: AwardCategory[] = ["points", "wins", "started", "hardest"];
+export const PERIOD_TYPES: PeriodType[] = ["daily", "weekly", "monthly", "seasonal", "yearly"];
 
 /** Command words (normalized, English and Turkish) for each period type. */
 export const PERIOD_ALIASES: Record<string, PeriodType> = {

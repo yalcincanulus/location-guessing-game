@@ -15,6 +15,7 @@ export type ProfileMessageInput = {
   silver: number;
   bronze: number;
   achievementsUnlocked: number;
+  periodWins: Record<AwardPeriodType, number>;
 };
 
 export type GameStatsMessageInput = {
@@ -111,6 +112,8 @@ export type BotMessages = {
     medals: string;
     medalPoints: (points: string) => string;
     achievements: (count: string) => string;
+    /** Short period name, for example "Daily". */
+    periodNames: Record<AwardPeriodType, string>;
     nextTier: (tierName: string, missing: string) => string;
     topTier: string;
   };

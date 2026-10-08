@@ -1,5 +1,6 @@
 import { createCanvas, type Image, type SKRSContext2D } from "@napi-rs/canvas";
 import type { GameMode } from "../game/game-mode.ts";
+import { PERIOD_TYPES, type PeriodType } from "../awards/periods.ts";
 import { messages } from "../../i18n/messages.ts";
 import { drawMedalIcon, type MapMedalCounts } from "./map-header.ts";
 import {
@@ -35,6 +36,8 @@ export type ProfileCardInput = {
   gmMultiplier: number;
   medals: MapMedalCounts;
   achievementsUnlocked: number;
+  /** Gold medals won per award period type. */
+  periodWins: Record<PeriodType, number>;
   /** Most-won locations, most wins first, for backgrounds that show them. */
   stamps?: PassportStamp[];
 };
@@ -489,6 +492,227 @@ const drawTile = (
   context.restore();
 };
 
+const PERIOD_COLORS: Record<PeriodType, string> = {
+  daily: "#38bdf8",
+  weekly: "#a78bfa",
+  monthly: "#f472b6",
+  seasonal: "#34d399",
+  yearly: "#fbbf24",
+};
+
+/** One icon per period type on a 20 × 20 grid centred on (cx, cy), in card units. */
+const drawPeriodIcon = (
+  context: SKRSContext2D,
+  periodType: PeriodType,
+  cx: number,
+  cy: number,
+  color: string,
+  scale = 1,
+) => {
+  const at = (x: number, y: number): [number, number] => [
+    (cx + (x - 10) * scale) * ui,
+    (cy + (y - 10) * scale) * ui,
+  ];
+  const s = scale * ui;
+  context.save();
+  context.fillStyle = color;
+  context.strokeStyle = color;
+  context.lineWidth = 1.6 * s;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.beginPath();
+  switch (periodType) {
+    case "daily":
+      context.arc(...at(10, 10), 4.2 * s, 0, Math.PI * 2);
+      context.fill();
+      context.beginPath();
+      for (let index = 0; index < 8; index++) {
+        const angle = (index * Math.PI) / 4;
+        context.moveTo(...at(10 + Math.cos(angle) * 6.6, 10 + Math.sin(angle) * 6.6));
+        context.lineTo(...at(10 + Math.cos(angle) * 9, 10 + Math.sin(angle) * 9));
+      }
+      context.stroke();
+      break;
+    case "weekly":
+      context.roundRect(...at(2.5, 3.5), 15 * s, 14.5 * s, 2.5 * s);
+      context.moveTo(...at(2.5, 7.5));
+      context.lineTo(...at(17.5, 7.5));
+      context.stroke();
+      for (const [x, y] of [
+        [6.5, 11],
+        [10, 11],
+        [13.5, 11],
+        [6.5, 14.5],
+        [10, 14.5],
+      ]) {
+        context.beginPath();
+        context.arc(...at(x!, y!), 1.1 * s, 0, Math.PI * 2);
+        context.fill();
+      }
+      break;
+    case "monthly": {
+      // Crescent: the outer disc minus an offset disc. The two arcs must meet exactly where
+      // the circles cross, or the tips come out chipped, so the crossing angles are computed.
+      const [x1, y1, r1] = [10, 10, 8];
+      const [x2, y2, r2] = [14, 6.5, 7];
+      const distance = Math.hypot(x2 - x1, y2 - y1);
+      const along = (r1 * r1 - r2 * r2 + distance * distance) / (2 * distance);
+      const across = Math.sqrt(r1 * r1 - along * along);
+      const [ux, uy] = [(x2 - x1) / distance, (y2 - y1) / distance];
+      const [bx, by] = [x1 + ux * along, y1 + uy * along];
+      const tips = [
+        [bx - uy * across, by + ux * across],
+        [bx + uy * across, by - ux * across],
+      ] as const;
+      const angle = (cx: number, cy: number, [px, py]: readonly [number, number]) =>
+        Math.atan2(py - cy, px - cx);
+      // Outer rim clockwise from the lower tip, round the far side, to the upper tip; then
+      // back along the inner edge of the cut-out.
+      context.arc(...at(x1, y1), r1 * s, angle(x1, y1, tips[0]), angle(x1, y1, tips[1]));
+      context.arc(...at(x2, y2), r2 * s, angle(x2, y2, tips[1]), angle(x2, y2, tips[0]), true);
+      context.closePath();
+      context.fill();
+      break;
+    }
+    case "seasonal":
+      context.moveTo(...at(3.5, 16.5));
+      context.quadraticCurveTo(...at(3, 3.5), ...at(16.5, 3.5));
+      context.quadraticCurveTo(...at(17, 16.5), ...at(3.5, 16.5));
+      context.fill();
+      // The leaf sits on a gold medal, so its vein is cut in gold.
+      context.strokeStyle = GOLD;
+      context.lineWidth = 1.2 * s;
+      context.beginPath();
+      context.moveTo(...at(4.5, 15.5));
+      context.lineTo(...at(13, 7));
+      context.stroke();
+      break;
+    case "yearly":
+      for (const [x, y] of [
+        [2.5, 6],
+        [6.8, 10.5],
+        [10, 3.5],
+        [13.2, 10.5],
+        [17.5, 6],
+        [16, 15],
+        [4, 15],
+      ]) {
+        context.lineTo(...at(x!, y!));
+      }
+      context.closePath();
+      context.fill();
+      context.fillRect(...at(4, 16.3), 12 * s, 2 * s);
+      break;
+  }
+  context.restore();
+};
+
+const GOLD = "#fbbf24";
+
+/**
+ * Period wins as small gold medals, the period glyph stamped where the rank number goes and
+ * the ribbon in the period colour. With `goldMedal` (the centre bottom of the gold count's
+ * medal) a gold bracket hangs them from that medal so they read as a split of its count.
+ * Periods without a win are left out.
+ */
+const drawPeriodWins = (
+  card: CardContext,
+  x: number,
+  y: number,
+  width: number,
+  goldMedal?: [x: number, y: number],
+) => {
+  const { context, input, format } = card;
+  const won = PERIOD_TYPES.filter((periodType) => input.periodWins[periodType] > 0);
+  // Five columns share the width; fewer stay at a readable size and keep to the left.
+  const column = Math.min(width / won.length, 64);
+  const centers = won.map((_, index) => x + column * index + column / 2);
+  context.save();
+
+  if (goldMedal) {
+    const [stemX, stemTop] = goldMedal;
+    context.strokeStyle = `${GOLD}99`;
+    context.lineWidth = 1.5 * ui;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(stemX * ui, stemTop * ui);
+    context.lineTo(stemX * ui, y * ui);
+    context.moveTo(Math.min(stemX, centers[0]!) * ui, y * ui);
+    context.lineTo(centers.at(-1)! * ui, y * ui);
+    for (const cx of centers) {
+      context.moveTo(cx * ui, y * ui);
+      context.lineTo(cx * ui, (y + 8) * ui);
+    }
+    context.stroke();
+  }
+
+  context.textAlign = "center";
+  won.forEach((periodType, index) => {
+    const cx = centers[index]!;
+    const ribbon = PERIOD_COLORS[periodType];
+    const top = y + 8;
+    for (const [points, fill] of [
+      [
+        [
+          [-8, 0],
+          [-3, 0],
+          [2, 12],
+          [-3, 12],
+        ],
+        ribbon,
+      ],
+      [
+        [
+          [3, 0],
+          [8, 0],
+          [3, 12],
+          [-2, 12],
+        ],
+        `${ribbon}b3`,
+      ],
+    ] as const) {
+      context.beginPath();
+      points.forEach(([px, py]) => context.lineTo((cx + px) * ui, (top + py) * ui));
+      context.closePath();
+      context.fillStyle = fill;
+      context.fill();
+    }
+    const cy = y + 28;
+    const disc = context.createRadialGradient(
+      (cx - 3) * ui,
+      (cy - 4) * ui,
+      0,
+      cx * ui,
+      cy * ui,
+      11 * ui,
+    );
+    disc.addColorStop(0, "#fde68a");
+    disc.addColorStop(1, GOLD);
+    context.beginPath();
+    context.arc(cx * ui, cy * ui, 11 * ui, 0, Math.PI * 2);
+    context.fillStyle = disc;
+    context.fill();
+    context.strokeStyle = "#ffffff66";
+    context.lineWidth = ui;
+    context.stroke();
+    drawPeriodIcon(context, periodType, cx, cy, "#78350f", 0.62);
+
+    const value = format(input.periodWins[periodType]);
+    const label = messages.profileCard.periodNames[periodType];
+    context.fillStyle = "#f8fafc";
+    setFittingFont(context, value, 17, "bold", (column - 6) * ui);
+    context.fillText(value, cx * ui, (y + 60) * ui);
+    context.fillStyle = "#94a3b8";
+    setFittingFont(context, label, 10.5, "", (column - 4) * ui);
+    context.fillText(label, cx * ui, (y + 76) * ui);
+  });
+  context.restore();
+};
+
+const hasPeriodWins = (input: ProfileCardInput) =>
+  PERIOD_TYPES.some((periodType) => input.periodWins[periodType] > 0);
+
 const tierProgress = (input: ProfileCardInput) => {
   const points = playerMedalPoints(input.medals);
   const index = PLAYER_NAME_TIER_THRESHOLDS.findLastIndex(([, minimum]) => points >= minimum);
@@ -619,24 +843,31 @@ const bannerLayout: CardLayout = {
       648 * ui,
       242 * ui,
     );
-    drawMedals(card, 648, 296, 24, 252);
-    context.fillStyle = "#cbd5e1";
-    context.font = font(15);
-    context.fillText(
-      messages.profileCard.medalPoints(format(playerMedalPoints(input.medals))),
-      648 * ui,
-      336 * ui,
-    );
-    context.fillText(
-      messages.profileCard.achievements(format(input.achievementsUnlocked)),
-      648 * ui,
-      368 * ui,
-    );
+    if (hasPeriodWins(input)) {
+      drawMedals(card, 648, 282, 24, 252);
+      // drawMedals puts the gold disc's centre 14 right of `x` and 10 above the baseline.
+      drawPeriodWins(card, 648, 296, 252, [662, 286]);
+    } else {
+      // Without period wins the panel keeps its medal point line instead of going empty.
+      drawMedals(card, 648, 296, 24, 252);
+      context.fillStyle = "#cbd5e1";
+      context.font = font(15);
+      context.fillText(
+        messages.profileCard.medalPoints(format(playerMedalPoints(input.medals))),
+        648 * ui,
+        336 * ui,
+      );
+    }
     drawProgress(card, 40, 428, 880);
     context.fillStyle = "#64748b";
     context.font = font(12, "bold");
     context.textAlign = "right";
-    context.fillText(messages.profileCard.mode(input.mode), 920 * ui, 428 * ui);
+    // The medal panel holds the period wins, so the achievement count moves down here.
+    context.fillText(
+      `${messages.profileCard.achievements(format(input.achievementsUnlocked))} · ${messages.profileCard.mode(input.mode)}`,
+      920 * ui,
+      428 * ui,
+    );
     context.textAlign = "left";
   },
 };
@@ -644,31 +875,36 @@ const bannerLayout: CardLayout = {
 /** The background fills the card; stats sit on a dark glass panel with a win-rate ring. */
 const immersiveLayout: CardLayout = {
   name: "Immersive",
-  height: 420,
+  height: 476,
   draw: (card) => {
     const { context, input, accent, format } = card;
-    drawTierBackground(card, 420);
+    drawTierBackground(card, 476);
     const shade = context.createLinearGradient(0, 0, CARD_WIDTH * ui, 0);
     shade.addColorStop(0, "#05081ad0");
     shade.addColorStop(0.45, "#05081a90");
     shade.addColorStop(1, "#05081a40");
     context.fillStyle = shade;
-    context.fillRect(0, 0, CARD_WIDTH * ui, 420 * ui);
+    context.fillRect(0, 0, CARD_WIDTH * ui, 476 * ui);
 
     drawAvatar(card, 98, 104, 58);
     drawName(card, 40, 222, 330);
     drawTierLine(card, 40, 240);
-    drawMedals(card, 40, 318, 22, 330);
+    if (hasPeriodWins(input)) {
+      drawMedals(card, 40, 300, 22, 330);
+      drawPeriodWins(card, 40, 312, 330, [54, 304]);
+    } else {
+      drawMedals(card, 40, 340, 22, 330);
+    }
     context.fillStyle = "#cbd5e1";
     context.font = font(14);
     context.fillText(
       messages.profileCard.achievements(format(input.achievementsUnlocked)),
       40 * ui,
-      356 * ui,
+      412 * ui,
     );
-    drawCaption(card, messages.profileCard.mode(input.mode), 40, 372, "left");
+    drawCaption(card, messages.profileCard.mode(input.mode), 40, 424, "left");
 
-    roundRect(context, 392, 32, 536, 356, 20);
+    roundRect(context, 392, 32, 536, 412, 20);
     context.fillStyle = "#070b1ccc";
     context.fill();
     context.strokeStyle = "#ffffff1f";
@@ -677,7 +913,7 @@ const immersiveLayout: CardLayout = {
 
     // Win-rate ring.
     const cx = 476;
-    const cy = 126;
+    const cy = 154;
     const rate = winRate(input);
     context.lineCap = "round";
     context.lineWidth = 10 * ui;
@@ -712,12 +948,12 @@ const immersiveLayout: CardLayout = {
     context.fillText(
       messages.profileCard.points.toLocaleUpperCase(messages.locale),
       572 * ui,
-      92 * ui,
+      120 * ui,
     );
     context.fillStyle = "#f8fafc";
     context.font = font(46, "bold");
-    context.fillText(format(input.points), 570 * ui, 142 * ui);
-    drawProgress(card, 572, 172, 332);
+    context.fillText(format(input.points), 570 * ui, 170 * ui);
+    drawProgress(card, 572, 200, 332);
 
     // The ring already shows wins, so three wide tiles keep every label whole.
     const tileWidth = (536 - 48 - 24) / 3;
@@ -727,7 +963,7 @@ const immersiveLayout: CardLayout = {
       [`${input.gmMultiplier.toFixed(2)}x`, messages.profileCard.multiplier, "multiplier"],
     ];
     tiles.forEach(([value, label, icon], index) =>
-      drawTile(card, [416 + index * (tileWidth + 12), 262, tileWidth, 100], value, label, icon, 22),
+      drawTile(card, [416 + index * (tileWidth + 12), 316, tileWidth, 100], value, label, icon, 22),
     );
   },
 };
@@ -803,16 +1039,25 @@ const heroLayout: CardLayout = {
     });
     context.fillStyle = "#cbd5e1";
     context.font = font(15);
-    context.fillText(
-      messages.profileCard.medalPoints(format(playerMedalPoints(input.medals))),
-      300 * ui,
-      376 * ui,
-    );
-    context.fillText(
-      messages.profileCard.achievements(format(input.achievementsUnlocked)),
-      300 * ui,
-      402 * ui,
-    );
+    if (hasPeriodWins(input)) {
+      drawPeriodWins(card, 300, 326, 240);
+      context.fillText(
+        messages.profileCard.achievements(format(input.achievementsUnlocked)),
+        300 * ui,
+        432 * ui,
+      );
+    } else {
+      context.fillText(
+        messages.profileCard.medalPoints(format(playerMedalPoints(input.medals))),
+        300 * ui,
+        376 * ui,
+      );
+      context.fillText(
+        messages.profileCard.achievements(format(input.achievementsUnlocked)),
+        300 * ui,
+        402 * ui,
+      );
+    }
     drawProgress(card, 560, 384, 360);
   },
 };
@@ -833,12 +1078,13 @@ export const renderProfileCard = (
   tileStyle: ProfileTileStyle = activeProfileTileStyle,
 ) => {
   const layout = PROFILE_CARD_LAYOUTS[layoutName];
-  const canvas = createCanvas(CARD_WIDTH * ui, layout.height * ui);
+  const height = layout.height;
+  const canvas = createCanvas(CARD_WIDTH * ui, height * ui);
   const context = canvas.getContext("2d");
   const numberFormat = new Intl.NumberFormat(messages.locale);
   const nameStyle = getPlayerMapNameStyle(input.medals, getPlayerMapHeaderDesign(input.medals));
   // Rounded corners: Discord shows the transparent edges as the chat background.
-  roundRect(context, 0, 0, CARD_WIDTH, layout.height, 22);
+  roundRect(context, 0, 0, CARD_WIDTH, height, 22);
   context.clip();
   layout.draw({
     context,

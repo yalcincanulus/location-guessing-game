@@ -115,7 +115,12 @@ export const getPlayerProfile = async (discordUserId: string, mode: GameMode = "
       COALESCE(medals.medal_points, 0)::int AS medal_points,
       COALESCE(medals.gold, 0)::int AS gold,
       COALESCE(medals.silver, 0)::int AS silver,
-      COALESCE(medals.bronze, 0)::int AS bronze
+      COALESCE(medals.bronze, 0)::int AS bronze,
+      COALESCE(medals.daily_wins, 0)::int AS daily_wins,
+      COALESCE(medals.weekly_wins, 0)::int AS weekly_wins,
+      COALESCE(medals.monthly_wins, 0)::int AS monthly_wins,
+      COALESCE(medals.seasonal_wins, 0)::int AS seasonal_wins,
+      COALESCE(medals.yearly_wins, 0)::int AS yearly_wins
     FROM player p
     LEFT JOIN ${sqlClient(t.playerStat)} ps ON ps.player_id = p.id
     LEFT JOIN LATERAL (
@@ -123,8 +128,15 @@ export const getPlayerProfile = async (discordUserId: string, mode: GameMode = "
         COALESCE(SUM(pa.medal_points), 0) AS medal_points,
         COUNT(*) FILTER (WHERE pa.medal = 'gold') AS gold,
         COUNT(*) FILTER (WHERE pa.medal = 'silver') AS silver,
-        COUNT(*) FILTER (WHERE pa.medal = 'bronze') AS bronze
+        COUNT(*) FILTER (WHERE pa.medal = 'bronze') AS bronze,
+        -- A period win is a gold medal in any category of that period type.
+        COUNT(*) FILTER (WHERE pa.medal = 'gold' AND ap.period_type = 'daily') AS daily_wins,
+        COUNT(*) FILTER (WHERE pa.medal = 'gold' AND ap.period_type = 'weekly') AS weekly_wins,
+        COUNT(*) FILTER (WHERE pa.medal = 'gold' AND ap.period_type = 'monthly') AS monthly_wins,
+        COUNT(*) FILTER (WHERE pa.medal = 'gold' AND ap.period_type = 'seasonal') AS seasonal_wins,
+        COUNT(*) FILTER (WHERE pa.medal = 'gold' AND ap.period_type = 'yearly') AS yearly_wins
       FROM ${sqlClient(t.periodAward)} pa
+      JOIN ${sqlClient(t.awardPeriod)} ap ON ap.id = pa.award_period_id
       WHERE pa.player_id = p.id
     ) medals ON true
     WHERE p.discord_user_id = ${discordUserId}
