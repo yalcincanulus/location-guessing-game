@@ -7,7 +7,7 @@ const baseRules: GameRules = {
   verifiedRoleName: "verified",
   commandPrefixes: ["!"],
   maxConsecutiveGuesses: 6,
-  consecutiveGuessIdleResetSeconds: 1800,
+  consecutiveGuessIdleResetSeconds: 300,
   pendingStartTtlSeconds: 1800,
   startReservationSeconds: 60,
   baseWinPoints: 100,

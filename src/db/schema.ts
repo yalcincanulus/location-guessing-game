@@ -32,7 +32,7 @@ export const rule = snakeCase.table("rule", {
     .notNull()
     .default(sql`'["!"]'::jsonb`),
   maxConsecutiveGuesses: integer().notNull().default(6),
-  consecutiveGuessIdleResetSeconds: integer().notNull().default(1800),
+  consecutiveGuessIdleResetSeconds: integer().notNull().default(300),
   pendingStartTtlSeconds: integer().notNull().default(1800),
   startReservationSeconds: integer().notNull().default(60),
   baseWinPoints: integer().notNull().default(100),
