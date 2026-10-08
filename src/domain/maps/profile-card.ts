@@ -75,6 +75,19 @@ const fitText = (context: SKRSContext2D, text: string, maxWidth: number) => {
   return `${characters.join("")}…`;
 };
 
+/** Stat values must stay whole, so they shrink to fit instead of losing digits to an ellipsis. */
+const setFittingFont = (
+  context: SKRSContext2D,
+  text: string,
+  size: number,
+  weight: string,
+  maxWidth: number,
+) => {
+  context.font = font(size, weight);
+  const width = context.measureText(text).width;
+  if (width > maxWidth) context.font = font(Math.floor((size * maxWidth) / width), weight);
+};
+
 /** Lower tiers have no decorated background; a dark card tinted with the tier color stands in. */
 const drawPlainBackground = (
   context: SKRSContext2D,
@@ -468,12 +481,8 @@ const drawTile = (
   context.stroke();
   style.decorate?.(card, rect, icon);
   context.fillStyle = style.valueFill?.(card, rect) ?? "#f8fafc";
-  context.font = font(valueSize, "bold");
-  context.fillText(
-    fitText(context, value, (width - 32) * ui),
-    (x + 18) * ui,
-    (y + height / 2 + 2) * ui,
-  );
+  setFittingFont(context, value, valueSize, "bold", (width - 32) * ui);
+  context.fillText(value, (x + 18) * ui, (y + height / 2 + 2) * ui);
   context.fillStyle = "#94a3b8";
   context.font = font(12);
   context.fillText(fitText(context, label, labelWidth), (x + 18) * ui, (y + height / 2 + 22) * ui);
@@ -756,12 +765,8 @@ const heroLayout: CardLayout = {
       }
       context.textAlign = "center";
       context.fillStyle = "#f8fafc";
-      context.font = font(index === 0 ? 28 : 22, "bold");
-      context.fillText(
-        fitText(context, value, (columnWidth - 12) * ui),
-        (x + columnWidth / 2) * ui,
-        296 * ui,
-      );
+      setFittingFont(context, value, index === 0 ? 28 : 22, "bold", (columnWidth - 12) * ui);
+      context.fillText(value, (x + columnWidth / 2) * ui, 296 * ui);
       context.fillStyle = "#94a3b8";
       context.font = font(11);
       context.fillText(
