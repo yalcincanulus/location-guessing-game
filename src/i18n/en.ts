@@ -735,6 +735,7 @@ export const enMessages = {
       `Current multiplier increased to **${currentMultiplier.toFixed(2)}x**.`,
     channelIdleReminder:
       "No game has started in the last hour. Start one by posting a **Google Maps link** and a **screenshot** in this channel, or by DMing the bot.",
+    guessLimitsReset: "Consecutive guess limits have been reset. Everyone can guess again.",
   },
   province: {
     label: "🇹🇷 **Province game**",

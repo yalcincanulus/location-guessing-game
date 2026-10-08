@@ -482,6 +482,7 @@ export type BotMessages = {
   jobs: {
     multiplierIncreased: (currentMultiplier: number) => string;
     channelIdleReminder: string;
+    guessLimitsReset: string;
   };
   /** Turkish province mode. */
   province: {

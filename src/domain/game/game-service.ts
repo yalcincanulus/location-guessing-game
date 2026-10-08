@@ -42,7 +42,7 @@ import { pickWrongGuessReaction } from "./wrong-guess-reaction.ts";
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import { renderMap } from "../maps/map-renderer.ts";
-import { removeMultiplierJobsForGame } from "../../jobs/queues.ts";
+import { removeMultiplierJobsForGame, scheduleGuessLimitReset } from "../../jobs/queues.ts";
 import { canBypassGameMasterBlock } from "./test-mode.ts";
 import { messages } from "../../i18n/messages.ts";
 import { logger } from "../../util/logger.ts";
@@ -372,12 +372,28 @@ export const handleGuess = async (message: Message<true>, state: ActiveGameState
       return "rate-limited" as const;
     }
 
-    await redis.set(
-      keys.guessStreaks(state.gameId),
-      JSON.stringify(
-        nextStreaks(streaks, message.author.id, now, rules.consecutiveGuessIdleResetSeconds),
-      ),
+    const updatedStreaks = nextStreaks(
+      streaks,
+      message.author.id,
+      now,
+      rules.consecutiveGuessIdleResetSeconds,
     );
+    await redis.set(keys.guessStreaks(state.gameId), JSON.stringify(updatedStreaks));
+
+    // This guess capped the streak; announce in-channel when it expires on its own.
+    if (updatedStreaks[message.author.id]!.count === rules.maxConsecutiveGuesses) {
+      await scheduleGuessLimitReset(
+        state.gameId,
+        message.author.id,
+        now,
+        rules.consecutiveGuessIdleResetSeconds * 1000,
+      ).catch((error: Error) => {
+        logger.error("Failed to schedule guess limit reset", {
+          gameId: state.gameId,
+          error: error.message,
+        });
+      });
+    }
   }
 
   // Only the first concurrent correct guess may complete the game.

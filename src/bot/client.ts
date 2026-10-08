@@ -16,6 +16,7 @@ import {
   recoverActiveMultiplierJobs,
   recoverStartReservationJobs,
   startAchievementStreakWorker,
+  startGuessLimitResetWorker,
   startIdleReminderWorker,
   startMultiplierWorker,
   startPeriodAwardsWorker,
@@ -56,11 +57,13 @@ export const startBot = async () => {
   const idleReminderWorker = startIdleReminderWorker(client);
   const periodAwardsWorker = startPeriodAwardsWorker(client);
   const achievementStreakWorker = startAchievementStreakWorker(client);
+  const guessLimitResetWorker = startGuessLimitResetWorker(client);
   logWorkerError(multiplierWorker);
   logWorkerError(reservationWorker);
   logWorkerError(idleReminderWorker);
   logWorkerError(periodAwardsWorker);
   logWorkerError(achievementStreakWorker);
+  logWorkerError(guessLimitResetWorker);
   await recoverActiveMultiplierJobs();
   await recoverStartReservationJobs();
 
@@ -72,6 +75,7 @@ export const startBot = async () => {
       idleReminderWorker.close(),
       periodAwardsWorker.close(),
       achievementStreakWorker.close(),
+      guessLimitResetWorker.close(),
     ]).catch(() => undefined);
     await client.destroy();
     await closeQueues().catch(() => undefined);

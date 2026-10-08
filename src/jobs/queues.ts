@@ -23,6 +23,7 @@ import { sqlClient } from "../db/client.ts";
 import { logger } from "../util/logger.ts";
 import { createRedisConnection, redis } from "../redis/client.ts";
 import { keys } from "../redis/keys.ts";
+import type { GuessStreakState } from "../domain/game/rate-limit.ts";
 import { messages } from "../i18n/messages.ts";
 import { runPeriodAwardsCheck } from "../domain/awards/announce.ts";
 import { runDailyAchievementStreaks } from "../domain/achievements/hooks.ts";
@@ -69,12 +70,17 @@ export const achievementStreakQueue = new Queue("achievement-streaks", {
   connection: bullmqConnection,
 });
 
+export const guessLimitResetQueue = new Queue("guess-limit-reset", {
+  connection: bullmqConnection,
+});
+
 for (const queue of [
   multiplierQueue,
   startReservationQueue,
   idleReminderQueue,
   periodAwardsQueue,
   achievementStreakQueue,
+  guessLimitResetQueue,
 ]) {
   queue.on("error", (error) => {
     logger.error("BullMQ queue error", { queue: queue.name, error: error.message });
@@ -347,6 +353,89 @@ export const startReservationWorker = (client: Client) =>
     { connection: bullmqConnection },
   );
 
+/** Fires when a player's capped streak would expire; the job re-checks the streak before announcing. */
+export const scheduleGuessLimitReset = async (
+  gameId: string,
+  userId: string,
+  lastGuessAt: number,
+  delayMs: number,
+) => {
+  const delay = Math.max(1000, delayMs);
+  // Due time keeps a reschedule from colliding with the job currently running.
+  await guessLimitResetQueue.add(
+    "announce-reset",
+    { gameId, userId, lastGuessAt },
+    {
+      jobId: `guess-limit-reset:${gameId}:${userId}-${Date.now() + delay}`,
+      delay,
+      removeOnComplete: true,
+      removeOnFail: 100,
+    },
+  );
+};
+
+export type GuessLimitResetResult =
+  | { status: "missing-game" }
+  | { status: "streak-gone" }
+  | { status: "not-capped" }
+  | { status: "rescheduled"; remainingMs: number }
+  | { status: "announced" };
+
+export const runGuessLimitReset = async (
+  client: Client,
+  gameId: string,
+  userId: string,
+  lastGuessAt: number,
+): Promise<GuessLimitResetResult> => {
+  const state = await getGameStateById(gameId);
+  if (!state) {
+    return { status: "missing-game" };
+  }
+
+  // Another player's guess or a manual clear drops the streak; that reset is not announced.
+  const raw = await redis.get(keys.guessStreaks(gameId));
+  const streak = raw
+    ? (JSON.parse(raw) as Record<string, GuessStreakState>)[userId]
+    : undefined;
+  if (!streak || streak.lastGuessAt !== lastGuessAt) {
+    return { status: "streak-gone" };
+  }
+
+  const rules = await loadRules();
+  if (streak.count < rules.maxConsecutiveGuesses) {
+    return { status: "not-capped" };
+  }
+
+  const remainingMs = lastGuessAt + rules.consecutiveGuessIdleResetSeconds * 1000 - Date.now();
+  if (remainingMs > 0) {
+    await scheduleGuessLimitReset(gameId, userId, lastGuessAt, remainingMs);
+    return { status: "rescheduled", remainingMs };
+  }
+
+  const channel = await client.channels.fetch(state.channelId).catch(() => null);
+  if (channel?.isSendable()) {
+    await channel.send({
+      content: messages.jobs.guessLimitsReset,
+      allowedMentions: { parse: [] },
+    });
+  }
+  return { status: "announced" };
+};
+
+export const startGuessLimitResetWorker = (client: Client) =>
+  new Worker(
+    "guess-limit-reset",
+    async (job) => {
+      await runGuessLimitReset(
+        client,
+        String(job.data.gameId),
+        String(job.data.userId),
+        Number(job.data.lastGuessAt),
+      );
+    },
+    { connection: bullmqConnection },
+  );
+
 export type IdleReminderResult =
   | { status: "no-channel" }
   | { status: "channel-unavailable" }
@@ -541,6 +630,7 @@ export const closeQueues = async () => {
     idleReminderQueue.close(),
     periodAwardsQueue.close(),
     achievementStreakQueue.close(),
+    guessLimitResetQueue.close(),
   ]);
   try {
     await bullmqConnection.quit();

@@ -747,6 +747,7 @@ export const trMessages = {
       `Güncel çarpan **${currentMultiplier.toFixed(2)}x** oldu.`,
     channelIdleReminder:
       "Son bir saatte oyun başlatılmadı. Başlatmak için bu kanala bir **Google Haritalar bağlantısı** ve bir **ekran görüntüsü** gönderin, veya bota DM atın.",
+    guessLimitsReset: "Art arda tahmin sınırları sıfırlandı. Herkes yeniden tahmin yapabilir.",
   },
   province: {
     label: "🇹🇷 **İl oyunu**",
