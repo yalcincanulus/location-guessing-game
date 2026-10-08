@@ -198,16 +198,30 @@ const drawAvatar = (card: CardContext, cx: number, cy: number, radius: number) =
   context.restore();
 };
 
+/**
+ * Long names shrink down to `NAME_MIN_SIZE`, then drop sparkles (keeping one), before losing
+ * characters to an ellipsis.
+ */
+const NAME_MIN_SIZE = 18;
+
 const drawName = (card: CardContext, x: number, baseline: number, maxWidth: number) => {
-  const { context, input, nameStyle } = card;
+  const { context, input } = card;
   context.save();
+  let style = card.nameStyle;
+  const textWidth = () => maxWidth * ui - playerNameDecorationWidth(style);
   context.font = font(32, "bold");
-  const name = fitText(
-    context,
-    input.playerName,
-    maxWidth * ui - playerNameDecorationWidth(nameStyle),
-  );
-  drawStyledPlayerName(context, name, x * ui, baseline * ui, nameStyle);
+  const fullWidth = context.measureText(input.playerName).width;
+  if (fullWidth > textWidth()) {
+    const size = Math.max(NAME_MIN_SIZE, Math.floor((32 * textWidth()) / fullWidth));
+    context.font = font(size, "bold");
+  }
+  // Fewer sparkles would also dim the glow, so it keeps the full set's blur.
+  const glowBlur = style.glowBlur ?? 2 + style.sparkles;
+  while (style.sparkles > 1 && context.measureText(input.playerName).width > textWidth()) {
+    style = { ...style, sparkles: style.sparkles - 1, glowBlur };
+  }
+  const name = fitText(context, input.playerName, textWidth());
+  drawStyledPlayerName(context, name, x * ui, baseline * ui, style);
   context.restore();
 };
 
