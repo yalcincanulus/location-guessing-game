@@ -394,9 +394,7 @@ export const runGuessLimitReset = async (
 
   // Another player's guess or a manual clear drops the streak; that reset is not announced.
   const raw = await redis.get(keys.guessStreaks(gameId));
-  const streak = raw
-    ? (JSON.parse(raw) as Record<string, GuessStreakState>)[userId]
-    : undefined;
+  const streak = raw ? (JSON.parse(raw) as Record<string, GuessStreakState>)[userId] : undefined;
   if (!streak || streak.lastGuessAt !== lastGuessAt) {
     return { status: "streak-gone" };
   }
