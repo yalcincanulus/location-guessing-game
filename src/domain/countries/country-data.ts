@@ -514,7 +514,7 @@ export const countries: CountryRecord[] = [
     alpha2: "VI",
     alpha3: "VIR",
     numeric: "850",
-    aliases: ["us virgin islands", "u.s. virgin islands", "abd virjin adalari"],
+    aliases: ["us virgin islands", "u.s. virgin islands", "abd virjin adalari", "usvi"],
     ccTld: "vi",
   },
   { alpha2: "VN", alpha3: "VNM", numeric: "704", aliases: ["vietnam", "vietnam"] },
