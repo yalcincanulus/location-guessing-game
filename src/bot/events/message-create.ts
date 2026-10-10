@@ -44,6 +44,7 @@ import { keys } from "../../redis/keys.ts";
 import {
   handleCommand,
   handleAchievementsCommand,
+  handleCancelCommand,
   handlePlayerMapCommand,
   handleProfileCommand,
   isCommandMessage,
@@ -869,6 +870,9 @@ export const onMessageCreate = (client: Client) => async (message: Message) => {
           return;
         }
         if (await handleFeedbackCommand(message)) {
+          return;
+        }
+        if (await handleCancelCommand(message)) {
           return;
         }
         if (await handleAchievementsCommand(message)) {

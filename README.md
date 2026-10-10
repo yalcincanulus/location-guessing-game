@@ -42,6 +42,7 @@ A second game where players guess one of Türkiye's 81 provinces. It runs in its
   Run `bun run preview:player-maps` to render every design for both commands and modes in `.cache/player-map-headers`.
 
 - **Period awards.** Daily, weekly, monthly, seasonal, and yearly standings for most points, most wins, most games started, and best game master. Gold, silver, and bronze medals go to the top three when each period ends.
+- **Cancel your own game.** The player who started a game sends `!cancel` or `!iptal` in the game channel or by DM. A game without guesses ends at once with an announcement in the channel. If players already guessed, the bot sends the starter a DM with confirm and keep buttons, so only they see the choice.
 - **Achievements.** More than 30 achievements across a **host** track and a **guesser** track. They include tier ladders, streaks, geography goals, and rare one-time moments. Players view them with `!achievements`.
 
 ### Moderation and admin tools

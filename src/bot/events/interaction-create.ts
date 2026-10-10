@@ -1,5 +1,6 @@
 import type { Interaction } from "discord.js";
 import { logger } from "../../util/logger.ts";
+import { handleCancelButton } from "../../commands/cancel-command.ts";
 import { handleStartModeButton } from "./message-create.ts";
 
 export const onInteractionCreate = async (interaction: Interaction) => {
@@ -8,6 +9,9 @@ export const onInteractionCreate = async (interaction: Interaction) => {
   }
 
   try {
+    if (await handleCancelButton(interaction)) {
+      return;
+    }
     await handleStartModeButton(interaction);
   } catch (error) {
     logger.error("Button handling failed", {

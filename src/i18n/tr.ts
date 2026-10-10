@@ -14,13 +14,14 @@ const trPlayerHelp = [
   "`!profil` — profil kartın ve sonraki seviyeye kalan puan",
   "`!winmap` / `!startmap` — kazandığın / başlattığın yerlerin haritası",
   "`!achievements` — başarımların (`!achievements list`: tüm liste)",
+  "`!iptal` — başlattığın oyunu iptal et",
   "**Sıralamalar**",
   "`!leaderboard [wins|started|hardest]` — tüm zamanlar ilk 10 (varsayılan: puan)",
   "`!hardest` — oyun kurucu olarak en çok yanlış tahmin",
   "`!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly` — güncel dönemin sıralamaları",
   "`!medals [dönem]` — madalya puanı sıralaması (dönem yazmazsan tüm zamanlar)",
   "`!stats` — genel oyun istatistikleri",
-  "**DM'de:** `!profil`, `!winmap`, `!startmap`, `!achievements`, `!feedback <mesaj>`",
+  "**DM'de:** `!profil`, `!winmap`, `!startmap`, `!achievements`, `!iptal`, `!feedback <mesaj>`",
 ];
 
 export const trMessages = {
@@ -276,6 +277,18 @@ export const trMessages = {
     ].join("\n"),
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
+  },
+  cancel: {
+    noOwnActiveGame: "İptal edilecek aktif bir oyunun yok.",
+    announcement: (userId) => `<@${userId}> oyununu iptal etti.`,
+    cancelled: (channelId) => `<#${channelId}> kanalındaki oyunun iptal edildi.`,
+    confirmPrompt: (channelId, guessCount) =>
+      `<#${channelId}> kanalındaki oyununda **${guessCount}** tahmin yapıldı. Oyunu iptal etmek istiyor musun?`,
+    confirmButton: "Oyunu iptal et",
+    keepButton: "Devam et",
+    kept: "Oyunun devam ediyor.",
+    noLongerActive: "Bu oyun artık aktif değil.",
+    dmFailed: (userId) => `<@${userId}> sana DM gönderemedim. İptali onaylamak için DM'lerini aç.`,
   },
   awards: {
     liveHeader: (periodType, periodKey) => {

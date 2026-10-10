@@ -41,6 +41,7 @@ import { getServerStats } from "../repositories/server-stats-repository.ts";
 import { renderStatsCard } from "../domain/maps/stats-card.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
+import { CANCEL_COMMANDS, cancelOwnGames } from "./cancel-command.ts";
 
 const normalizeCommand = (value: string) =>
   value
@@ -195,6 +196,19 @@ export const handleProfileCommand = async (message: Message): Promise<boolean> =
 };
 
 /** Works in guild channels and DMs. */
+export const handleCancelCommand = async (message: Message): Promise<boolean> => {
+  const parsed = await parseCommand(message);
+  if (!parsed || !CANCEL_COMMANDS.includes(parsed.command)) {
+    return false;
+  }
+  await sqlClient`
+    INSERT INTO command_log (command, raw_message)
+    VALUES (${parsed.command}, ${message.content})
+  `;
+  return cancelOwnGames(message);
+};
+
+/** Works in guild channels and DMs. */
 export const handleAchievementsCommand = async (message: Message): Promise<boolean> => {
   const parsed = await parseCommand(message);
   if (!parsed) {
@@ -335,6 +349,10 @@ export const handleCommand = async (message: Message<true>) => {
 
   if (PROFILE_COMMANDS.includes(command)) {
     return handleProfileCommand(message);
+  }
+
+  if (CANCEL_COMMANDS.includes(command)) {
+    return handleCancelCommand(message);
   }
 
   await sqlClient`

@@ -196,6 +196,17 @@ export type BotMessages = {
     helpCommands: string;
     helpTestCommands: string;
   };
+  cancel: {
+    noOwnActiveGame: string;
+    announcement: (userId: string) => string;
+    cancelled: (channelId: string) => string;
+    confirmPrompt: (channelId: string, guessCount: number) => string;
+    confirmButton: string;
+    keepButton: string;
+    kept: string;
+    noLongerActive: string;
+    dmFailed: (userId: string) => string;
+  };
   awards: {
     liveHeader: (periodType: AwardPeriodType, periodKey: string) => string;
     resultsHeader: (periodType: AwardPeriodType, periodKey: string) => string;

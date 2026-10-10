@@ -14,13 +14,14 @@ const enPlayerHelp = [
   "`!profile` — your profile card and points to the next tier",
   "`!winmap` / `!startmap` — map of the places you won / started",
   "`!achievements` — your achievements (`!achievements list`: full list)",
+  "`!cancel` — cancel a game you started",
   "**Rankings**",
   "`!leaderboard [wins|started|hardest]` — all-time top 10 (default: points)",
   "`!hardest` — most wrong guesses in a hosted game",
   "`!daily`, `!weekly`, `!monthly`, `!seasonal`, `!yearly` — current period standings",
   "`!medals [period]` — medal point rankings (all-time without a period)",
   "`!stats` — game-wide stats",
-  "**In DM:** `!profile`, `!winmap`, `!startmap`, `!achievements`, `!feedback <message>`",
+  "**In DM:** `!profile`, `!winmap`, `!startmap`, `!achievements`, `!cancel`, `!feedback <message>`",
 ];
 
 export const enMessages = {
@@ -266,6 +267,19 @@ export const enMessages = {
     ].join("\n"),
     helpTestCommands:
       "Test: `!test status`, `!test cancel`, `!test reveal`, `!test tick`, `!test reset`, `!test map`.",
+  },
+  cancel: {
+    noOwnActiveGame: "You have no active game to cancel.",
+    announcement: (userId) => `<@${userId}> cancelled their game.`,
+    cancelled: (channelId) => `Your game in <#${channelId}> was cancelled.`,
+    confirmPrompt: (channelId, guessCount) =>
+      `Your game in <#${channelId}> already has **${guessCount}** ${guessCount === 1 ? "guess" : "guesses"}. Do you want to cancel it?`,
+    confirmButton: "Cancel the game",
+    keepButton: "Keep playing",
+    kept: "Your game continues.",
+    noLongerActive: "This game is no longer active.",
+    dmFailed: (userId) =>
+      `<@${userId}> I could not DM you. Open your DMs to confirm the cancellation.`,
   },
   awards: {
     liveHeader: (periodType, periodKey) => {

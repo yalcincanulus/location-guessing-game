@@ -106,6 +106,7 @@ export const cancelOrFailActiveGame = async ({
   cancelledBy,
   displayName,
   mode = "country",
+  expectedGameId,
 }: {
   guildId: string;
   channelId: string;
@@ -114,15 +115,17 @@ export const cancelOrFailActiveGame = async ({
   reason: string;
   cancelledBy: User;
   displayName?: string;
+  /** Only end this game. Another active game in the channel is left alone. */
+  expectedGameId?: string;
 }): Promise<CancelOrFailResult> => {
   const { state, dbGame } = await getActiveGameContext(guildId, channelId, mode);
   const gameId = state?.gameId ?? dbGame?.gameId;
-  if (!gameId) {
+  if (!gameId || (expectedGameId && gameId !== expectedGameId)) {
     return { ok: false, reason: "no-active-game" };
   }
 
   const player = await upsertPlayer(cancelledBy, displayName);
-  await sqlClient`
+  const updated = await sqlClient`
     UPDATE ${sqlClient(tablesFor(state?.mode ?? dbGame?.mode ?? mode).game)}
     SET
       status = ${status},
@@ -132,7 +135,13 @@ export const cancelOrFailActiveGame = async ({
       updated_at = now()
     WHERE id = ${gameId}
       AND status = 'active'
+    RETURNING id
   `;
+  // A winning guess may have completed the game first. Without a pinned game
+  // (admin and test tools), still clear stale Redis keys.
+  if (!updated[0] && expectedGameId) {
+    return { ok: false, reason: "no-active-game" };
+  }
 
   await clearGameKeys(guildId, channelId, gameId);
   await removeMultiplierJobsForGame(gameId);
