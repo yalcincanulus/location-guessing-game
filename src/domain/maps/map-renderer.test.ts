@@ -130,4 +130,22 @@ describe("renderMap", () => {
       ),
     ).toBe(false);
   });
+
+  test("keeps Antarctica off a zoomed Chile map where d3 used to flood the canvas with it", async () => {
+    // Exact coordinates from a real game; the rounded ones did not trigger the bug.
+    const map = renderMap({
+      wrongCountries: [],
+      correctCountry: "CL",
+      marker: { latitude: -33.6892586, longitude: -71.2337799 },
+    });
+    const image = await loadImage(map.buffer);
+    const canvas = createCanvas(image.width, image.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const [r, g, b] = context.getImageData(10, 10, 1, 1).data;
+    // Top-left corner is open Pacific Ocean.
+    expect(`#${[r, g, b].map((channel) => channel!.toString(16).padStart(2, "0")).join("")}`).toBe(
+      activeMapTheme.ocean,
+    );
+  });
 });

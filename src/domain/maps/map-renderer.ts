@@ -32,12 +32,42 @@ export type Feature = {
   properties?: Record<string, unknown>;
 };
 
+type Ring = Array<[number, number]>;
+
+const ANTARCTICA_NUMERIC_ID = "010";
+const POLE_CAP_LATITUDE = -89.99;
+
+/**
+ * world-atlas stores mainland Antarctica as a tiny ring at -89.999° with the coastline as its hole.
+ * d3's antimeridian clip misreads that pair for some rotations and floods the whole canvas
+ * (e.g. rotating to -71.2337799°). The coastline ring alone already winds around the pole correctly.
+ */
+const dropAntarcticaPoleCap = (country: Feature): Feature => {
+  if (String(country.id).padStart(3, "0") !== ANTARCTICA_NUMERIC_ID) {
+    return country;
+  }
+  const geometry = country.geometry as { type: string; coordinates: Ring[][] };
+  if (geometry.type !== "MultiPolygon") {
+    return country;
+  }
+  const isPoleCap = (ring: Ring) => ring.every(([, latitude]) => latitude <= POLE_CAP_LATITUDE);
+  return {
+    ...country,
+    geometry: {
+      ...geometry,
+      coordinates: geometry.coordinates.map((polygon) =>
+        polygon[0] && isPoleCap(polygon[0]) ? polygon.slice(1) : polygon,
+      ),
+    },
+  };
+};
+
 const topology = countries50m as Topology;
 export const countryFeatures = (
   feature(topology as never, topology.objects.countries as never) as unknown as {
     features: Feature[];
   }
-).features;
+).features.map(dropAntarcticaPoleCap);
 
 /** Countries whose geometry can appear on a ±360° Mercator tile at the world-view edges. */
 const wrapsAntimeridian = (country: Feature) => {
