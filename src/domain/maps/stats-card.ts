@@ -18,6 +18,8 @@ import { provinceCollection, provinceFeatures } from "../provinces/province-geom
 import { getLocationCentroid } from "./location-centroids.ts";
 import { countryFeatures } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
+import { drawFramedTurkishFlag } from "./turkish-flag.ts";
+import { nationalHolidayOn, type NationalHoliday } from "../holidays/national-holidays.ts";
 
 /**
  * The `!stats` card. Unlike the profile card, the context is scaled once, so every
@@ -44,6 +46,7 @@ type StatsCardContext = {
   context: Ctx;
   stats: ServerStats;
   now: Date;
+  holiday?: NationalHoliday;
   format: (value: number) => string;
   decimal: (value: number) => string;
 };
@@ -308,6 +311,12 @@ const drawTitle = (card: StatsCardContext, x: number, y: number, size = 30) => {
   context.shadowBlur = 8;
   context.fillText(messages.statsCard.title, x, y);
   context.shadowBlur = 0;
+  if (card.holiday) {
+    // The flag sits on the title's cap height, like a pennant after the words.
+    const flagHeight = size * 0.8;
+    const titleWidth = context.measureText(messages.statsCard.title).width;
+    drawFramedTurkishFlag(context, x + titleWidth + size * 0.5, y - size * 0.76, flagHeight, 1);
+  }
   // Mode chip under the title.
   const label = messages.profileCard.mode(stats.mode).toLocaleUpperCase(messages.locale);
   context.font = font(11, "bold");
@@ -825,6 +834,7 @@ export const renderStatsCard = (
     context,
     stats,
     now,
+    holiday: nationalHolidayOn(now),
     format: (value) => numberFormat.format(value),
     decimal: (value) => decimalFormat.format(value),
   });

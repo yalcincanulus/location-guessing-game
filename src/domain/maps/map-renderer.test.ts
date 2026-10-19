@@ -149,3 +149,28 @@ describe("renderMap", () => {
     );
   });
 });
+
+describe("renderMap holiday flag", () => {
+  const topLeftHasFlagRed = async (buffer: Buffer) => {
+    const image = await loadImage(buffer);
+    const canvas = createCanvas(image.width, image.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const size = 80 * MAP_RESOLUTION_SCALE;
+    const { data } = context.getImageData(0, 0, size, size);
+    for (let index = 0; index < data.length; index += 4) {
+      // TURKISH_FLAG_RED, #e30a17.
+      if (data[index] === 0xe3 && data[index + 1] === 0x0a && data[index + 2] === 0x17) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  test("adds the Turkish flag in the top-left corner only on holidays", async () => {
+    expect(await topLeftHasFlagRed(renderMap({ wrongCountries: ["FR"] }).buffer)).toBe(false);
+    expect(
+      await topLeftHasFlagRed(renderMap({ wrongCountries: ["FR"], holiday: "republicDay" }).buffer),
+    ).toBe(true);
+  });
+});

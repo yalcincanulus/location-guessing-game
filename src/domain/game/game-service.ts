@@ -47,6 +47,7 @@ import { canBypassGameMasterBlock } from "./test-mode.ts";
 import { messages } from "../../i18n/messages.ts";
 import { logger } from "../../util/logger.ts";
 import type { StartSource } from "../review/start-source.ts";
+import { nationalHolidayOn } from "../holidays/national-holidays.ts";
 
 export type StartGameInput = {
   guildChannel: GuildBasedChannel;
@@ -702,7 +703,8 @@ const announceGameWin = async (
   const marker = latitude != null && longitude != null ? { latitude, longitude } : undefined;
   const targetCode = targetCodeOf(state);
   const viewport = mode === "province" ? TURKEY_MAP_VIEWPORT : "world";
-  const hash = mapHash(wrongCountries, targetCode, marker);
+  const holiday = nationalHolidayOn();
+  const hash = mapHash(wrongCountries, targetCode, marker, holiday);
   const cached = await getCachedMap(state.gameId, viewport, hash);
   const map = cached
     ? {
@@ -711,12 +713,18 @@ const announceGameWin = async (
           mode === "province" ? messages.filenames.turkeyGuesses : messages.filenames.worldGuesses,
       }
     : mode === "province"
-      ? renderProvinceMap({ wrongProvinces: wrongCountries, correctProvince: targetCode, marker })
+      ? renderProvinceMap({
+          wrongProvinces: wrongCountries,
+          correctProvince: targetCode,
+          marker,
+          holiday,
+        })
       : renderMap({
           wrongCountries,
           correctCountry: state.targetCountryCode,
           viewport: "world",
           marker,
+          holiday,
         });
   const attachment = new AttachmentBuilder(map.buffer, { name: map.filename });
   const send = message.channel.send({

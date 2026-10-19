@@ -7,6 +7,7 @@ import type { PassportStamp, PlayerMapHeaderDesign } from "./player-map-header-d
 import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
 import { getProvinceName } from "../provinces/normalize-province-guess.ts";
 import { getLocationCentroid } from "./location-centroids.ts";
+import { nationalHolidayOn, type NationalHoliday } from "../holidays/national-holidays.ts";
 
 export type PlayerMapKind = "wins" | "starts";
 
@@ -26,6 +27,8 @@ export type RenderPlayerMapOptions = {
   headerDesign?: PlayerMapHeaderDesign;
   /** The player's most-won locations, most wins first, for the passport header. */
   stamps?: Array<{ code: string; count: number }>;
+  /** Defaults to the national holiday on `generatedAt`, if any. */
+  holiday?: NationalHoliday;
 };
 
 const PASSPORT_STAMP_LIMIT = 6;
@@ -54,6 +57,7 @@ export const renderPlayerMap = ({
   generatedAt = new Date(),
   headerDesign,
   stamps,
+  holiday = nationalHolidayOn(generatedAt),
 }: RenderPlayerMapOptions) => {
   const codes = [...new Set(locationCodes)];
   const color = PLAYER_MAP_COLORS[kind];
@@ -71,8 +75,8 @@ export const renderPlayerMap = ({
   const highlights: MapHighlights = { codes, color, label: messages.playerMap.legend(kind, mode) };
   const map =
     mode === "province"
-      ? renderProvinceMap({ wrongProvinces: [], highlights, header })
-      : renderMap({ wrongCountries: [], highlights, header });
+      ? renderProvinceMap({ wrongProvinces: [], highlights, header, holiday })
+      : renderMap({ wrongCountries: [], highlights, header, holiday });
 
   return {
     ...map,

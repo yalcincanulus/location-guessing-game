@@ -6,12 +6,14 @@ import { provinceCollection, provinceFeatures } from "../provinces/province-geom
 import {
   countryFeatures,
   drawLegend,
+  drawMapHolidayFlag,
   drawLocationMarker,
   type MapCoordinates,
 } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import { activeMapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
+import type { NationalHoliday } from "../holidays/national-holidays.ts";
 import {
   drawMapHeader,
   MAP_HEADER_HEIGHT,
@@ -42,6 +44,8 @@ export type RenderProvinceMapOptions = {
   marker?: MapCoordinates;
   highlights?: MapHighlights;
   header?: MapHeader;
+  /** Adds the Turkish flag to the map's top-left corner. */
+  holiday?: NationalHoliday;
 };
 
 export const renderProvinceMap = ({
@@ -50,6 +54,7 @@ export const renderProvinceMap = ({
   marker,
   highlights,
   header,
+  holiday,
 }: RenderProvinceMapOptions) => {
   const ui = MAP_RESOLUTION_SCALE;
   const width = BASE_WIDTH * ui;
@@ -131,6 +136,9 @@ export const renderProvinceMap = ({
     ],
     height,
   );
+  if (holiday) {
+    drawMapHolidayFlag(context);
+  }
 
   context.restore();
   if (header) {

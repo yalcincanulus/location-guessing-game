@@ -6,6 +6,8 @@ import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
 import { activeMapTheme, type MapTheme } from "./themes.ts";
 import { messages } from "../../i18n/messages.ts";
+import type { NationalHoliday } from "../holidays/national-holidays.ts";
+import { drawFramedTurkishFlag } from "./turkish-flag.ts";
 import {
   drawMapHeader,
   MAP_HEADER_HEIGHT,
@@ -90,6 +92,8 @@ export type RenderMapOptions = {
   marker?: MapCoordinates;
   highlights?: MapHighlights;
   header?: MapHeader;
+  /** Adds the Turkish flag to the map's top-left corner. */
+  holiday?: NationalHoliday;
 };
 
 type MapProjection = ReturnType<typeof geoMercator>;
@@ -248,6 +252,12 @@ export const drawLegend = (
   });
 };
 
+/** Holiday Turkish flag in the map's top-left corner. */
+export const drawMapHolidayFlag = (context: CanvasContext) => {
+  const ui = MAP_RESOLUTION_SCALE;
+  drawFramedTurkishFlag(context, 16 * ui, 16 * ui, 40 * ui, ui);
+};
+
 export const renderMap = ({
   wrongCountries,
   correctCountry,
@@ -255,6 +265,7 @@ export const renderMap = ({
   marker,
   highlights,
   header,
+  holiday,
 }: RenderMapOptions) => {
   const preset = mapViewports[viewport] ?? mapViewports.world;
   if (!preset) {
@@ -329,6 +340,9 @@ export const renderMap = ({
     ],
     preset.height,
   );
+  if (holiday) {
+    drawMapHolidayFlag(context);
+  }
 
   context.restore();
   if (header) {

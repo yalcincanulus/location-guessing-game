@@ -23,6 +23,8 @@ import {
   type PlayerNameStyle,
 } from "./player-name-style.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
+import { drawFramedTurkishFlag } from "./turkish-flag.ts";
+import type { NationalHoliday } from "../holidays/national-holidays.ts";
 
 const ui = MAP_RESOLUTION_SCALE;
 const FONT = '"DejaVu Sans", Arial, sans-serif';
@@ -47,6 +49,8 @@ export type ProfileCardInput = {
   goldPeriods: GoldPeriod[];
   /** Most-won locations, most wins first, for backgrounds that show them. */
   stamps?: PassportStamp[];
+  /** Adds the Turkish flag to the card. */
+  holiday?: NationalHoliday;
 };
 
 type CardContext = {
@@ -61,7 +65,13 @@ type CardContext = {
 };
 
 /** Every layout stays here so the active one can change with a one-line edit. */
-type CardLayout = { name: string; height: number; draw: (card: CardContext) => void };
+type CardLayout = {
+  name: string;
+  height: number;
+  /** Top-left of the holiday flag, clear of the name and avatar honours. */
+  holidayFlag: [x: number, y: number];
+  draw: (card: CardContext) => void;
+};
 
 const font = (size: number, weight = "") => `${weight} ${size * ui}px ${FONT}`.trim();
 
@@ -1233,6 +1243,7 @@ const winRate = (input: ProfileCardInput) =>
 const bannerLayout: CardLayout = {
   name: "Banner",
   height: 476,
+  holidayFlag: [184, 30],
   draw: (card) => {
     const { context, input, format } = card;
     const bannerHeight = 196;
@@ -1334,6 +1345,7 @@ const bannerLayout: CardLayout = {
 const immersiveLayout: CardLayout = {
   name: "Immersive",
   height: 476,
+  holidayFlag: [416, 52],
   draw: (card) => {
     const { context, input, accent, format } = card;
     drawTierBackground(card, 476);
@@ -1432,6 +1444,7 @@ const immersiveLayout: CardLayout = {
 const heroLayout: CardLayout = {
   name: "Hero",
   height: 470,
+  holidayFlag: [212, 34],
   draw: (card) => {
     const { context, input, format } = card;
     context.fillStyle = "#0b1120";
@@ -1562,5 +1575,9 @@ export const renderProfileCard = (
     tileStyle,
     monthlyStarStyle,
   });
+  if (input.holiday) {
+    const [x, y] = layout.holidayFlag;
+    drawFramedTurkishFlag(context, x * ui, y * ui, 24 * ui, ui);
+  }
   return { buffer: canvas.toBuffer("image/png"), filename: `profile-${input.mode}.png` };
 };

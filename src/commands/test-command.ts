@@ -13,6 +13,7 @@ import { messages } from "../i18n/messages.ts";
 import { modeForChannel, type GameMode } from "../domain/game/game-mode.ts";
 import { getProvinceName } from "../domain/provinces/normalize-province-guess.ts";
 import type { ActiveDbGame } from "../domain/game/admin-game-ops.ts";
+import { nationalHolidayOn } from "../domain/holidays/national-holidays.ts";
 
 /** The test channel can also be the province channel. */
 const channelMode = async (message: Message<true>): Promise<GameMode> =>
@@ -197,7 +198,11 @@ const provinceMapCommand = async (message: Message<true>) => {
     return true;
   }
 
-  const map = renderProvinceMap({ wrongProvinces, correctProvince });
+  const map = renderProvinceMap({
+    wrongProvinces,
+    correctProvince,
+    holiday: nationalHolidayOn(),
+  });
   await message.channel.send({
     content: messages.test.sampleMap(
       getProvinceName(correctProvince),
@@ -228,6 +233,7 @@ const mapCommand = async (message: Message<true>) => {
     wrongCountries,
     correctCountry,
     viewport: "world",
+    holiday: nationalHolidayOn(),
   });
 
   await message.channel.send({
