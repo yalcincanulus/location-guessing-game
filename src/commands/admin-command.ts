@@ -1,4 +1,4 @@
-import type { GuildTextBasedChannel, Message } from "discord.js";
+import { AttachmentBuilder, type GuildTextBasedChannel, type Message } from "discord.js";
 import { isBotAdmin } from "../bot/admin.ts";
 import {
   MAX_MAX_CONSECUTIVE_GUESSES,
@@ -11,7 +11,11 @@ import {
   updateGameStartsEnabled,
   updateMaxConsecutiveGuesses,
   updateFairPlayNoticeEnabled,
+  updateMapTheme,
 } from "../config/rules.ts";
+import { findMapThemeName, MAP_THEME_NAMES, MAP_THEMES } from "../domain/maps/themes.ts";
+import { renderMap } from "../domain/maps/map-renderer.ts";
+import { renderProvinceMap } from "../domain/maps/province-map-renderer.ts";
 import {
   cancelOrFailActiveGame,
   clearChannelStartState,
@@ -410,6 +414,53 @@ const startsCommand = async (message: Message, args: string[], mode: GameMode) =
   return true;
 };
 
+/** `!admin theme [name]`: lists the map themes, or switches and shows a sample map. */
+const mapThemeCommand = async (message: Message, args: string[], mode: GameMode) => {
+  if (args.length === 0) {
+    const { mapTheme } = await loadRules(true);
+    await message.reply(
+      messages.admin.mapThemeList(
+        MAP_THEME_NAMES.map((id) => ({
+          id,
+          name: MAP_THEMES[id].names[messages.locale],
+          description: MAP_THEMES[id].descriptions[messages.locale],
+          current: id === mapTheme,
+        })),
+      ),
+    );
+    return true;
+  }
+
+  const input = args.join(" ");
+  const theme = findMapThemeName(input);
+  if (!theme) {
+    await message.reply(messages.admin.mapThemeUnknown(input));
+    return true;
+  }
+
+  await updateMapTheme(theme);
+  // The sample is an end-of-game map, so wrong guesses, the answer and the marker all show.
+  const sample =
+    mode === "province"
+      ? renderProvinceMap({
+          wrongProvinces: ["34", "35", "07", "42"],
+          correctProvince: "06",
+          marker: { latitude: 39.92, longitude: 32.85 },
+          theme,
+        })
+      : renderMap({
+          wrongCountries: ["GR", "BG", "SY", "IR", "CY"],
+          correctCountry: "TR",
+          marker: { latitude: 39.92, longitude: 32.85 },
+          theme,
+        });
+  await message.reply({
+    content: messages.admin.mapThemeChanged(MAP_THEMES[theme].names[messages.locale], theme),
+    files: [new AttachmentBuilder(sample.buffer, { name: `map-theme-${theme}.png` })],
+  });
+  return true;
+};
+
 const fairPlayCommand = async (message: Message, args: string[]) => {
   if (args.length === 0) {
     await message.reply(
@@ -587,6 +638,10 @@ export const handleAdminCommand = async (message: Message) => {
 
   if (["fairplay", "adiloyun"].includes(subcommand)) {
     return fairPlayCommand(message, args.slice(1));
+  }
+
+  if (["theme", "tema", "maptheme", "haritatemasi"].includes(subcommand)) {
+    return mapThemeCommand(message, args.slice(1), mode);
   }
 
   if (["awards", "oduller", "ödüller"].includes(subcommand)) {

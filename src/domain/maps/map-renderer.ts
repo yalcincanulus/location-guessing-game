@@ -4,7 +4,13 @@ import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
-import { activeMapTheme, memorialMapTheme, type MapTheme } from "./themes.ts";
+import {
+  fillBaseColor,
+  resolveMapTheme,
+  type MapFill,
+  type MapTheme,
+  type MapThemeName,
+} from "./themes.ts";
 import { toMonochrome } from "./monochrome.ts";
 import { messages } from "../../i18n/messages.ts";
 import type { NationalHoliday } from "../holidays/national-holidays.ts";
@@ -93,9 +99,15 @@ export type RenderMapOptions = {
   marker?: MapCoordinates;
   highlights?: MapHighlights;
   header?: MapHeader;
+} & MapStyle;
+
+/** How a map looks: the selected theme and the day's occasion. */
+export type MapStyle = {
+  /** Selected with `!admin theme`; unknown or missing ids use the default theme. */
+  theme?: MapThemeName;
   /** Adds the Turkish flag to the map's top-left corner. */
   holiday?: NationalHoliday;
-  /** 10 November: black and white, with hatched wrong guesses. */
+  /** 10 November: black and white whatever the theme, with hatched wrong guesses. */
   mourning?: boolean;
 };
 
@@ -177,30 +189,101 @@ const mercatorWorldWidth = (projection: MapProjection) => 2 * Math.PI * projecti
 type CanvasContext = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
 type Fill = string | ReturnType<CanvasContext["createPattern"]>;
 
-export const mapThemeFor = (mourning?: boolean): MapTheme =>
-  mourning ? memorialMapTheme : activeMapTheme;
+export const mapThemeFor = resolveMapTheme;
 
-/** Wrong-guess fill: diagonal hatching when the theme has no colour to spare. */
-export const wrongGuessFill = (context: CanvasContext, theme: MapTheme): Fill => {
-  if (!theme.wrongHatch) {
-    return theme.wrong;
+/** Turns a theme fill into a canvas fill style; patterns repeat from the canvas origin. */
+export const toCanvasFill = (context: CanvasContext, fill: MapFill): Fill => {
+  if (typeof fill === "string") {
+    return fill;
   }
   const ui = MAP_RESOLUTION_SCALE;
-  const size = 7 * ui;
+  const size = (fill.spacing ?? 7) * ui;
+  const weight = (fill.weight ?? 1.6) * ui;
   const tile = createCanvas(size, size);
   const tileContext = tile.getContext("2d");
-  tileContext.fillStyle = theme.wrong;
+  tileContext.fillStyle = fill.base;
   tileContext.fillRect(0, 0, size, size);
-  tileContext.strokeStyle = theme.wrongHatch;
-  tileContext.lineWidth = 1.6 * ui;
-  // The main diagonal plus the two corner pieces, so stripes join across tiles.
-  for (const offset of [-size, 0, size]) {
+  tileContext.strokeStyle = fill.ink;
+  tileContext.fillStyle = fill.ink;
+  tileContext.lineWidth = weight;
+  const line = (x0: number, y0: number, x1: number, y1: number) => {
     tileContext.beginPath();
-    tileContext.moveTo(offset, size);
-    tileContext.lineTo(offset + size, 0);
+    tileContext.moveTo(x0, y0);
+    tileContext.lineTo(x1, y1);
     tileContext.stroke();
+  };
+  switch (fill.pattern) {
+    case "hatch":
+    case "crosshatch":
+      // Each diagonal plus its two corner pieces, so stripes join across tiles.
+      for (const offset of [-size, 0, size]) {
+        line(offset, size, offset + size, 0);
+        if (fill.pattern === "crosshatch") line(offset, 0, offset + size, size);
+      }
+      break;
+    case "dots":
+      tileContext.beginPath();
+      tileContext.arc(size / 2, size / 2, weight, 0, Math.PI * 2);
+      tileContext.fill();
+      break;
+    case "grid":
+      line(0, weight / 2, size, weight / 2);
+      line(weight / 2, 0, weight / 2, size);
+      break;
+    case "stripes":
+      line(0, size / 2, size, size / 2);
+      break;
   }
   return context.createPattern(tile, "repeat");
+};
+
+/** The theme's fills, built once per map. */
+export const themeFills = (context: CanvasContext, theme: MapTheme) => ({
+  ocean: toCanvasFill(context, theme.ocean),
+  wrong: toCanvasFill(context, theme.wrong),
+  correct: toCanvasFill(context, theme.correct),
+});
+
+type MarkedArea = { fill: Fill; edge?: string; glow?: string };
+
+/** Fills the current path for a wrong guess, answer or highlight, with edge and glow. */
+export const paintMarkedArea = (
+  context: CanvasContext,
+  { fill, edge, glow }: MarkedArea,
+  borderWidth: number,
+) => {
+  context.save();
+  if (glow) {
+    context.shadowColor = glow;
+    context.shadowBlur = 14 * MAP_RESOLUTION_SCALE;
+  }
+  context.fillStyle = fill;
+  context.fill();
+  context.restore();
+  context.stroke();
+  if (edge) {
+    context.save();
+    context.strokeStyle = edge;
+    context.lineWidth = Math.max(borderWidth, 0.9 * MAP_RESOLUTION_SCALE);
+    context.stroke();
+    context.restore();
+  }
+};
+
+/** How each kind of marked area looks in this theme. */
+export const markedAreaStyles = (
+  theme: MapTheme,
+  fills: ReturnType<typeof themeFills>,
+  highlightColor?: string,
+) => {
+  const glow = (fill: MapFill) => (theme.glow ? fillBaseColor(fill) : undefined);
+  return {
+    wrong: { fill: fills.wrong, edge: theme.wrongEdge, glow: glow(theme.wrong) },
+    correct: { fill: fills.correct, edge: theme.correctEdge, glow: glow(theme.correct) },
+    highlight: highlightColor
+      ? { fill: highlightColor, glow: theme.glow ? highlightColor : undefined }
+      : undefined,
+  } satisfies Record<string, MarkedArea | undefined>;
 };
 
 /** Red crosshair + dot on the exact answer location. */
@@ -265,15 +348,6 @@ export type LegendItem = { label: string } & (
   | { marker: true }
 );
 
-/** Light edge so small hatched countries and islands still show up. */
-export const strokeWrongGuess = (context: CanvasContext, theme: MapTheme) => {
-  context.save();
-  context.strokeStyle = theme.wrongHatch ?? theme.wrong;
-  context.lineWidth = 0.9 * MAP_RESOLUTION_SCALE;
-  context.stroke();
-  context.restore();
-};
-
 /** Legend rows for a guess map; the swatches use the same fills as the map. */
 export const guessMapLegend = (
   context: CanvasContext,
@@ -286,8 +360,10 @@ export const guessMapLegend = (
 ): LegendItem[] => [
   highlights
     ? { fill: highlights.color, label: highlights.label }
-    : { fill: wrongGuessFill(context, theme), label: messages.mapLegend.wrongGuesses },
-  ...(hasCorrect ? [{ fill: theme.correct, label: messages.mapLegend.correct }] : []),
+    : { fill: toCanvasFill(context, theme.wrong), label: messages.mapLegend.wrongGuesses },
+  ...(hasCorrect
+    ? [{ fill: toCanvasFill(context, theme.correct), label: messages.mapLegend.correct }]
+    : []),
   ...(hasMarker ? [{ marker: true as const, label: messages.mapLegend.location }] : []),
 ];
 
@@ -345,6 +421,7 @@ export const renderMap = ({
   marker,
   highlights,
   header,
+  theme: themeName,
   holiday,
   mourning,
 }: RenderMapOptions) => {
@@ -355,7 +432,7 @@ export const renderMap = ({
   const wrongNumericIds = new Set(wrongCountries.map(getCountryNumericId).filter(Boolean));
   const correctNumericId = correctCountry ? getCountryNumericId(correctCountry) : undefined;
   const highlightedNumericIds = new Set(highlights?.codes.map(getCountryNumericId).filter(Boolean));
-  const theme = mapThemeFor(mourning);
+  const theme = mapThemeFor({ theme: themeName, mourning });
 
   const projection = buildProjection(preset, marker, correctNumericId);
   const headerHeight = header ? MAP_HEADER_HEIGHT : 0;
@@ -365,32 +442,38 @@ export const renderMap = ({
   context.translate(0, headerHeight);
   const path = geoPath(projection, context as never);
 
-  context.fillStyle = theme.ocean;
+  const fills = themeFills(context, theme);
+  context.fillStyle = fills.ocean;
   context.fillRect(0, 0, preset.width, preset.height);
 
   const ui = MAP_RESOLUTION_SCALE;
-
+  const borderWidth = 0.45 * ui;
   context.strokeStyle = theme.countryBorder;
-  context.lineWidth = 0.45 * ui;
-  const wrongFill = wrongGuessFill(context, theme);
+  context.lineWidth = borderWidth;
+  const styles = markedAreaStyles(theme, fills, highlights?.color);
 
-  const drawCountries = (countries: Feature[]) => {
+  const markedStyle = (id: string) =>
+    correctNumericId && id === correctNumericId
+      ? styles.correct
+      : wrongNumericIds.has(id)
+        ? styles.wrong
+        : highlightedNumericIds.has(id)
+          ? styles.highlight
+          : undefined;
+
+  // Marked countries go on top in a second pass, so neighbours never cover their edges or glow.
+  const drawCountries = (countries: readonly Feature[], pass: "base" | "marked") => {
     for (const country of countries) {
-      const id = String(country.id).padStart(3, "0");
+      const style = markedStyle(String(country.id).padStart(3, "0"));
+      if ((pass === "marked") !== Boolean(style)) continue;
       context.beginPath();
       path(country as never);
-      context.fillStyle =
-        correctNumericId && id === correctNumericId
-          ? theme.correct
-          : wrongNumericIds.has(id)
-            ? wrongFill
-            : highlights && highlightedNumericIds.has(id)
-              ? highlights.color
-              : theme.country;
-      context.fill();
-      context.stroke();
-      if (theme.wrongHatch && wrongNumericIds.has(id) && id !== correctNumericId) {
-        strokeWrongGuess(context, theme);
+      if (style) {
+        paintMarkedArea(context, style, borderWidth);
+      } else {
+        context.fillStyle = theme.country;
+        context.fill();
+        context.stroke();
       }
     }
   };
@@ -399,13 +482,15 @@ export const renderMap = ({
   const wrapPeriod = mercatorWorldWidth(projection);
   // Draw three horizontal tiles so geography continues past ±180° instead of hard-clipping.
   // Side tiles only need countries that can appear there (Alaska, Chukotka, Fiji, …).
-  for (const [shift, countries] of [
-    [-wrapPeriod, wrapCountryFeatures],
-    [0, countryFeatures],
-    [wrapPeriod, wrapCountryFeatures],
-  ] as const) {
-    projection.translate([baseTx + shift, baseTy]);
-    drawCountries(countries);
+  for (const pass of ["base", "marked"] as const) {
+    for (const [shift, countries] of [
+      [-wrapPeriod, wrapCountryFeatures],
+      [0, countryFeatures],
+      [wrapPeriod, wrapCountryFeatures],
+    ] as const) {
+      projection.translate([baseTx + shift, baseTy]);
+      drawCountries(countries, pass);
+    }
   }
   projection.translate([baseTx, baseTy]);
 

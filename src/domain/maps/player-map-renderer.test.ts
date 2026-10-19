@@ -5,7 +5,7 @@ import { provinceCollection } from "../provinces/province-geometry.ts";
 import { MAP_HEADER_HEIGHT } from "./map-header.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
 import { PLAYER_MAP_COLORS, renderPlayerMap, type PlayerMapKind } from "./player-map-renderer.ts";
-import { mapThemes } from "./themes.ts";
+import { fillBaseColor, MAP_THEMES } from "./themes.ts";
 import type { GameMode } from "../game/game-mode.ts";
 
 const colorRgb = (color: string) =>
@@ -15,10 +15,10 @@ describe("player map images", () => {
   test("uses gold for wins and a separate start color from every guess palette", () => {
     expect(PLAYER_MAP_COLORS.wins).toBe("#d4af37");
     expect(PLAYER_MAP_COLORS.starts).not.toBe(PLAYER_MAP_COLORS.wins);
-    for (const theme of Object.values(mapThemes)) {
-      expect([theme.wrong, theme.correct, theme.country, theme.ocean]).not.toContain(
-        PLAYER_MAP_COLORS.starts,
-      );
+    for (const theme of Object.values(MAP_THEMES)) {
+      expect(
+        [theme.wrong, theme.correct, theme.country, theme.ocean].map(fillBaseColor),
+      ).not.toContain(PLAYER_MAP_COLORS.starts);
     }
   });
 

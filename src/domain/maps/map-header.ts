@@ -1,7 +1,7 @@
 import type { SKRSContext2D } from "@napi-rs/canvas";
 import type { GameMode } from "../game/game-mode.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
-import type { MapTheme } from "./themes.ts";
+import { fillBaseColor, type MapTheme } from "./themes.ts";
 import {
   drawPlayerMapHeaderBackground,
   getPlayerMapHeaderDesign,
@@ -157,7 +157,7 @@ export const drawMapHeader = (
   const design = getPlayerMapHeaderDesign(header.medals, header.design);
   // Decorated bars reserve room for the atlas and compass, including with long names.
   const maxWidth = (design === "plain" ? width : width * 0.54) - padding * 2;
-  context.fillStyle = theme.ocean;
+  context.fillStyle = fillBaseColor(theme.ocean);
   context.fillRect(0, 0, width, MAP_HEADER_HEIGHT);
   context.fillStyle = theme.legendBackground;
   context.fillRect(0, 0, width, MAP_HEADER_HEIGHT);

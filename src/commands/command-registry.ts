@@ -42,7 +42,7 @@ import { renderStatsCard } from "../domain/maps/stats-card.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 import { CANCEL_COMMANDS, cancelOwnGames } from "./cancel-command.ts";
-import { imageOccasionOn } from "../domain/holidays/national-holidays.ts";
+import { currentMapStyle } from "../domain/maps/map-style.ts";
 
 const normalizeCommand = (value: string) =>
   value
@@ -153,6 +153,7 @@ export const handlePlayerMapCommand = async (message: Message): Promise<boolean>
     locationCodes: history.locationCodes,
     gameCount: history.gameCount,
     stamps: (winsHistory ?? history).topLocations,
+    theme: parsed.rules.mapTheme,
   });
   await message.reply({
     files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
@@ -373,13 +374,13 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const wrongCountries = await getWrongCountries(state.gameId);
-    const occasion = imageOccasionOn();
+    const style = await currentMapStyle();
     if (gameModeOf(state) === "province") {
-      const hash = mapHash(wrongCountries, undefined, undefined, occasion);
+      const hash = mapHash(wrongCountries, undefined, undefined, style);
       const cached = await getCachedMap(state.gameId, TURKEY_MAP_VIEWPORT, hash);
       const map = cached
         ? { buffer: cached, filename: messages.filenames.turkeyGuesses }
-        : renderProvinceMap({ wrongProvinces: wrongCountries, ...occasion });
+        : renderProvinceMap({ wrongProvinces: wrongCountries, ...style });
       await Promise.all([
         message.channel.send({
           files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
@@ -390,14 +391,14 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const viewport = viewportAliases.get(command) ?? "world";
-    const hash = mapHash(wrongCountries, undefined, undefined, occasion);
+    const hash = mapHash(wrongCountries, undefined, undefined, style);
     const cached = await getCachedMap(state.gameId, viewport, hash);
     const map = cached
       ? {
           buffer: cached,
           filename: `${viewport}-guesses.png`,
         }
-      : renderMap({ wrongCountries, viewport, ...occasion });
+      : renderMap({ wrongCountries, viewport, ...style });
     const send = message.channel.send({
       files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
     });

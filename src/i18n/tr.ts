@@ -414,6 +414,7 @@ export const trMessages = {
       "`!admin max-guesses [n]` — ardışık tahmin sınırını göster/ayarla (1–100)",
       "`!admin starts [on|off]` — yeni oyunları aç/kapat; süren oyun devam eder",
       "`!admin fairplay [on|off]` — iki modda AI alt yazısı, meta veri ve hatırlatmayı göster/ayarla",
+      "`!admin theme [ad]` — harita temalarını listele/değiştir",
       "`!admin suspects [minGames]` — şüpheli çiftler / yalnızca kuranlar (varsayılan: 5)",
       "`!admin pair <oyuncu> <oyuncu>` — ortak eller",
       "`!admin player <oyuncu>` — galibiyet oranı, ilk tahmin isabeti, kurucular",
@@ -465,6 +466,19 @@ export const trMessages = {
       `Adil oyun bildirimleri iki oyun modu için **${enabled ? "açık" : "kapalı"}**. Yeni duyurular ve \`!ss\` için geçerlidir. Görsellere daha önce eklenen alt yazılar kalır.`,
     fairPlayUsage:
       "Durum için `!admin fairplay`, değiştirmek için `!admin fairplay on|off` kullanın.",
+    mapThemeList: (themes) =>
+      [
+        "**Harita temaları** (seçili olan ✅). Değiştirmek için `!admin theme <ad>`:",
+        ...themes.map(
+          (theme) =>
+            `${theme.current ? "✅" : "▫️"} **${theme.name}** (\`${theme.id}\`) — ${theme.description}`,
+        ),
+        "Özel günlerde (bayramlar, 10 Kasım) o güne özel tasarım seçili temanın yerine geçer.",
+      ].join("\n"),
+    mapThemeChanged: (name, id) =>
+      `Harita teması **${name}** (\`${id}\`) oldu. Sonraki haritalar bu temayla çizilir; örnek aşağıda.`,
+    mapThemeUnknown: (input) =>
+      `\`${input}\` diye bir tema yok. Temaları görmek için \`!admin theme\` yazın.`,
     guessesCleared:
       "Aktif oyundaki ardışık tahmin sayaçları temizlendi. Oyuncular tekrar tahmin edebilir.",
     maxGuessesCurrent: (current) =>

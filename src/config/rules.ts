@@ -1,4 +1,5 @@
 import { sqlClient } from "../db/client.ts";
+import { DEFAULT_MAP_THEME, isMapThemeName, type MapThemeName } from "../domain/maps/themes.ts";
 
 export type GameRules = {
   id: string;
@@ -21,6 +22,7 @@ export type GameRules = {
   queueGameStarts: boolean;
   gameStartsEnabled: boolean;
   fairPlayNoticeEnabled: boolean;
+  mapTheme: MapThemeName;
   provinceGameChannelId?: string;
   provinceGameStartsEnabled: boolean;
   testModeEnabled: boolean;
@@ -79,6 +81,7 @@ export const loadRules = async (force = false): Promise<GameRules> => {
       queue_game_starts,
       game_starts_enabled,
       fair_play_notice_enabled,
+      map_theme,
       province_game_channel_id,
       province_game_starts_enabled,
       test_mode_enabled,
@@ -115,6 +118,8 @@ export const loadRules = async (force = false): Promise<GameRules> => {
     queueGameStarts: row.queue_game_starts,
     gameStartsEnabled: row.game_starts_enabled,
     fairPlayNoticeEnabled: row.fair_play_notice_enabled,
+    // A theme removed from the code falls back to the default instead of failing.
+    mapTheme: isMapThemeName(row.map_theme) ? row.map_theme : DEFAULT_MAP_THEME,
     provinceGameChannelId: row.province_game_channel_id ?? undefined,
     provinceGameStartsEnabled: row.province_game_starts_enabled,
     testModeEnabled: row.test_mode_enabled,
@@ -164,6 +169,16 @@ export const updateFairPlayNoticeEnabled = async (enabled: boolean) => {
     UPDATE rule
     SET
       fair_play_notice_enabled = ${enabled},
+      updated_at = now()
+  `;
+  return loadRules(true);
+};
+
+export const updateMapTheme = async (mapTheme: MapThemeName) => {
+  await sqlClient`
+    UPDATE rule
+    SET
+      map_theme = ${mapTheme},
       updated_at = now()
   `;
   return loadRules(true);

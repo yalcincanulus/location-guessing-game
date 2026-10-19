@@ -405,6 +405,7 @@ export const enMessages = {
       "`!admin max-guesses [n]` — show/set consecutive guess limit (1–100)",
       "`!admin starts [on|off]` — toggle new starts; active game continues",
       "`!admin fairplay [on|off]` — show/set AI footer, metadata & reminder in both modes",
+      "`!admin theme [name]` — list/switch map themes",
       "`!admin suspects [minGames]` — suspicious pairs / host-only accounts (default: 5)",
       "`!admin pair <player> <player>` — shared games",
       "`!admin player <player>` — win rate, first-guess accuracy, hosts",
@@ -456,6 +457,19 @@ export const enMessages = {
       `Fair play notices are **${enabled ? "on" : "off"}** for both game modes. This applies to new announcements and \`!ss\`. Existing image footers remain.`,
     fairPlayUsage:
       "Use `!admin fairplay` to show its status, or `!admin fairplay on|off` to change it.",
+    mapThemeList: (themes) =>
+      [
+        "**Map themes** (✅ is selected). Use `!admin theme <name>` to switch:",
+        ...themes.map(
+          (theme) =>
+            `${theme.current ? "✅" : "▫️"} **${theme.name}** (\`${theme.id}\`) — ${theme.description}`,
+        ),
+        "On special days (national holidays, 10 November) that day's design replaces the theme.",
+      ].join("\n"),
+    mapThemeChanged: (name, id) =>
+      `Map theme is now **${name}** (\`${id}\`). New maps use it; a sample is attached.`,
+    mapThemeUnknown: (input) =>
+      `There is no \`${input}\` theme. Use \`!admin theme\` to list them.`,
     guessesCleared:
       "Cleared consecutive guess streaks for the active game. Players can guess again.",
     maxGuessesCurrent: (current) =>

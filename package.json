@@ -19,6 +19,7 @@
     "preview:profile-cards": "bun run scripts/maps/preview-profile-cards.ts",
     "preview:stats-cards": "bun run scripts/maps/preview-stats-cards.ts",
     "preview:holiday-images": "bun run scripts/maps/preview-holiday-images.ts",
+    "preview:map-themes": "bun run scripts/maps/preview-map-themes.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",

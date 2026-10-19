@@ -8,7 +8,7 @@ import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
 import { getProvinceName } from "../provinces/normalize-province-guess.ts";
 import { getLocationCentroid } from "./location-centroids.ts";
 import { imageOccasionOn, type ImageOccasion } from "../holidays/national-holidays.ts";
-import { MEMORIAL_HIGHLIGHT } from "./themes.ts";
+import { resolveMapTheme, type MapThemeName } from "./themes.ts";
 
 export type PlayerMapKind = "wins" | "starts";
 
@@ -28,6 +28,8 @@ export type RenderPlayerMapOptions = {
   headerDesign?: PlayerMapHeaderDesign;
   /** The player's most-won locations, most wins first, for the passport header. */
   stamps?: Array<{ code: string; count: number }>;
+  /** Selected with `!admin theme`. */
+  theme?: MapThemeName;
   /** Defaults to the occasion on `generatedAt`. */
   occasion?: ImageOccasion;
 };
@@ -58,10 +60,13 @@ export const renderPlayerMap = ({
   generatedAt = new Date(),
   headerDesign,
   stamps,
+  theme,
   occasion = imageOccasionOn(generatedAt),
 }: RenderPlayerMapOptions) => {
   const codes = [...new Set(locationCodes)];
-  const color = occasion.mourning ? MEMORIAL_HIGHLIGHT : PLAYER_MAP_COLORS[kind];
+  const color =
+    resolveMapTheme({ theme, mourning: occasion.mourning }).playerMap?.[kind] ??
+    PLAYER_MAP_COLORS[kind];
   const header: MapHeader = {
     title: messages.playerMap.title(kind, mode),
     playerName,
@@ -76,8 +81,8 @@ export const renderPlayerMap = ({
   const highlights: MapHighlights = { codes, color, label: messages.playerMap.legend(kind, mode) };
   const map =
     mode === "province"
-      ? renderProvinceMap({ wrongProvinces: [], highlights, header, ...occasion })
-      : renderMap({ wrongCountries: [], highlights, header, ...occasion });
+      ? renderProvinceMap({ wrongProvinces: [], highlights, header, theme, ...occasion })
+      : renderMap({ wrongCountries: [], highlights, header, theme, ...occasion });
 
   return {
     ...map,

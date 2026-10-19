@@ -20,6 +20,7 @@ const baseRules: GameRules = {
   queueGameStarts: false,
   gameStartsEnabled: true,
   fairPlayNoticeEnabled: true,
+  mapTheme: "slate",
   provinceGameStartsEnabled: true,
   testModeEnabled: true,
   testChannelId: "test-channel",

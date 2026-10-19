@@ -1,0 +1,1 @@
+ALTER TABLE "rule" ADD COLUMN "map_theme" text DEFAULT 'slate' NOT NULL;

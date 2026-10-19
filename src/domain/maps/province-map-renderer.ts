@@ -9,15 +9,16 @@ import {
   drawMapHolidayFlag,
   drawLocationMarker,
   guessMapLegend,
-  strokeWrongGuess,
   mapThemeFor,
-  wrongGuessFill,
+  markedAreaStyles,
+  paintMarkedArea,
+  themeFills,
+  type MapStyle,
   type MapCoordinates,
 } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import { toMonochrome } from "./monochrome.ts";
 import { messages } from "../../i18n/messages.ts";
-import type { NationalHoliday } from "../holidays/national-holidays.ts";
 import {
   drawMapHeader,
   MAP_HEADER_HEIGHT,
@@ -48,11 +49,7 @@ export type RenderProvinceMapOptions = {
   marker?: MapCoordinates;
   highlights?: MapHighlights;
   header?: MapHeader;
-  /** Adds the Turkish flag to the map's top-left corner. */
-  holiday?: NationalHoliday;
-  /** 10 November: black and white, with hatched wrong guesses. */
-  mourning?: boolean;
-};
+} & MapStyle;
 
 export const renderProvinceMap = ({
   wrongProvinces,
@@ -60,13 +57,14 @@ export const renderProvinceMap = ({
   marker,
   highlights,
   header,
+  theme: themeName,
   holiday,
   mourning,
 }: RenderProvinceMapOptions) => {
   const ui = MAP_RESOLUTION_SCALE;
   const width = BASE_WIDTH * ui;
   const height = BASE_HEIGHT * ui;
-  const theme = mapThemeFor(mourning);
+  const theme = mapThemeFor({ theme: themeName, mourning });
   const wrong = new Set(wrongProvinces);
   const highlighted = new Set(highlights?.codes);
 
@@ -86,7 +84,8 @@ export const renderProvinceMap = ({
   context.translate(0, headerHeight);
   const path = geoPath(projection, context as never);
 
-  context.fillStyle = theme.ocean;
+  const fills = themeFills(context, theme);
+  context.fillStyle = fills.ocean;
   context.fillRect(0, 0, width, height);
 
   // Neighbouring countries, dimmed so Türkiye stands out.
@@ -105,24 +104,32 @@ export const renderProvinceMap = ({
   }
   context.globalAlpha = 1;
 
+  const borderWidth = 0.8 * ui;
   context.strokeStyle = theme.countryBorder;
-  context.lineWidth = 0.8 * ui;
-  const wrongFill = wrongGuessFill(context, theme);
-  for (const province of provinceFeatures) {
-    context.beginPath();
-    path(province as never);
-    context.fillStyle =
-      correctProvince && province.id === correctProvince
-        ? theme.correct
-        : wrong.has(province.id)
-          ? wrongFill
-          : highlights && highlighted.has(province.id)
-            ? highlights.color
-            : theme.country;
-    context.fill();
-    context.stroke();
-    if (theme.wrongHatch && wrong.has(province.id) && province.id !== correctProvince) {
-      strokeWrongGuess(context, theme);
+  context.lineWidth = borderWidth;
+  const styles = markedAreaStyles(theme, fills, highlights?.color);
+  const markedStyle = (code: string) =>
+    correctProvince && code === correctProvince
+      ? styles.correct
+      : wrong.has(code)
+        ? styles.wrong
+        : highlighted.has(code)
+          ? styles.highlight
+          : undefined;
+  // Marked provinces go on top in a second pass, so neighbours never cover their edges or glow.
+  for (const pass of ["base", "marked"] as const) {
+    for (const province of provinceFeatures) {
+      const style = markedStyle(province.id);
+      if ((pass === "marked") !== Boolean(style)) continue;
+      context.beginPath();
+      path(province as never);
+      if (style) {
+        paintMarkedArea(context, style, borderWidth);
+      } else {
+        context.fillStyle = theme.country;
+        context.fill();
+        context.stroke();
+      }
     }
   }
 

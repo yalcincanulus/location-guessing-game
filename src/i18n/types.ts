@@ -254,6 +254,12 @@ export type BotMessages = {
     rulesReloaded: string;
     fairPlayState: (enabled: boolean) => string;
     fairPlayUsage: string;
+    /** `!admin theme` without a name: the current map theme and every theme to choose from. */
+    mapThemeList: (
+      themes: Array<{ id: string; name: string; description: string; current: boolean }>,
+    ) => string;
+    mapThemeChanged: (name: string, id: string) => string;
+    mapThemeUnknown: (input: string) => string;
     guessesCleared: string;
     maxGuessesCurrent: (current: number) => string;
     maxGuessesUpdated: (previous: number, next: number) => string;
