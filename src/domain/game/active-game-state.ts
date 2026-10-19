@@ -1,7 +1,7 @@
 import { redis } from "../../redis/client.ts";
 import { keys } from "../../redis/keys.ts";
 import type { GameMode } from "./game-mode.ts";
-import type { NationalHoliday } from "../holidays/national-holidays.ts";
+import type { ImageOccasion } from "../holidays/national-holidays.ts";
 
 export type ActiveGameState = {
   /** Missing on games started before province mode existed; those are country games. */
@@ -136,11 +136,13 @@ export const mapHash = (
   wrongCountries: string[],
   correctCountry?: string,
   marker?: { latitude: number; longitude: number },
-  /** Holiday maps carry the flag, so a map cached the day before must not be reused. */
-  holiday?: NationalHoliday,
+  /** Holiday and 10 November maps look different, so a map cached the day before must not be reused. */
+  occasion: ImageOccasion = {},
 ) => {
   const markerKey =
     marker == null ? "" : `|${marker.latitude.toFixed(5)},${marker.longitude.toFixed(5)}`;
-  const holidayKey = holiday == null ? "" : `|${holiday}`;
-  return [...wrongCountries].sort().join(",") + `|${correctCountry ?? ""}${markerKey}${holidayKey}`;
+  const occasionKey = `${occasion.holiday ? `|${occasion.holiday}` : ""}${occasion.mourning ? "|mourning" : ""}`;
+  return (
+    [...wrongCountries].sort().join(",") + `|${correctCountry ?? ""}${markerKey}${occasionKey}`
+  );
 };

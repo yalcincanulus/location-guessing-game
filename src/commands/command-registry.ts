@@ -42,7 +42,7 @@ import { renderStatsCard } from "../domain/maps/stats-card.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { renderPlayerMap } from "../domain/maps/player-map-renderer.ts";
 import { CANCEL_COMMANDS, cancelOwnGames } from "./cancel-command.ts";
-import { nationalHolidayOn } from "../domain/holidays/national-holidays.ts";
+import { imageOccasionOn } from "../domain/holidays/national-holidays.ts";
 
 const normalizeCommand = (value: string) =>
   value
@@ -373,13 +373,13 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const wrongCountries = await getWrongCountries(state.gameId);
-    const holiday = nationalHolidayOn();
+    const occasion = imageOccasionOn();
     if (gameModeOf(state) === "province") {
-      const hash = mapHash(wrongCountries, undefined, undefined, holiday);
+      const hash = mapHash(wrongCountries, undefined, undefined, occasion);
       const cached = await getCachedMap(state.gameId, TURKEY_MAP_VIEWPORT, hash);
       const map = cached
         ? { buffer: cached, filename: messages.filenames.turkeyGuesses }
-        : renderProvinceMap({ wrongProvinces: wrongCountries, holiday });
+        : renderProvinceMap({ wrongProvinces: wrongCountries, ...occasion });
       await Promise.all([
         message.channel.send({
           files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
@@ -390,14 +390,14 @@ export const handleCommand = async (message: Message<true>) => {
     }
 
     const viewport = viewportAliases.get(command) ?? "world";
-    const hash = mapHash(wrongCountries, undefined, undefined, holiday);
+    const hash = mapHash(wrongCountries, undefined, undefined, occasion);
     const cached = await getCachedMap(state.gameId, viewport, hash);
     const map = cached
       ? {
           buffer: cached,
           filename: `${viewport}-guesses.png`,
         }
-      : renderMap({ wrongCountries, viewport, holiday });
+      : renderMap({ wrongCountries, viewport, ...occasion });
     const send = message.channel.send({
       files: [new AttachmentBuilder(map.buffer, { name: map.filename })],
     });

@@ -19,7 +19,8 @@ import { getLocationCentroid } from "./location-centroids.ts";
 import { countryFeatures } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import { drawFramedTurkishFlag } from "./turkish-flag.ts";
-import { nationalHolidayOn, type NationalHoliday } from "../holidays/national-holidays.ts";
+import { imageOccasionOn, type NationalHoliday } from "../holidays/national-holidays.ts";
+import { toMonochrome } from "./monochrome.ts";
 
 /**
  * The `!stats` card. Unlike the profile card, the context is scaled once, so every
@@ -818,6 +819,7 @@ export const renderStatsCard = (
   now = new Date(),
 ) => {
   const layout = STATS_CARD_LAYOUTS[layoutName];
+  const occasion = imageOccasionOn(now);
   const canvas = createCanvas(CARD_WIDTH * ui, layout.height * ui);
   const context = canvas.getContext("2d");
   context.scale(ui, ui);
@@ -834,9 +836,13 @@ export const renderStatsCard = (
     context,
     stats,
     now,
-    holiday: nationalHolidayOn(now),
+    holiday: occasion.holiday,
     format: (value) => numberFormat.format(value),
     decimal: (value) => decimalFormat.format(value),
   });
+  if (occasion.mourning) {
+    // Heat ramps run dark to light, so the map and bars keep their order in grey.
+    toMonochrome(context, canvas.width, canvas.height);
+  }
   return { buffer: canvas.toBuffer("image/png"), filename: `stats-${stats.mode}.png` };
 };

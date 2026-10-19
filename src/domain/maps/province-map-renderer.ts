@@ -8,10 +8,14 @@ import {
   drawLegend,
   drawMapHolidayFlag,
   drawLocationMarker,
+  guessMapLegend,
+  strokeWrongGuess,
+  mapThemeFor,
+  wrongGuessFill,
   type MapCoordinates,
 } from "./map-renderer.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
-import { activeMapTheme } from "./themes.ts";
+import { toMonochrome } from "./monochrome.ts";
 import { messages } from "../../i18n/messages.ts";
 import type { NationalHoliday } from "../holidays/national-holidays.ts";
 import {
@@ -46,6 +50,8 @@ export type RenderProvinceMapOptions = {
   header?: MapHeader;
   /** Adds the Turkish flag to the map's top-left corner. */
   holiday?: NationalHoliday;
+  /** 10 November: black and white, with hatched wrong guesses. */
+  mourning?: boolean;
 };
 
 export const renderProvinceMap = ({
@@ -55,11 +61,12 @@ export const renderProvinceMap = ({
   highlights,
   header,
   holiday,
+  mourning,
 }: RenderProvinceMapOptions) => {
   const ui = MAP_RESOLUTION_SCALE;
   const width = BASE_WIDTH * ui;
   const height = BASE_HEIGHT * ui;
-  const theme = activeMapTheme;
+  const theme = mapThemeFor(mourning);
   const wrong = new Set(wrongProvinces);
   const highlighted = new Set(highlights?.codes);
 
@@ -100,6 +107,7 @@ export const renderProvinceMap = ({
 
   context.strokeStyle = theme.countryBorder;
   context.lineWidth = 0.8 * ui;
+  const wrongFill = wrongGuessFill(context, theme);
   for (const province of provinceFeatures) {
     context.beginPath();
     path(province as never);
@@ -107,12 +115,15 @@ export const renderProvinceMap = ({
       correctProvince && province.id === correctProvince
         ? theme.correct
         : wrong.has(province.id)
-          ? theme.wrong
+          ? wrongFill
           : highlights && highlighted.has(province.id)
             ? highlights.color
             : theme.country;
     context.fill();
     context.stroke();
+    if (theme.wrongHatch && wrong.has(province.id) && province.id !== correctProvince) {
+      strokeWrongGuess(context, theme);
+    }
   }
 
   context.beginPath();
@@ -127,13 +138,11 @@ export const renderProvinceMap = ({
   drawLegend(
     context,
     theme,
-    [
-      ...(highlights
-        ? [{ color: highlights.color, label: highlights.label }]
-        : [{ color: theme.wrong, label: messages.mapLegend.wrongGuesses }]),
-      ...(correctProvince ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
-      ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
-    ],
+    guessMapLegend(context, theme, {
+      highlights,
+      hasCorrect: Boolean(correctProvince),
+      hasMarker: Boolean(marker),
+    }),
     height,
   );
   if (holiday) {
@@ -143,6 +152,9 @@ export const renderProvinceMap = ({
   context.restore();
   if (header) {
     drawMapHeader(context, header, theme, width);
+  }
+  if (mourning) {
+    toMonochrome(context, canvas.width, canvas.height);
   }
 
   return {

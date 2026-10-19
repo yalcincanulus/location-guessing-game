@@ -7,7 +7,8 @@ import type { PassportStamp, PlayerMapHeaderDesign } from "./player-map-header-d
 import { getCountryDisplayName } from "../countries/normalize-country-guess.ts";
 import { getProvinceName } from "../provinces/normalize-province-guess.ts";
 import { getLocationCentroid } from "./location-centroids.ts";
-import { nationalHolidayOn, type NationalHoliday } from "../holidays/national-holidays.ts";
+import { imageOccasionOn, type ImageOccasion } from "../holidays/national-holidays.ts";
+import { MEMORIAL_HIGHLIGHT } from "./themes.ts";
 
 export type PlayerMapKind = "wins" | "starts";
 
@@ -27,8 +28,8 @@ export type RenderPlayerMapOptions = {
   headerDesign?: PlayerMapHeaderDesign;
   /** The player's most-won locations, most wins first, for the passport header. */
   stamps?: Array<{ code: string; count: number }>;
-  /** Defaults to the national holiday on `generatedAt`, if any. */
-  holiday?: NationalHoliday;
+  /** Defaults to the occasion on `generatedAt`. */
+  occasion?: ImageOccasion;
 };
 
 const PASSPORT_STAMP_LIMIT = 6;
@@ -57,10 +58,10 @@ export const renderPlayerMap = ({
   generatedAt = new Date(),
   headerDesign,
   stamps,
-  holiday = nationalHolidayOn(generatedAt),
+  occasion = imageOccasionOn(generatedAt),
 }: RenderPlayerMapOptions) => {
   const codes = [...new Set(locationCodes)];
-  const color = PLAYER_MAP_COLORS[kind];
+  const color = occasion.mourning ? MEMORIAL_HIGHLIGHT : PLAYER_MAP_COLORS[kind];
   const header: MapHeader = {
     title: messages.playerMap.title(kind, mode),
     playerName,
@@ -75,8 +76,8 @@ export const renderPlayerMap = ({
   const highlights: MapHighlights = { codes, color, label: messages.playerMap.legend(kind, mode) };
   const map =
     mode === "province"
-      ? renderProvinceMap({ wrongProvinces: [], highlights, header, holiday })
-      : renderMap({ wrongCountries: [], highlights, header, holiday });
+      ? renderProvinceMap({ wrongProvinces: [], highlights, header, ...occasion })
+      : renderMap({ wrongCountries: [], highlights, header, ...occasion });
 
   return {
     ...map,

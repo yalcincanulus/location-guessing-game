@@ -4,7 +4,8 @@ import { feature } from "topojson-client";
 import countries50m from "world-atlas/countries-50m.json" with { type: "json" };
 import { getCountryNumericId } from "../countries/normalize-country-guess.ts";
 import { MAP_RESOLUTION_SCALE, mapViewports } from "./region-presets.ts";
-import { activeMapTheme, type MapTheme } from "./themes.ts";
+import { activeMapTheme, memorialMapTheme, type MapTheme } from "./themes.ts";
+import { toMonochrome } from "./monochrome.ts";
 import { messages } from "../../i18n/messages.ts";
 import type { NationalHoliday } from "../holidays/national-holidays.ts";
 import { drawFramedTurkishFlag } from "./turkish-flag.ts";
@@ -94,6 +95,8 @@ export type RenderMapOptions = {
   header?: MapHeader;
   /** Adds the Turkish flag to the map's top-left corner. */
   holiday?: NationalHoliday;
+  /** 10 November: black and white, with hatched wrong guesses. */
+  mourning?: boolean;
 };
 
 type MapProjection = ReturnType<typeof geoMercator>;
@@ -172,6 +175,33 @@ const buildProjection = (
 const mercatorWorldWidth = (projection: MapProjection) => 2 * Math.PI * projection.scale();
 
 type CanvasContext = ReturnType<ReturnType<typeof createCanvas>["getContext"]>;
+type Fill = string | ReturnType<CanvasContext["createPattern"]>;
+
+export const mapThemeFor = (mourning?: boolean): MapTheme =>
+  mourning ? memorialMapTheme : activeMapTheme;
+
+/** Wrong-guess fill: diagonal hatching when the theme has no colour to spare. */
+export const wrongGuessFill = (context: CanvasContext, theme: MapTheme): Fill => {
+  if (!theme.wrongHatch) {
+    return theme.wrong;
+  }
+  const ui = MAP_RESOLUTION_SCALE;
+  const size = 7 * ui;
+  const tile = createCanvas(size, size);
+  const tileContext = tile.getContext("2d");
+  tileContext.fillStyle = theme.wrong;
+  tileContext.fillRect(0, 0, size, size);
+  tileContext.strokeStyle = theme.wrongHatch;
+  tileContext.lineWidth = 1.6 * ui;
+  // The main diagonal plus the two corner pieces, so stripes join across tiles.
+  for (const offset of [-size, 0, size]) {
+    tileContext.beginPath();
+    tileContext.moveTo(offset, size);
+    tileContext.lineTo(offset + size, 0);
+    tileContext.stroke();
+  }
+  return context.createPattern(tile, "repeat");
+};
 
 /** Red crosshair + dot on the exact answer location. */
 export const drawLocationMarker = (
@@ -204,22 +234,68 @@ export const drawLocationMarker = (
   context.lineTo(x, height);
   context.stroke();
 
+  drawMarkerDot(context, x, y, theme);
+};
+
+/** Dot and ring for the location, shared by the map and its legend. */
+const drawMarkerDot = (context: CanvasContext, x: number, y: number, theme: MapTheme) => {
+  const ui = MAP_RESOLUTION_SCALE;
   const radius = 5.5 * ui;
   context.fillStyle = theme.locationMarker;
   context.beginPath();
   context.arc(x, y, radius, 0, Math.PI * 2);
   context.fill();
 
-  context.strokeStyle = "#ffffffcc";
+  context.strokeStyle = theme.locationMarkerRing ?? "#ffffffcc";
   context.lineWidth = 1.5 * ui;
   context.stroke();
+  if (theme.locationMarkerRing) {
+    // A dark outer edge keeps the white ring visible on the white answer.
+    context.strokeStyle = theme.locationMarker;
+    context.lineWidth = ui;
+    context.beginPath();
+    context.arc(x, y, radius + 1.25 * ui, 0, Math.PI * 2);
+    context.stroke();
+  }
 };
+
+export type LegendItem = { label: string } & (
+  | { fill: Fill; marker?: false }
+  /** Draws the location marker itself as the swatch. */
+  | { marker: true }
+);
+
+/** Light edge so small hatched countries and islands still show up. */
+export const strokeWrongGuess = (context: CanvasContext, theme: MapTheme) => {
+  context.save();
+  context.strokeStyle = theme.wrongHatch ?? theme.wrong;
+  context.lineWidth = 0.9 * MAP_RESOLUTION_SCALE;
+  context.stroke();
+  context.restore();
+};
+
+/** Legend rows for a guess map; the swatches use the same fills as the map. */
+export const guessMapLegend = (
+  context: CanvasContext,
+  theme: MapTheme,
+  {
+    highlights,
+    hasCorrect,
+    hasMarker,
+  }: { highlights?: MapHighlights; hasCorrect: boolean; hasMarker: boolean },
+): LegendItem[] => [
+  highlights
+    ? { fill: highlights.color, label: highlights.label }
+    : { fill: wrongGuessFill(context, theme), label: messages.mapLegend.wrongGuesses },
+  ...(hasCorrect ? [{ fill: theme.correct, label: messages.mapLegend.correct }] : []),
+  ...(hasMarker ? [{ marker: true as const, label: messages.mapLegend.location }] : []),
+];
 
 /** Bottom-left legend box. */
 export const drawLegend = (
   context: CanvasContext,
   theme: MapTheme,
-  legendItems: Array<{ color: string; label: string }>,
+  legendItems: LegendItem[],
   height: number,
 ) => {
   const ui = MAP_RESOLUTION_SCALE;
@@ -243,10 +319,14 @@ export const drawLegend = (
 
   legendItems.forEach((item, index) => {
     const rowY = boxY + paddingY + index * rowHeight + 8 * ui;
-    context.fillStyle = item.color;
-    context.beginPath();
-    context.arc(boxX + swatchX, rowY, 7 * ui, 0, Math.PI * 2);
-    context.fill();
+    if (item.marker) {
+      drawMarkerDot(context, boxX + swatchX, rowY, theme);
+    } else {
+      context.fillStyle = item.fill;
+      context.beginPath();
+      context.arc(boxX + swatchX, rowY, 7 * ui, 0, Math.PI * 2);
+      context.fill();
+    }
     context.fillStyle = theme.legendText;
     context.fillText(item.label, boxX + textX, rowY + 5 * ui);
   });
@@ -266,6 +346,7 @@ export const renderMap = ({
   highlights,
   header,
   holiday,
+  mourning,
 }: RenderMapOptions) => {
   const preset = mapViewports[viewport] ?? mapViewports.world;
   if (!preset) {
@@ -274,7 +355,7 @@ export const renderMap = ({
   const wrongNumericIds = new Set(wrongCountries.map(getCountryNumericId).filter(Boolean));
   const correctNumericId = correctCountry ? getCountryNumericId(correctCountry) : undefined;
   const highlightedNumericIds = new Set(highlights?.codes.map(getCountryNumericId).filter(Boolean));
-  const theme = activeMapTheme;
+  const theme = mapThemeFor(mourning);
 
   const projection = buildProjection(preset, marker, correctNumericId);
   const headerHeight = header ? MAP_HEADER_HEIGHT : 0;
@@ -291,6 +372,7 @@ export const renderMap = ({
 
   context.strokeStyle = theme.countryBorder;
   context.lineWidth = 0.45 * ui;
+  const wrongFill = wrongGuessFill(context, theme);
 
   const drawCountries = (countries: Feature[]) => {
     for (const country of countries) {
@@ -301,12 +383,15 @@ export const renderMap = ({
         correctNumericId && id === correctNumericId
           ? theme.correct
           : wrongNumericIds.has(id)
-            ? theme.wrong
+            ? wrongFill
             : highlights && highlightedNumericIds.has(id)
               ? highlights.color
               : theme.country;
       context.fill();
       context.stroke();
+      if (theme.wrongHatch && wrongNumericIds.has(id) && id !== correctNumericId) {
+        strokeWrongGuess(context, theme);
+      }
     }
   };
 
@@ -331,13 +416,11 @@ export const renderMap = ({
   drawLegend(
     context,
     theme,
-    [
-      ...(highlights
-        ? [{ color: highlights.color, label: highlights.label }]
-        : [{ color: theme.wrong, label: messages.mapLegend.wrongGuesses }]),
-      ...(correctCountry ? [{ color: theme.correct, label: messages.mapLegend.correct }] : []),
-      ...(marker ? [{ color: theme.locationMarker, label: messages.mapLegend.location }] : []),
-    ],
+    guessMapLegend(context, theme, {
+      highlights,
+      hasCorrect: Boolean(correctCountry),
+      hasMarker: Boolean(marker),
+    }),
     preset.height,
   );
   if (holiday) {
@@ -347,6 +430,10 @@ export const renderMap = ({
   context.restore();
   if (header) {
     drawMapHeader(context, header, theme, preset.width);
+  }
+  if (mourning) {
+    // The map is already grey; this settles the header art.
+    toMonochrome(context, canvas.width, canvas.height);
   }
 
   return {

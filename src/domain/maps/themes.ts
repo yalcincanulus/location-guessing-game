@@ -8,6 +8,10 @@ export type MapTheme = {
   locationCrosshair: string;
   legendBackground: string;
   legendText: string;
+  /** Hatches wrong guesses over `wrong`, so they read without colour. */
+  wrongHatch?: string;
+  /** Ring around the location dot; defaults to translucent white. */
+  locationMarkerRing?: string;
 };
 
 export const mapThemes = {
@@ -69,6 +73,27 @@ export const mapThemes = {
 } as const satisfies Record<string, MapTheme>;
 
 export type MapThemeName = keyof typeof mapThemes;
+
+/**
+ * Black and white for 10 November. Wrong guesses are hatched, the answer is solid white and the
+ * location is a black dot in a white ring, so the map still reads without red and green.
+ */
+export const memorialMapTheme: MapTheme = {
+  ocean: "#0a0a0a",
+  country: "#2a2a2a",
+  countryBorder: "#737373",
+  wrong: "#3f3f3f",
+  correct: "#f5f5f5",
+  locationMarker: "#0a0a0a",
+  locationCrosshair: "#a3a3a3cc",
+  legendBackground: "#000000d9",
+  legendText: "#f5f5f5",
+  wrongHatch: "#d4d4d4",
+  locationMarkerRing: "#ffffff",
+};
+
+/** Light grey for player-map highlights on 10 November, clear of the white answer colour. */
+export const MEMORIAL_HIGHLIGHT = "#d4d4d4";
 
 /** Change this to switch the active map theme. */
 export const activeMapThemeName: MapThemeName = "tailwindColorSlate";

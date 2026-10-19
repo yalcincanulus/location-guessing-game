@@ -174,3 +174,26 @@ describe("renderMap holiday flag", () => {
     ).toBe(true);
   });
 });
+
+describe("renderMap on 10 November", () => {
+  test("draws only greys, with the answer in white", async () => {
+    const map = renderMap({
+      wrongCountries: ["GR", "BG"],
+      correctCountry: "TR",
+      marker: { latitude: 39.92, longitude: 32.85 },
+      mourning: true,
+    });
+    const image = await loadImage(map.buffer);
+    const canvas = createCanvas(image.width, image.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, image.width, image.height);
+    for (let index = 0; index < data.length; index += 4 * 97) {
+      expect(data[index]).toBe(data[index + 1]!);
+      expect(data[index + 1]).toBe(data[index + 2]!);
+    }
+    // Central Anatolia, beside the marker: the white answer fill.
+    const [r] = context.getImageData(image.width / 2 + 120, image.height / 2 + 120, 1, 1).data;
+    expect(r).toBe(0xf5);
+  });
+});

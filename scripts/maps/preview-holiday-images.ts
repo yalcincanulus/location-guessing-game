@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { NationalHoliday } from "../../src/domain/holidays/national-holidays.ts";
+import { imageOccasionOn } from "../../src/domain/holidays/national-holidays.ts";
 import { renderMap } from "../../src/domain/maps/map-renderer.ts";
 import { renderPlayerMap } from "../../src/domain/maps/player-map-renderer.ts";
 import {
@@ -12,15 +12,22 @@ import { renderProvinceMap } from "../../src/domain/maps/province-map-renderer.t
 import { renderStatsCard, STATS_CARD_LAYOUTS } from "../../src/domain/maps/stats-card.ts";
 import { SAMPLES } from "./stats-card-samples.ts";
 
-const output = resolve(process.argv[2] ?? ".cache/holiday-images");
+// Usage: [output directory] [--only <day>]
+const only = process.argv.indexOf("--only");
+const selected = only === -1 ? undefined : process.argv[only + 1];
+const directory = process.argv
+  .slice(2)
+  .find((arg, index) => !arg.startsWith("--") && process.argv[index + 1] !== "--only");
+const output = resolve(directory ?? ".cache/holiday-images");
 await mkdir(output, { recursive: true });
 
-/** Midday in Istanbul on each holiday. */
-const HOLIDAY_DATES: Record<NationalHoliday, Date> = {
+/** Midday in Istanbul on each day that changes the images. */
+const OCCASION_DATES = {
   childrensDay: new Date("2027-04-23T12:00:00+03:00"),
   youthDay: new Date("2027-05-19T12:00:00+03:00"),
   victoryDay: new Date("2027-08-30T12:00:00+03:00"),
   republicDay: new Date("2026-10-29T12:00:00+03:00"),
+  ataturkMemorialDay: new Date("2026-11-10T12:00:00+03:00"),
 };
 
 const files: string[] = [];
@@ -30,32 +37,34 @@ const write = async (name: string, buffer: Buffer) => {
   files.push(file);
 };
 
-for (const [holiday, date] of Object.entries(HOLIDAY_DATES) as Array<[NationalHoliday, Date]>) {
+for (const [day, date] of Object.entries(OCCASION_DATES)) {
+  if (selected && day !== selected) continue;
+  const occasion = imageOccasionOn(date);
   // `!map` during a game, and the map posted when someone finds the country.
   await write(
-    `${holiday}-map-world`,
-    renderMap({ wrongCountries: ["FR", "DE", "BR", "RU", "IN"], holiday }).buffer,
+    `${day}-map-world`,
+    renderMap({ wrongCountries: ["FR", "DE", "BR", "RU", "IN"], ...occasion }).buffer,
   );
   await write(
-    `${holiday}-map-europe`,
-    renderMap({ wrongCountries: ["FR", "DE", "PL"], viewport: "europe", holiday }).buffer,
+    `${day}-map-europe`,
+    renderMap({ wrongCountries: ["FR", "DE", "PL"], viewport: "europe", ...occasion }).buffer,
   );
   await write(
-    `${holiday}-map-found`,
+    `${day}-map-found`,
     renderMap({
       wrongCountries: ["GR", "BG"],
       correctCountry: "TR",
       marker: { latitude: 39.92, longitude: 32.85 },
-      holiday,
+      ...occasion,
     }).buffer,
   );
   await write(
-    `${holiday}-map-province`,
+    `${day}-map-province`,
     renderProvinceMap({
       wrongProvinces: ["34", "35", "07"],
       correctProvince: "06",
       marker: { latitude: 39.92, longitude: 32.85 },
-      holiday,
+      ...occasion,
     }).buffer,
   );
 
@@ -65,7 +74,7 @@ for (const [holiday, date] of Object.entries(HOLIDAY_DATES) as Array<[NationalHo
     ["province", "passport", { gold: 52, silver: 31, bronze: 18 }],
   ] as const) {
     await write(
-      `${holiday}-winmap-${mode}-${design}`,
+      `${day}-winmap-${mode}-${design}`,
       renderPlayerMap({
         kind: "wins",
         mode,
@@ -88,7 +97,7 @@ for (const [holiday, date] of Object.entries(HOLIDAY_DATES) as Array<[NationalHo
       ["legend", { gold: 116, silver: 105, bronze: 142 }],
     ] as const) {
       await write(
-        `${holiday}-profile-${layout}-${tier}`,
+        `${day}-profile-${layout}-${tier}`,
         renderProfileCard(
           {
             mode: "country",
@@ -112,7 +121,7 @@ for (const [holiday, date] of Object.entries(HOLIDAY_DATES) as Array<[NationalHo
               { code: "FR", name: "FRANSA", count: 27, coordinates: [2.3, 46.6] },
               { code: "JP", name: "JAPONYA", count: 19, coordinates: [138, 36] },
             ],
-            holiday,
+            ...occasion,
           },
           layout,
         ).buffer,
@@ -123,10 +132,10 @@ for (const [holiday, date] of Object.entries(HOLIDAY_DATES) as Array<[NationalHo
   for (const layout of Object.keys(STATS_CARD_LAYOUTS) as Array<keyof typeof STATS_CARD_LAYOUTS>) {
     for (const mode of ["country", "province"] as const) {
       await write(
-        `${holiday}-stats-${layout}-${mode}`,
+        `${day}-stats-${layout}-${mode}`,
         renderStatsCard(SAMPLES[mode]!, layout, date).buffer,
       );
     }
   }
 }
-console.log(`Rendered ${files.length} holiday images in ${output}.`);
+console.log(`Rendered ${files.length} images in ${output}.`);

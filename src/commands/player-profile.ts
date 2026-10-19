@@ -8,7 +8,7 @@ import { getPlayerGoldPeriods } from "../repositories/awards-repository.ts";
 import { getPlayerProfile } from "../repositories/core-repository.ts";
 import { getPlayerMapHistory } from "../repositories/player-map-repository.ts";
 import { logger } from "../util/logger.ts";
-import { nationalHolidayOn } from "../domain/holidays/national-holidays.ts";
+import { imageOccasionOn } from "../domain/holidays/national-holidays.ts";
 
 /** Gold medals per period type, from a `getPlayerProfile` row. */
 const periodWinsOf = (profile: Record<string, unknown>) => ({
@@ -99,6 +99,6 @@ export const renderPlayerProfileCard = async (
     periodWins: periodWinsOf(profile),
     goldPeriods,
     stamps: toPassportStamps(mode, wins.topLocations),
-    holiday: nationalHolidayOn(),
+    ...imageOccasionOn(),
   });
 };

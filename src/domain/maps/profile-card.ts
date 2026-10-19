@@ -24,6 +24,7 @@ import {
 } from "./player-name-style.ts";
 import { MAP_RESOLUTION_SCALE } from "./region-presets.ts";
 import { drawFramedTurkishFlag } from "./turkish-flag.ts";
+import { toMonochrome } from "./monochrome.ts";
 import type { NationalHoliday } from "../holidays/national-holidays.ts";
 
 const ui = MAP_RESOLUTION_SCALE;
@@ -51,6 +52,8 @@ export type ProfileCardInput = {
   stamps?: PassportStamp[];
   /** Adds the Turkish flag to the card. */
   holiday?: NationalHoliday;
+  /** 10 November: the card turns black and white. */
+  mourning?: boolean;
 };
 
 type CardContext = {
@@ -1578,6 +1581,10 @@ export const renderProfileCard = (
   if (input.holiday) {
     const [x, y] = layout.holidayFlag;
     drawFramedTurkishFlag(context, x * ui, y * ui, 24 * ui, ui);
+  }
+  if (input.mourning) {
+    // Medals keep their 1-2-3 numbers and every figure has a label, so nothing relies on hue.
+    toMonochrome(context, canvas.width, canvas.height);
   }
   return { buffer: canvas.toBuffer("image/png"), filename: `profile-${input.mode}.png` };
 };

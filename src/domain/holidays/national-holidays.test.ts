@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { nationalHolidayOn } from "./national-holidays.ts";
+import { imageOccasionOn, nationalHolidayOn } from "./national-holidays.ts";
 
 describe("nationalHolidayOn", () => {
   test("finds each holiday", () => {
@@ -20,5 +20,24 @@ describe("nationalHolidayOn", () => {
     // 23:59 on 29 October in Istanbul, then midnight.
     expect(nationalHolidayOn(new Date("2026-10-29T20:59:00Z"))).toBe("republicDay");
     expect(nationalHolidayOn(new Date("2026-10-29T21:00:00Z"))).toBeUndefined();
+  });
+});
+
+describe("imageOccasionOn", () => {
+  test("adds the flag on holidays", () => {
+    expect(imageOccasionOn(new Date("2026-10-29T12:00:00+03:00"))).toEqual({
+      holiday: "republicDay",
+    });
+  });
+
+  test("goes black and white on 10 November in Istanbul", () => {
+    expect(imageOccasionOn(new Date("2026-11-10T09:05:00+03:00"))).toEqual({ mourning: true });
+    // 00:10 on 10 November in Istanbul is still 9 November in UTC.
+    expect(imageOccasionOn(new Date("2026-11-09T21:10:00Z"))).toEqual({ mourning: true });
+    expect(imageOccasionOn(new Date("2026-11-10T21:00:00Z"))).toEqual({});
+  });
+
+  test("leaves ordinary days alone", () => {
+    expect(imageOccasionOn(new Date("2026-11-09T12:00:00+03:00"))).toEqual({});
   });
 });
